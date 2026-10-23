@@ -422,3 +422,49 @@ playlistLength` (`shared/src/radio.ts`, unit-tested) and plays that track from t
   items (1×1 footprint, 1×2 sprite) reach up the wall. The geometry (and `save_layout`) is
   unchanged. Walls repeat the middle column of a Room Builder block (its outer columns are end
   pieces); floors repeat the whole 3×2 block.
+
+## Homes, housemates and the world map (2026-10-23)
+
+### Homes and housemates
+
+- Everyone still owns a house (created at signup). `profiles.home_owner` says where a player
+  lives: null = their own house, otherwise the owner of a friend's house they moved into.
+  Members of a home are its owner (if they live there) and everyone pointing at it; up to 4.
+- Moving in needs both sides: a player asks (`request_move_in`, also offered on the first-run
+  "Where will you live?" screen) and someone in the household accepts, or a member invites a
+  friend (`invite_housemate`) who accepts (`respond_house_invite`). Housemates become friends.
+  `leave_home` moves back home; the owner can `remove_housemate`. One level only: you can't
+  move in with someone while people live in your own house.
+- Coins and inventories stay personal. `placed_items.placed_by` records whose inventory an item
+  came from. Any member can move or remove anyone's items, but only adds their own; a player's
+  placed items only ever exist in their current home (moving in or out returns them to the
+  inventory, which counts owned items, not unplaced ones). Wallpaper/floor: keep the current
+  one or use your own. Any member can upgrade (the caller pays) and change settings.
+- Visiting a friends-only home: friends of any member may come in. The friends list's Visit
+  goes to where a friend lives.
+- Players start at home, on the doorstep (`at: 'door'`); arrivals from town or the map come in
+  at the garden gate.
+
+### Yard and garden
+
+- Each home is one world: the yard (a fenced 20×14 garden with the house exterior at the top,
+  a path from the door down and across to a gate, and a "Town" signpost) on the left, the
+  interior on the right. Walking up into the front door or onto the exit mat sends
+  `house:door`; the server checks the player is at the door and moves them (no free teleports).
+  Walking out of the gate goes to town. The camera frames whichever part you are in.
+- The yard is layout room -1. A new `garden` category (17 items: trees, bushes, hedges,
+  flower beds, benches, a garden table you can study at, lamp, fountain, BBQ…) only goes in the
+  yard, and nothing else does. The house, the paths and the signpost are kept clear; the SQL
+  mirrors `YARD_RESERVED`. The catalog now has 50 indoor items (the brief's 30–50) plus the
+  garden items.
+
+### The town and the map
+
+- The town no longer shows houses (and lots are gone; `houses.plot_index` is still assigned at
+  signup but unused). It is the shared study hub: the plaza (2 group tables, 8 solo seats), a
+  café terrace (a 6-seat group table), a park reading garden (4 solo seats) and a pond with
+  fish, a promenade with lamps, flower beds, benches, and flags by the library. Animated
+  pieces are `anim` objects in the map, played from `sprites/town-anims.png`. 30 seats.
+- The world map (HUD "Map" or **M**) shows the town, your home, friends' homes you may visit
+  and public homes (`world_map()`, at most 60), as a ring around a picture of the town; homes
+  whose owner moved in elsewhere are left off. Pick one to travel there.

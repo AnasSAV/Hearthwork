@@ -10,7 +10,7 @@
  */
 import { FURNITURE_SHEET, FURNITURE_SPRITES, ROOM_SHEET, ROOM_SPRITES } from './interiorSprites.js';
 
-export const ITEM_CATEGORIES = ['furniture', 'decor', 'plant', 'wall', 'floor'] as const;
+export const ITEM_CATEGORIES = ['furniture', 'decor', 'plant', 'wall', 'floor', 'garden'] as const;
 export type ItemCategory = (typeof ITEM_CATEGORIES)[number];
 
 /**
@@ -20,6 +20,7 @@ export type ItemCategory = (typeof ITEM_CATEGORIES)[number];
  * - surface: must sit on a table/desk (an item with `surfaceHost`)
  * - wall: hung on the top wall row
  * Wallpapers and floorings (categories `wall`/`floor`) restyle the room instead of being placed.
+ * Garden items (category `garden`) only go in the yard, everything else only indoors.
  */
 export const ITEM_LAYERS = ['floor', 'rug', 'surface', 'wall'] as const;
 export type ItemLayer = (typeof ITEM_LAYERS)[number];
@@ -520,6 +521,145 @@ const DEFS: Def[] = [
     price: 200,
     layer: 'floor',
     size: [3, 2],
+  },
+  // --- Garden (yard only, 60–400) ---
+  {
+    id: 'garden_tree_round',
+    name: 'Round tree',
+    category: 'garden',
+    price: 300,
+    layer: 'floor',
+    size: [3, 1],
+  },
+  {
+    id: 'garden_tree_pine',
+    name: 'Little pine',
+    category: 'garden',
+    price: 250,
+    layer: 'floor',
+    size: [2, 1],
+  },
+  {
+    id: 'garden_bush',
+    name: 'Flowering bush',
+    category: 'garden',
+    price: 120,
+    layer: 'floor',
+    size: [2, 1],
+  },
+  {
+    id: 'garden_hedge',
+    name: 'Low hedge',
+    category: 'garden',
+    price: 90,
+    layer: 'floor',
+    size: [2, 1],
+  },
+  {
+    id: 'garden_topiary',
+    name: 'Potted topiary',
+    category: 'garden',
+    price: 110,
+    layer: 'floor',
+    size: [1, 1],
+  },
+  {
+    id: 'garden_flowers_blue',
+    name: 'Blue flower bed',
+    category: 'garden',
+    price: 80,
+    layer: 'rug',
+    size: [2, 2],
+  },
+  {
+    id: 'garden_flowers_pink',
+    name: 'Pink flower bed',
+    category: 'garden',
+    price: 80,
+    layer: 'rug',
+    size: [2, 2],
+  },
+  {
+    id: 'garden_flowers_white',
+    name: 'Daisy bed',
+    category: 'garden',
+    price: 80,
+    layer: 'rug',
+    size: [2, 2],
+  },
+  {
+    id: 'garden_bench',
+    name: 'Park bench',
+    category: 'garden',
+    price: 150,
+    layer: 'floor',
+    size: [2, 1],
+  },
+  {
+    id: 'garden_table',
+    name: 'Garden table',
+    category: 'garden',
+    price: 200,
+    layer: 'floor',
+    size: [2, 1],
+    studySpot: true,
+  },
+  {
+    id: 'garden_lamp',
+    name: 'Garden lamp',
+    category: 'garden',
+    price: 140,
+    layer: 'floor',
+    size: [1, 1],
+  },
+  {
+    id: 'garden_fountain',
+    name: 'Stone fountain',
+    category: 'garden',
+    price: 400,
+    layer: 'floor',
+    size: [2, 2],
+    minHouseLevel: 2,
+  },
+  {
+    id: 'garden_bbq',
+    name: 'Barbecue',
+    category: 'garden',
+    price: 160,
+    layer: 'floor',
+    size: [1, 1],
+  },
+  {
+    id: 'garden_mailbox',
+    name: 'Mailbox',
+    category: 'garden',
+    price: 60,
+    layer: 'floor',
+    size: [1, 1],
+  },
+  {
+    id: 'garden_sunflowers',
+    name: 'Sunflower pots',
+    category: 'garden',
+    price: 100,
+    layer: 'floor',
+    size: [1, 1],
+  },
+  {
+    id: 'garden_planter',
+    name: 'Vegetable planter',
+    category: 'garden',
+    price: 180,
+    layer: 'floor',
+    size: [2, 1],
+  },
+  {
+    id: 'garden_birdhouse',
+    name: 'Birdhouse',
+    category: 'garden',
+    price: 120,
+    layer: 'floor',
+    size: [1, 1],
   },
 ];
 

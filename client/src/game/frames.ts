@@ -2,7 +2,7 @@ import type Phaser from 'phaser';
 import { parseSpriteKey, type SpriteRect } from '@focus-town/shared';
 
 /** Texture keys loaded in BootScene. */
-export const SHEETS = { furniture: 'furniture', room: 'room' } as const;
+export const SHEETS = { furniture: 'furniture', room: 'room', yard: 'yard' } as const;
 
 /**
  * Frame name for a rectangle of 16×16 tiles in a loaded sheet, adding the frame on first use.

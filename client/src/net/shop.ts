@@ -43,16 +43,9 @@ export async function fetchInventory(): Promise<Map<string, number>> {
   return new Map((data as { item_id: string; qty: number }[]).map((r) => [r.item_id, r.qty]));
 }
 
+/** Level of the home you live in (some items need a bigger house). */
 export async function fetchHouseLevel(): Promise<number> {
-  // Players can read friends' and public houses too, so pick their own explicitly.
-  const { data: session } = await supabase.auth.getSession();
-  const uid = session.session?.user.id;
-  if (!uid) return 1;
-  const { data, error } = await supabase
-    .from('houses')
-    .select('level')
-    .eq('owner_id', uid)
-    .maybeSingle();
+  const { data, error } = await supabase.rpc('my_home');
   if (error) throw new Error(error.message);
   return (data as { level: number } | null)?.level ?? 1;
 }

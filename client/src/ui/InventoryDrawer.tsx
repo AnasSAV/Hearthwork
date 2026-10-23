@@ -8,6 +8,7 @@ const GROUPS: { id: ItemCategory; label: string }[] = [
   { id: 'furniture', label: 'Furniture' },
   { id: 'decor', label: 'Decor' },
   { id: 'plant', label: 'Plants' },
+  { id: 'garden', label: 'Garden' },
   { id: 'wall', label: 'Wallpaper' },
   { id: 'floor', label: 'Floors' },
 ];

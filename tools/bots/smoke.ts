@@ -21,6 +21,7 @@ import {
   encodeAvatar,
 } from '@focus-town/shared';
 import townJson from '../../client/public/assets/maps/town.json' with { type: 'json' };
+import { findPath } from './path.js';
 import { createTestPlayer, deleteTestPlayer } from './testPlayers.js';
 
 const url = process.argv[2] ?? 'http://localhost:2567';
@@ -155,7 +156,23 @@ walker.send('not-a-real-message', { hi: 1 });
 await sleep(300);
 check(walker.connection.isOpen, 'connection survives invalid payloads');
 
-// 4b. Now ~80px apart: too far to whisper.
+// 4b. Walk well out of whisper range (east along the promenade), then try to whisper.
+{
+  let pos = { x: me.x, y: me.y };
+  for (const target of findPath(grid, pos, { x: 48 * 16 + 8, y: 40 * 16 + 12 })) {
+    while (Math.hypot(target.x - pos.x, target.y - pos.y) > 0.5) {
+      const d = Math.hypot(target.x - pos.x, target.y - pos.y);
+      const step = Math.min(7, d);
+      pos = {
+        x: pos.x + ((target.x - pos.x) / d) * step,
+        y: pos.y + ((target.y - pos.y) / d) * step,
+      };
+      walker.send(ClientMsg.Move, { ...pos, dir: 'right', moving: true } satisfies MoveMessage);
+      await sleep(110);
+    }
+  }
+  await sleep(300);
+}
 const farNotices: string[] = [];
 const offFar = walker.onMessage(ServerMsg.ChatNotice, (n: { message: string }) =>
   farNotices.push(n.message),

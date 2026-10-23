@@ -23,20 +23,6 @@ export const PlayerState = schema(
 );
 export type PlayerState = SchemaType<typeof PlayerState>;
 
-/** A house shown on one of the town's lots. */
-export const LotState = schema(
-  {
-    plotIndex: t.uint8(),
-    ownerId: t.string(),
-    ownerName: t.string(),
-    level: t.uint8(),
-    /** 'cottage' | 'brick' */
-    style: t.string(),
-  },
-  'LotState',
-);
-export type LotState = SchemaType<typeof LotState>;
-
 /** A group table's shared Pomodoro: everyone seated there counts down to the same end. */
 export const TableTimerState = schema(
   {
@@ -54,8 +40,6 @@ export type TableTimerState = SchemaType<typeof TableTimerState>;
 export const TownState = schema(
   {
     players: t.map(PlayerState),
-    /** Keyed by plot index. Empty lots are absent. */
-    lots: t.map(LotState),
     /** Running group-table Pomodoros, keyed by table id. */
     tables: t.map(TableTimerState),
     /** People in a focus session right now, across the whole server (for the HUD). */
@@ -70,9 +54,12 @@ export const PlacedItemState = schema(
     /** placed_items.id */
     id: t.string(),
     itemId: t.string(),
-    room: t.uint8(),
+    /** Interior room index, or -1 for the yard. */
+    room: t.int8(),
     x: t.uint8(),
     y: t.uint8(),
+    /** User id of the housemate who placed it (their inventory it came from). */
+    placedBy: t.string(),
   },
   'PlacedItemState',
 );
@@ -92,6 +79,8 @@ export const HouseState = schema(
     /** 'public' | 'friends' | 'private' */
     visibility: t.string(),
     exteriorStyle: t.string(),
+    /** User ids of the people who live here (they can decorate). */
+    members: t.array('string'),
     items: t.array(PlacedItemState),
     players: t.map(PlayerState),
     focusingNow: t.uint16(),

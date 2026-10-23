@@ -8,6 +8,7 @@ const TABS: { id: ItemCategory; label: string }[] = [
   { id: 'furniture', label: 'Furniture' },
   { id: 'decor', label: 'Decor' },
   { id: 'plant', label: 'Plants' },
+  { id: 'garden', label: 'Garden' },
   { id: 'wall', label: 'Wallpaper' },
   { id: 'floor', label: 'Floors' },
 ];
@@ -131,7 +132,10 @@ export function ShopPanel() {
                 <ItemSprite spriteKey={item.sprite_key} box={72} />
                 <div className="shop-card-name">{item.name}</div>
                 <div className="shop-card-meta">
-                  {item.footprint_w}×{item.footprint_h} · {LAYER_LABEL[item.layer] ?? item.layer}
+                  {item.footprint_w}×{item.footprint_h} ·{' '}
+                  {item.category === 'garden'
+                    ? 'for the yard'
+                    : (LAYER_LABEL[item.layer] ?? item.layer)}
                   {owned > 0 && !oneOff && <span className="owned"> · own {owned}</span>}
                 </div>
                 <button

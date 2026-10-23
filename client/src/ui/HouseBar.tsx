@@ -2,7 +2,7 @@ import { goToTown } from '../game/navigation';
 import { editor, useEditor } from '../house/editor';
 import { uiStore, useUi } from '../store';
 
-/** Shown inside a house: whose house it is, and the owner's Edit / Settings buttons. */
+/** Shown at a home: whose it is, and Decorate / Settings for the people who live there. */
 export function HouseBar() {
   const house = useUi((s) => s.house);
   const editing = useEditor((s) => s.active);
@@ -10,10 +10,10 @@ export function HouseBar() {
   return (
     <div className="panel house-bar">
       <span>
-        <strong>{house.isOwner ? 'Your house' : `${house.ownerName}'s house`}</strong> · Level{' '}
+        <strong>{house.isMember ? 'Your home' : `${house.ownerName}'s home`}</strong> · Level{' '}
         {house.level}
       </span>
-      {house.isOwner && !editing && (
+      {house.isMember && !editing && (
         <>
           <button type="button" className="btn" onClick={() => void editor.begin()}>
             Decorate
@@ -29,7 +29,7 @@ export function HouseBar() {
       )}
       {!editing && (
         <button type="button" className="btn btn-secondary" onClick={() => goToTown()}>
-          Back to town
+          Town
         </button>
       )}
     </div>

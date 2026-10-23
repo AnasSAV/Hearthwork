@@ -1,12 +1,15 @@
 """
-Build house interior art from LimeZu's Modern Interiors (16x16).
+Build house art from LimeZu's Modern Interiors and Modern Exteriors (16x16).
 
     python tools/art/build_interiors.py "D:/Personal/FocusTown-art"
 
 Writes:
   client/public/assets/tilesets/furniture.png  one sprite per catalog item, packed
   client/public/assets/tilesets/room.png       wall and floor styles (3x2 tile blocks) + border
-  shared/src/interiorSprites.ts                generated: sprite rectangles for both sheets
+  client/public/assets/tilesets/yard.png       yard ground, path, fence and the Town signpost
+  shared/src/interiorSprites.ts                generated: sprite rectangles for all three sheets
+
+Garden items (catalog category `garden`) come from Modern Exteriors and go in the yard.
 
 Catalog ids are kept from the earlier Kenney art so existing inventories and layouts stay valid; the
 footprints live in shared/src/catalog.ts. A sprite is as wide as its item's footprint and may
@@ -35,6 +38,28 @@ FOLDERS = {
     "kitchen": "12_Kitchen_Singles/Kitchen_Singles_{}.png",
 }
 THEME_SHEETS = {"livingsheet": "Theme_Sorter/2_LivingRoom_16x16.png"}
+
+ME = os.path.join(SRC, "Exterior", "Modern_Exteriors_16x16", "ME_Theme_Sorter_16x16")
+_EXT = {}
+for folder in os.listdir(ME):
+    if folder.endswith("_Singles_16x16"):
+        for f in os.listdir(os.path.join(ME, folder)):
+            if f.endswith(".png"):
+                key = f[:-4][: -len("_16x16")] if f[:-4].endswith("_16x16") else f[:-4]
+                _EXT[key] = os.path.join(ME, folder, f)
+
+
+def ext(name):
+    """A Modern Exteriors single, found by the end of its file name."""
+    hits = [p for k, p in _EXT.items() if k == name or k.endswith("_" + name)]
+    if len(hits) != 1:
+        raise SystemExit(f"{name}: {len(hits)} matches")
+    return Image.open(hits[0]).convert("RGBA")
+
+
+def terrain(x, y, w=1, h=1):
+    im = Image.open(os.path.join(ME, "1_Terrains_and_Fences_16x16.png")).convert("RGBA")
+    return im.crop((x * T, y * T, (x + w) * T, (y + h) * T))
 
 
 def single(kind, number):
@@ -107,6 +132,24 @@ ITEMS = {
     "plant_bush": single("living", 17),
     "plant_mushrooms": single("living", 15),
     "plant_sprout": single("art", 21),
+    # Garden (yard only)
+    "garden_tree_round": ext("Camping_16x16_Tree_145"),
+    "garden_tree_pine": ext("Camping_16x16_Tree_185"),
+    "garden_bush": ext("Garden_16x16_Bush_20"),
+    "garden_hedge": ext("Garden_16x16_Bush_14"),
+    "garden_topiary": ext("Garden_16x16_Bush_Potted_6"),
+    "garden_flowers_blue": ext("Villa_Yard_Flowers_4"),
+    "garden_flowers_pink": ext("Villa_Yard_Flowers_5"),
+    "garden_flowers_white": ext("Villa_Yard_Flowers_6"),
+    "garden_bench": ext("City_Props_16x16_Bench_1"),
+    "garden_table": ext("Camping_16x16_Table_6"),
+    "garden_lamp": ext("Street_Lamp_5"),
+    "garden_fountain": ext("Fountain_1_1"),
+    "garden_bbq": ext("Barbecue_1"),
+    "garden_mailbox": ext("Red_Mailbox_1_Front"),
+    "garden_sunflowers": ext("Sunflower_Bench"),
+    "garden_planter": ext("Sprout_Square_Bench"),
+    "garden_birdhouse": ext("Blue_Big_Bird_House"),
 }
 
 WALLS_SRC = os.path.join(MI, "Room_Builder_subfiles", "Room_Builder_Walls_16x16.png")
@@ -153,6 +196,21 @@ room_blocks["border"] = borders.crop((7 * T, 0, 8 * T, T))
 room, room_rects = pack(room_blocks, width_tiles=12)
 room.save(os.path.join(TILESETS, "room.png"), optimize=True)
 
+FENCE = "24_Additional_Houses_Fence_1_"
+yard_blocks = {
+    "grass": terrain(1, 17),
+    "grass_tuft": terrain(1, 7),
+    "path": ext("City_Terrains_16x16_Sidewalk_1_25"),
+    "sign": ext("Camping_16x16_Sign_6"),
+}
+for name, piece in (("fence_tl", "Top_Left"), ("fence_t", "Top_Middle"), ("fence_tr", "Top_Right"),
+                    ("fence_l", "Middle_Left"), ("fence_r", "Middle_Right"),
+                    ("fence_bl", "Bottom_Left"), ("fence_b", "Bottom_Middle"),
+                    ("fence_br", "Bottom_Right")):
+    yard_blocks[name] = ext(FENCE + piece)
+yard, yard_rects = pack(yard_blocks, width_tiles=8)
+yard.save(os.path.join(TILESETS, "yard.png"), optimize=True)
+
 
 def ts_rects(rects):
     return "\n".join(f"  {json_key(k)}: [{', '.join(map(str, r))}]," for k, r in sorted(rects.items()))
@@ -168,6 +226,7 @@ lines = [
     "",
     f"export const FURNITURE_SHEET = {{ width: {furniture.width}, height: {furniture.height} }} as const;",
     f"export const ROOM_SHEET = {{ width: {room.width}, height: {room.height} }} as const;",
+    f"export const YARD_SHEET = {{ width: {yard.width}, height: {yard.height} }} as const;",
     "",
     "/** Catalog item id -> sprite in furniture.png. */",
     "export const FURNITURE_SPRITES: Record<string, readonly [number, number, number, number]> = {",
@@ -179,7 +238,13 @@ lines = [
     ts_rects(room_rects),
     "};",
     "",
+    "/** Yard ground, path (2x2), fence pieces and the Town signpost -> rectangle in yard.png. */",
+    "export const YARD_SPRITES: Record<string, readonly [number, number, number, number]> = {",
+    ts_rects(yard_rects),
+    "};",
+    "",
 ]
 with open(MANIFEST, "w", encoding="utf-8", newline="\n") as fh:
     fh.write("\n".join(lines))
-print(f"furniture: {len(item_rects)} sprites {furniture.size}; room: {len(room_rects)} blocks {room.size}")
+print(f"furniture: {len(item_rects)} sprites {furniture.size}; room: {len(room_rects)} blocks "
+      f"{room.size}; yard: {len(yard_rects)} pieces {yard.size}")

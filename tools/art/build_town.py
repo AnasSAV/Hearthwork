@@ -6,8 +6,11 @@ Build the town from LimeZu's Modern Exteriors (16x16 singles).
 Writes:
   client/public/assets/tilesets/town.png      every 16x16 tile the map uses, deduplicated
   client/public/assets/maps/town.json, .tmx   the map (open the .tmx in Tiled to edit it)
-  client/public/assets/sprites/houses.png     house exteriors per style and level, and the
-  client/public/assets/sprites/houses.json    "for sale" sign (Phaser atlas, JSON hash)
+  client/public/assets/sprites/houses.png     house exteriors per style and level (Phaser atlas,
+  client/public/assets/sprites/houses.json    JSON hash), drawn in each home's yard
+  client/public/assets/sprites/town-anims.*   animated pieces (flags, fish, garden fountain);
+                                              `anim` objects in the map say where they play
+  client/public/assets/sprites/town-map.png   a small picture of the town for the world map
 
 Layers, bottom to top: ground, paths, decor, below, below2 (drawn under players), above,
 above2 (drawn over players: tree tops, lamp heads), collision (hidden). Tall things are split
@@ -214,8 +217,8 @@ def pave(x0, y0, x1, y1):
 PLAZA = (14, 19, 53, 33)
 pave(*PLAZA)
 pave(4, 18, 63, 18)  # avenue in front of shop, library and tower
-pave(32, 34, 35, 44)  # south path to the lots street
-pave(2, 43, 65, 44)  # lots street
+pave(32, 34, 35, 40)  # path from the plaza down to the promenade
+pave(4, 40, 63, 41)  # promenade across the south of town
 
 # ---------------------------------------------------------------------------------------------
 # 3. Buildings
@@ -311,17 +314,95 @@ place(img("City_Props_16x16_Trashbin_1"), 30, 28, [(0, 1)], above=1)
 place(img("City_Props_16x16_Trashbin_1"), 37, 28, [(0, 1)], above=1)
 
 # ---------------------------------------------------------------------------------------------
-# 5. House lots (the client draws the house for the owner's level and style)
+# 5. The south: café terrace, park reading garden, pond; and some life around the buildings
 # ---------------------------------------------------------------------------------------------
 
-LOT_W, LOT_H, LOT_Y, DOOR_COL = 10, 6, 37, 2
-for i, lx in enumerate((2, 12, 22, 36, 46, 56)):
-    for y in range(LOT_Y, LOT_Y + LOT_H):
-        for x in range(lx, lx + LOT_W):
-            solid[at(x, y)] = True
-    reserve(lx, LOT_Y, lx + LOT_W - 1, LOT_Y + LOT_H - 1, margin=1)
-    add_object(f"plot-{i}", "plot", lx * T, LOT_Y * T, LOT_W * T, LOT_H * T, plotIndex=i,
-               doorX=(lx + DOOR_COL) * T + T // 2, doorY=(LOT_Y + LOT_H) * T)
+ANIMATED = os.path.join(SRC, "Exterior", "Modern_Exteriors_16x16", "Animated_16x16",
+                        "Animated_sheets_16x16")
+anim_strips = {}  # name -> (strip image, frame width, frame height in tiles, frames, fps)
+
+
+def animated(name, file, fw, fh, fps):
+    strip = Image.open(os.path.join(ANIMATED, file)).convert("RGBA")
+    anim_strips[name] = (strip, fw, fh, strip.width // (fw * T), fps)
+
+
+def place_anim(name, tx, ty, solid_cells=()):
+    """An animated piece with its top-left tile at (tx, ty); the town scene plays it."""
+    _, fw, fh, frames, fps = anim_strips[name]
+    add_object(name, "anim", tx * T, ty * T, fw * T, fh * T, frames=frames, fps=fps)
+    for c, r in solid_cells:
+        solid[at(tx + c, ty + r)] = True
+    for r in range(fh):
+        for c in range(fw):
+            if inside(tx + c, ty + r):
+                occupied[at(tx + c, ty + r)] = True
+
+
+animated("flag", "School_Flag_1_16x16.png", 3, 9, 8)
+animated("fish1", "Fishes_1_16x16.png", 1, 1, 6)
+animated("fish2", "Fishes_2_16x16.png", 1, 1, 6)
+animated("garden-fountain", "Garden_Fountain_1_16x16.png", 2, 3, 8)
+
+# Flags either side of the library steps.
+for fx in (21, 44):
+    place_anim("flag", fx, 9, [(c, 8) for c in range(3)])
+
+# Flower beds and benches on the lawns between the buildings.
+for fx, fy, flowers in ((16, 10, 4), (16, 13, 5), (46, 12, 6), (49, 14, 4)):
+    place(img(f"Villa_Yard_Flowers_{flowers}"), fx, fy, None)
+    reserve(fx, fy, fx + 1, fy + 1, margin=1)
+place(img("City_Props_16x16_Bench_1"), 19, 15, [(0, 1), (1, 1)])
+place(img("City_Props_16x16_Bench_1"), 49, 10, [(0, 1), (1, 1)])
+reserve(15, 9, 24, 17)
+reserve(45, 9, 53, 17)
+
+# Café terrace (west): three tables in a row sharing one Pomodoro, a food cart and planters.
+pave(4, 35, 24, 39)
+for tx in (6, 12, 18):
+    table_pair(tx, 37, "Camping_16x16_Table_8", "table-cafe")
+place(img("Street_Food_Cart_2"), 22, 34, [(c, 2) for c in range(3)], above=2)
+for tx in (5, 11, 17):
+    place(img("Garden_16x16_Bush_Potted_4"), tx, 34, [(0, 1)], above=1)
+place(img("Umbrella_2"), 4, 36, [(1, 3)], above=2)
+
+# Park reading garden (east): solo tables on the lawn, benches, an animated fountain.
+for tx in (40, 46):
+    table_pair(tx, 37, "Camping_16x16_Table_7")
+place_anim("garden-fountain", 53, 35, [(0, 2), (1, 2)])
+place(img("City_Props_16x16_Bench_1"), 56, 37, [(0, 1), (1, 1)])
+place(img("City_Props_16x16_Bench_1"), 59, 37, [(0, 1), (1, 1)])
+reserve(38, 34, 62, 39)
+
+# Pond south of the promenade (water in grass, 9-slice) with fish swimming in it.
+POND = sheet("1_Terrains_and_Fences", 0, 35, 3, 3)
+
+
+def pond(x0, y0, w, h):
+    for y in range(h):
+        for x in range(w):
+            c = 0 if x == 0 else 2 if x == w - 1 else 1
+            r = 0 if y == 0 else 2 if y == h - 1 else 1
+            set_tile("paths", x0 + x, y0 + y, tile_id(POND.crop((c * T, r * T, c * T + T, r * T + T))))
+            solid[at(x0 + x, y0 + y)] = True
+    reserve(x0, y0, x0 + w - 1, y0 + h - 1, margin=1)
+
+
+pond(44, 43, 12, 4)
+for name, fx, fy in (("fish1", 46, 44), ("fish2", 50, 45), ("fish1", 53, 44)):
+    place_anim(name, fx, fy)
+place(img("City_Props_16x16_Bench_1"), 40, 43, [(0, 1), (1, 1)])
+
+# Lamps along the promenade.
+for lx in (10, 28, 39, 58):
+    place(img("Street_Lamp_5"), lx, 39, [(0, 3)], above=2)
+
+# A flower meadow and a quiet bench south-west of the promenade.
+for fx, fy, flowers in ((8, 43, 4), (11, 44, 5), (14, 43, 6), (17, 44, 4)):
+    place(img(f"Villa_Yard_Flowers_{flowers}"), fx, fy, None)
+    reserve(fx, fy, fx + 1, fy + 1)
+place(img("City_Props_16x16_Bench_1"), 22, 43, [(0, 1), (1, 1)])
+reserve(6, 42, 25, 46)
 
 # ---------------------------------------------------------------------------------------------
 # 6. Trees: a forest border, then a few scattered in the open grass
@@ -449,14 +530,47 @@ tmx += [" </objectgroup>", "</map>", ""]
 with open(os.path.join(maps, "town.tmx"), "w", encoding="utf-8", newline="\n") as fh:
     fh.write("\n".join(tmx))
 
-# Houses: level 1-3 per style (all have their door in column 2), plus the "for sale" sign.
+# Animated pieces: one strip per animation, stacked; frames are named "<name>:<i>".
+anim_frames = {}
+sheet_w = max(strip.width for strip, *_ in anim_strips.values())
+sheet_h = sum(strip.height for strip, *_ in anim_strips.values())
+anim_sheet = Image.new("RGBA", (sheet_w, sheet_h))
+y = 0
+for name, (strip, fw, fh, frames, _) in anim_strips.items():
+    anim_sheet.paste(strip, (0, y))
+    for i in range(frames):
+        frame = {"x": i * fw * T, "y": y, "w": fw * T, "h": fh * T}
+        anim_frames[f"{name}:{i}"] = {"frame": frame, "rotated": False, "trimmed": False,
+                                      "spriteSourceSize": {"x": 0, "y": 0, "w": fw * T, "h": fh * T},
+                                      "sourceSize": {"w": fw * T, "h": fh * T}}
+    y += strip.height
+os.makedirs(os.path.join(ASSETS, "sprites"), exist_ok=True)
+anim_sheet.save(os.path.join(ASSETS, "sprites", "town-anims.png"), optimize=True)
+with open(os.path.join(ASSETS, "sprites", "town-anims.json"), "w", encoding="utf-8", newline="\n") as fh:
+    json.dump({"frames": anim_frames, "meta": {"image": "town-anims.png",
+               "size": {"w": sheet_w, "h": sheet_h}, "scale": "1"}}, fh, indent=1)
+
+# The town as one small picture (first animation frames included) for the world map.
+picture = Image.new("RGBA", (W * T, H * T), (0, 0, 0, 255))
+for name in LAYERS:
+    for i, gid in enumerate(layers[name]):
+        if gid:
+            picture.alpha_composite(tiles[gid - 1], ((i % W) * T, (i // W) * T))
+    if name == "below2":
+        for o in objects:
+            if o["type"] == "anim":
+                strip, fw, fh, *_ = anim_strips[o["name"]]
+                picture.alpha_composite(strip.crop((0, 0, fw * T, fh * T)), (o["x"], o["y"]))
+picture.convert("RGB").resize((W * 4, H * 4), Image.LANCZOS).save(
+    os.path.join(ASSETS, "sprites", "town-map.png"), optimize=True)
+
+# Houses: level 1-3 per style (all have their door in column 2).
 HOUSES = {"cottage": 1, "brick": 2}
 frames = {}
 pieces = []
 for style, variant in HOUSES.items():
     for level, size in ((1, "Small"), (2, "Medium"), (3, "Big")):
         pieces.append((f"{style}-{level}", img(f"Mobile_House_{size}_{variant}")))
-pieces.append(("sale", img("Camping_16x16_Sign_4")))
 atlas = Image.new("RGBA", (sum(p.width for _, p in pieces), max(p.height for _, p in pieces)))
 x = 0
 for name, p in pieces:
@@ -465,7 +579,6 @@ for name, p in pieces:
                     "trimmed": False, "spriteSourceSize": {"x": 0, "y": 0, "w": p.width, "h": p.height},
                     "sourceSize": {"w": p.width, "h": p.height}}
     x += p.width
-os.makedirs(os.path.join(ASSETS, "sprites"), exist_ok=True)
 atlas.save(os.path.join(ASSETS, "sprites", "houses.png"), optimize=True)
 with open(os.path.join(ASSETS, "sprites", "houses.json"), "w", encoding="utf-8", newline="\n") as fh:
     json.dump({"frames": frames, "meta": {"image": "houses.png", "size": {"w": atlas.width,

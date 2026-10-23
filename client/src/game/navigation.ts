@@ -8,13 +8,11 @@ let game: Phaser.Game | null = null;
 
 export interface HouseSceneData {
   ownerId: string;
-  /** Town lot the player came from, so leaving puts them back on its doorstep. */
-  fromPlot?: number;
+  /** Appear at the garden gate (default: arriving from town or the map) or on the doorstep. */
+  at?: 'gate' | 'door';
 }
 
-export interface TownSceneData {
-  fromPlot?: number;
-}
+export type TownSceneData = Record<string, never>;
 
 export function attachGame(g: Phaser.Game | null): void {
   game = g;

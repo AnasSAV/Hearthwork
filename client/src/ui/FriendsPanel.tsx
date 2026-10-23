@@ -2,10 +2,14 @@ import { useEffect, useState, type FormEvent } from 'react';
 import { goToHouse } from '../game/navigation';
 import {
   fetchFriends,
+  fetchMyHome,
   removeFriend,
+  requestMoveIn,
   respondFriendRequest,
+  respondHouseInvite,
   sendFriendRequest,
   type Friend,
+  type MyHome,
 } from '../net/houses';
 import { uiStore, useUi } from '../store';
 import { AvatarSprite } from './AvatarSprite';
@@ -17,10 +21,14 @@ const SEND_RESULT: Record<string, string> = {
   'already requested': 'Request already sent.',
 };
 
-/** Friends and requests: add by username, accept/decline, visit their houses. */
+/**
+ * Friends and requests: add by username, accept/decline, visit their homes, ask to move in,
+ * and answer invitations to live with someone.
+ */
 export function FriendsPanel() {
   const open = useUi((s) => s.friendsOpen);
   const [friends, setFriends] = useState<Friend[] | null>(null);
+  const [home, setHome] = useState<MyHome | null>(null);
   const [name, setName] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -30,8 +38,12 @@ export function FriendsPanel() {
   useEffect(() => {
     if (!open) return;
     let cancelled = false;
-    fetchFriends()
-      .then((f) => !cancelled && setFriends(f))
+    Promise.all([fetchFriends(), fetchMyHome()])
+      .then(([f, h]) => {
+        if (cancelled) return;
+        setFriends(f);
+        setHome(h);
+      })
       .catch((e: unknown) => !cancelled && setError(e instanceof Error ? e.message : String(e)));
     return () => {
       cancelled = true;
@@ -74,6 +86,20 @@ export function FriendsPanel() {
   const incoming = friends?.filter((f) => f.status === 'pending' && f.incoming) ?? [];
   const outgoing = friends?.filter((f) => f.status === 'pending' && !f.incoming) ?? [];
   const accepted = friends?.filter((f) => f.status === 'accepted') ?? [];
+  const invitations = home?.invites.filter((i) => i.from_owner) ?? [];
+  const waitingOn = new Set(home?.invites.filter((i) => !i.from_owner).map((i) => i.owner_id));
+
+  /** Your home changed (you moved in somewhere): go there. */
+  async function moveIn(task: () => Promise<string>) {
+    await act(async () => {
+      const result = await task();
+      if (result !== 'moved in') return 'Asked to move in. They need to accept.';
+      const h = await fetchMyHome();
+      close();
+      goToHouse({ ownerId: h.owner_id, at: 'door' });
+      return undefined;
+    });
+  }
 
   return (
     <div className="modal-backdrop" onClick={close}>
@@ -99,6 +125,33 @@ export function FriendsPanel() {
         {error && <div className="form-error">{error}</div>}
         {notice && <div className="form-notice">{notice}</div>}
         {!friends && !error && <div className="spinner" aria-label="Loading" />}
+
+        {invitations.length > 0 && <h3 className="drawer-group">Invitations to move in</h3>}
+        {invitations.map((i) => (
+          <div key={i.owner_id} className="friend-row">
+            <span className="friend-name">
+              {i.owner_name}'s home <small>invited you to live there</small>
+            </span>
+            <button
+              type="button"
+              className="btn"
+              disabled={busy}
+              onClick={() => void moveIn(() => respondHouseInvite(i.owner_id, true))}
+            >
+              Move in
+            </button>
+            <button
+              type="button"
+              className="btn btn-secondary"
+              disabled={busy}
+              onClick={() =>
+                void act(async () => void (await respondHouseInvite(i.owner_id, false)))
+              }
+            >
+              Decline
+            </button>
+          </div>
+        ))}
 
         {incoming.length > 0 && <h3 className="drawer-group">Requests</h3>}
         {incoming.map((f) => (
@@ -143,14 +196,25 @@ export function FriendsPanel() {
               type="button"
               className="btn"
               disabled={!f.can_visit}
-              title={f.can_visit ? 'Visit their house' : 'Their house is private'}
+              title={f.can_visit ? 'Visit their home' : 'Their home is private'}
               onClick={() => {
                 close();
-                goToHouse({ ownerId: f.user_id });
+                goToHouse({ ownerId: f.home_owner ?? f.user_id });
               }}
             >
               Visit
             </button>
+            {home && f.home_owner && f.home_owner !== home.owner_id && (
+              <button
+                type="button"
+                className="btn btn-secondary"
+                disabled={busy || waitingOn.has(f.home_owner)}
+                title="Ask to live in their home"
+                onClick={() => void moveIn(() => requestMoveIn(f.username))}
+              >
+                {waitingOn.has(f.home_owner) ? 'Asked' : 'Move in'}
+              </button>
+            )}
             <button
               type="button"
               className="icon-btn"

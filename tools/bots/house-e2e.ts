@@ -1,25 +1,29 @@
 /**
  * End-to-end houses test against a running server + LOCAL Supabase (uses `docker exec` to grant
  * test coins/focus time, so never point it at a real project):
- * decorate → save → reload, friends-only visiting, studying at a friend's desk, going private,
- * upgrading, and the house showing up on a town lot.
+ * decorate → save → reload, friends-only visiting, walking up the garden path and through the
+ * front door, studying at a friend's desk, going private, upgrading, and the world map.
  *
  *   npm run e2e:house [-- http://localhost:2567]
  */
 import { execFileSync } from 'node:child_process';
 import { Client, type Room } from '@colyseus/sdk';
 import {
+  atExit,
+  atFrontDoor,
   canStand,
   ClientMsg,
   houseCollisionGrid,
+  houseExteriorWidth,
   HouseState,
   houseWorld,
   ServerMsg,
-  TownState,
   type FocusStateMessage,
   type HouseNoticeMessage,
   type MoveMessage,
+  type Vec2,
 } from '@focus-town/shared';
+import { findPath } from './path.js';
 import { createTestPlayer, deleteTestPlayer, type TestPlayer } from './testPlayers.js';
 
 const url = process.argv[2] ?? 'http://localhost:2567';
@@ -59,11 +63,18 @@ function grant(p: TestPlayer, coins: number, focusMin = 0) {
          total_focus_min = total_focus_min + ${focusMin} where id = '${p.userId}'`);
 }
 
-async function joinHouse(p: TestPlayer, ownerId: string): Promise<Room<unknown, HouseState>> {
+async function joinHouse(
+  p: TestPlayer,
+  ownerId: string,
+  at: 'gate' | 'door' = 'gate',
+): Promise<Room<unknown, HouseState>> {
   const client = new Client(url);
   client.auth.token = p.token;
-  return client.joinOrCreate('house', { ownerId }, HouseState);
+  return client.joinOrCreate('house', { ownerId, at }, HouseState);
 }
+
+/** The door is rate-limited by the movement guard's clock only, but give the server a beat. */
+const MOVE_GAP_MS = 200;
 
 const owner = await createTestPlayer('owner');
 const friend = await createTestPlayer('friend');
@@ -110,31 +121,46 @@ await sleep(400);
 check(friendRoom.roomId === ownerRoom.roomId, 'friend joined the same house room');
 check(friendRoom.state.players.size === 2, 'both are in the house');
 
-// --- Friend walks to the desk and starts focusing -------------------------------------------
+// --- Friend walks up the garden path, through the front door, to the desk -------------------
 const dims = { width: 8, height: 6, rooms: 1 };
 const grid = houseCollisionGrid(
   dims,
   layout.items.map((i) => ({ ...i, itemId: i.item_id })),
+  undefined,
+  houseExteriorWidth(1),
 );
+const me = () => friendRoom.state.players.get(friendRoom.sessionId)!;
+check(!houseWorld.isInside(me().x), 'visitors arrive in the yard');
+
+async function walk(room: Room<unknown, HouseState>, to: Vec2): Promise<void> {
+  const player = () => room.state.players.get(room.sessionId)!;
+  let pos = { x: player().x, y: player().y };
+  for (const target of findPath(grid, pos, to)) {
+    while (Math.hypot(target.x - pos.x, target.y - pos.y) > 0.5) {
+      const d = Math.hypot(target.x - pos.x, target.y - pos.y);
+      const step = Math.min(7, d);
+      const n = {
+        x: pos.x + ((target.x - pos.x) / d) * step,
+        y: pos.y + ((target.y - pos.y) / d) * step,
+      };
+      if (!canStand(grid, n.x, n.y)) throw new Error(`blocked at ${n.x},${n.y}`);
+      pos = n;
+      room.send(ClientMsg.Move, { ...pos, dir: 'up', moving: true } satisfies MoveMessage);
+      await sleep(110);
+    }
+  }
+  await sleep(300);
+}
+
+await walk(friendRoom, houseWorld.doorstepSpawn());
+check(atFrontDoor(me()), 'friend reached the front door');
+friendRoom.send(ClientMsg.HouseDoor);
+await sleep(400);
+check(houseWorld.isInside(me().x), 'the front door took the friend inside');
+
 const o = houseWorld.roomOrigin(dims, 0);
 const seat = { x: (o.x + 1) * 16 + 8, y: (o.y + 3) * 16 + 14 };
-const me = () => friendRoom.state.players.get(friendRoom.sessionId)!;
-let pos = { x: me().x, y: me().y };
-for (const target of [{ x: pos.x, y: seat.y }, seat]) {
-  while (Math.hypot(target.x - pos.x, target.y - pos.y) > 0.5) {
-    const d = Math.hypot(target.x - pos.x, target.y - pos.y);
-    const step = Math.min(7, d);
-    const n = {
-      x: pos.x + ((target.x - pos.x) / d) * step,
-      y: pos.y + ((target.y - pos.y) / d) * step,
-    };
-    if (!canStand(grid, n.x, n.y)) throw new Error(`blocked at ${n.x},${n.y}`);
-    pos = n;
-    friendRoom.send(ClientMsg.Move, { ...pos, dir: 'up', moving: true } satisfies MoveMessage);
-    await sleep(110);
-  }
-}
-await sleep(300);
+await walk(friendRoom, seat);
 const focusP = next<FocusStateMessage>(friendRoom, ServerMsg.FocusState);
 // Seat ids are "<placed item id>:<column>"; the desk is the only study spot.
 const deskItem = friendRoom.state.items.find((i) => i.itemId === 'desk_study')!;
@@ -175,28 +201,26 @@ check(ownerRoom.state.width === 12 && ownerRoom.state.height === 8, 'house grew 
 check(ownerRoom.state.items.length === 3, 'furniture kept after the upgrade');
 await ownerRoom.leave();
 
-// --- The house shows on its town lot (if it got one of the first plots) ----------------------
-const plot = Number(sql(`select plot_index from public.houses where owner_id = '${owner.userId}'`));
-const townClient = new Client(url);
-townClient.auth.token = owner.token;
-const town: Room<unknown, TownState> = await townClient.joinOrCreate(
-  'town',
-  { fromPlot: plot },
-  TownState,
+// --- Home at the front door: in and out, and on the world map --------------------------------
+const home = await joinHouse(owner, owner.userId, 'door');
+await sleep(500);
+const ownerMe = () => home.state.players.get(home.sessionId)!;
+check(atFrontDoor(ownerMe()), 'owner logs in on their doorstep');
+home.send(ClientMsg.HouseDoor);
+await sleep(400);
+check(houseWorld.isInside(ownerMe().x), 'owner went inside');
+check(atExit({ width: 12, height: 8, rooms: 1 }, ownerMe()), 'owner is just inside the door');
+await sleep(MOVE_GAP_MS);
+home.send(ClientMsg.HouseDoor);
+await sleep(400);
+check(atFrontDoor(ownerMe()), 'and back out to the yard');
+await home.leave();
+
+const map = await friend.client.rpc('world_map');
+check(
+  !map.error && !(map.data as { owner_id: string }[]).some((h) => h.owner_id === owner.userId),
+  "a private house is not on a friend's map",
 );
-await sleep(800);
-if (plot < 6) {
-  const lot = town.state.lots.get(String(plot));
-  check(
-    lot?.ownerId === owner.userId && lot.level === 2 && lot.style === 'brick',
-    `house drawn on lot ${plot}`,
-  );
-  const p = town.state.players.get(town.sessionId)!;
-  check(p.y > 31 * 16 && p.y < 32 * 16, 'spawned on the doorstep after leaving the house');
-} else {
-  console.log(`SKIP  plot ${plot} is beyond the 6 town lots`);
-}
-await town.leave();
 
 await deleteTestPlayer(owner);
 await deleteTestPlayer(friend);

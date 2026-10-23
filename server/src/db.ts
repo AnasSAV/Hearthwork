@@ -47,8 +47,9 @@ export interface HouseRecord {
   floor: string | null;
   visibility: 'public' | 'friends' | 'private';
   exteriorStyle: string;
-  plotIndex: number | null;
-  items: { id: string; itemId: string; room: number; x: number; y: number }[];
+  /** Who lives here: the owner (unless they moved in elsewhere) and their housemates. */
+  memberIds: string[];
+  items: { id: string; itemId: string; room: number; x: number; y: number; placedBy: string }[];
 }
 
 export interface ChatReport {
@@ -58,14 +59,6 @@ export interface ChatReport {
   messageId: string;
   message: string;
   reason: string | null;
-}
-
-export interface LotRecord {
-  plotIndex: number;
-  ownerId: string;
-  ownerName: string;
-  level: number;
-  style: string;
 }
 
 /** Everything the game server needs from Postgres. Implemented by Supabase and by test fakes. */
@@ -85,8 +78,6 @@ export interface GameDb {
   abandonActiveSessions(): Promise<number>;
   getHouse(ownerId: string): Promise<HouseRecord | null>;
   canVisit(visitorId: string, ownerId: string): Promise<boolean>;
-  /** Houses on plots [0, plotCount), for drawing them in town. */
-  getLots(plotCount: number): Promise<LotRecord[]>;
   /** Store a reported chat message for moderation. Returns false if already reported by them. */
   reportChat(report: ChatReport): Promise<boolean>;
 }
@@ -121,10 +112,6 @@ export class SupabaseGameDb implements GameDb {
 
   canVisit(visitorId: string, ownerId: string): Promise<boolean> {
     return this.houses.canVisit(visitorId, ownerId);
-  }
-
-  getLots(plotCount: number): Promise<LotRecord[]> {
-    return this.houses.getLots(plotCount);
   }
 
   async reportChat(r: ChatReport): Promise<boolean> {
@@ -230,7 +217,6 @@ interface HouseRow {
   floor: string | null;
   visibility: HouseRecord['visibility'];
   exterior_style: string;
-  plot_index: number | null;
   profiles: { username: string } | null;
   house_levels: { width: number; height: number; rooms: number } | null;
 }
@@ -242,8 +228,9 @@ export class SupabaseHouseQueries {
     const { data, error } = await this.sb
       .from('houses')
       .select(
-        'owner_id, level, wallpaper, floor, visibility, exterior_style, plot_index, ' +
-          'profiles(username), house_levels(width, height, rooms)',
+        'owner_id, level, wallpaper, floor, visibility, exterior_style, ' +
+          // profiles also points back at houses (home_owner), so name the owner relation.
+          'profiles!houses_owner_id_fkey(username), house_levels(width, height, rooms)',
       )
       .eq('owner_id', ownerId)
       .maybeSingle<HouseRow>();
@@ -251,10 +238,16 @@ export class SupabaseHouseQueries {
     if (!data || !data.house_levels) return null;
     const items = await this.sb
       .from('placed_items')
-      .select('id, item_id, room, x, y')
+      .select('id, item_id, room, x, y, placed_by')
       .eq('owner_id', ownerId)
       .order('id');
     if (items.error) throw new Error(`getHouse items: ${items.error.message}`);
+    const members = await this.sb
+      .from('profiles')
+      .select('id, home_owner')
+      .or(`id.eq.${ownerId},home_owner.eq.${ownerId}`)
+      .returns<{ id: string; home_owner: string | null }[]>();
+    if (members.error) throw new Error(`getHouse members: ${members.error.message}`);
     return {
       ownerId: data.owner_id,
       ownerName: data.profiles?.username ?? 'someone',
@@ -266,10 +259,24 @@ export class SupabaseHouseQueries {
       floor: data.floor,
       visibility: data.visibility,
       exteriorStyle: data.exterior_style,
-      plotIndex: data.plot_index,
+      memberIds: members.data.filter((m) => (m.home_owner ?? m.id) === ownerId).map((m) => m.id),
       items: (
-        items.data as { id: string; item_id: string; room: number; x: number; y: number }[]
-      ).map((r) => ({ id: r.id, itemId: r.item_id, room: r.room, x: r.x, y: r.y })),
+        items.data as {
+          id: string;
+          item_id: string;
+          room: number;
+          x: number;
+          y: number;
+          placed_by: string;
+        }[]
+      ).map((r) => ({
+        id: r.id,
+        itemId: r.item_id,
+        room: r.room,
+        x: r.x,
+        y: r.y,
+        placedBy: r.placed_by,
+      })),
     };
   }
 
@@ -280,26 +287,6 @@ export class SupabaseHouseQueries {
     });
     if (error) throw new Error(`can_visit: ${error.message}`);
     return data === true;
-  }
-
-  async getLots(plotCount: number): Promise<LotRecord[]> {
-    const { data, error } = await this.sb
-      .from('houses')
-      .select('owner_id, level, exterior_style, plot_index, profiles(username)')
-      .lt('plot_index', plotCount)
-      .returns<
-        Pick<HouseRow, 'owner_id' | 'level' | 'exterior_style' | 'plot_index' | 'profiles'>[]
-      >();
-    if (error) throw new Error(`getLots: ${error.message}`);
-    return data
-      .filter((r) => r.plot_index !== null)
-      .map((r) => ({
-        plotIndex: r.plot_index!,
-        ownerId: r.owner_id,
-        ownerName: r.profiles?.username ?? 'someone',
-        level: r.level,
-        style: r.exterior_style,
-      }));
   }
 }
 

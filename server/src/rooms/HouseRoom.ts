@@ -1,10 +1,13 @@
 import { CloseCode, ErrorCode, Room, ServerError, type AuthContext, type Client } from 'colyseus';
 import {
+  atExit,
+  atFrontDoor,
   canStand,
   ClientMsg,
   emptySchema,
   HOUSE_MAX_CLIENTS,
   houseCollisionGrid,
+  houseExteriorWidth,
   houseJoinSchema,
   HouseState,
   houseWorld,
@@ -25,7 +28,6 @@ import { authenticate, type AuthedUser } from '../auth.js';
 import { db, type HouseRecord } from '../db.js';
 import { FocusController, type DeskSpot } from '../focus/FocusController.js';
 import { focusRegistry } from '../focus/registry.js';
-import { houseEvents } from '../houseEvents.js';
 import { log } from '../log.js';
 import { ChatController, clockNow } from './ChatController.js';
 import { correct, MovementGuard } from './MovementGuard.js';
@@ -41,8 +43,10 @@ const VISIBILITY_REFUSAL: Record<HouseRecord['visibility'], string> = {
 };
 
 /**
- * One player's house. Created when the first person walks in (owner or visitor), disposed
- * when the last one leaves. All layout data lives in Postgres; this room only mirrors it.
+ * One home: its yard and its interior, side by side in one world joined by the front door.
+ * Created when the first person arrives (resident or visitor), disposed when the last one
+ * leaves. All layout data lives in Postgres; this room only mirrors it. Everyone who lives
+ * here (owner and housemates) can decorate.
  */
 export class HouseRoom extends Room<{ state: HouseState }> {
   override maxClients = HOUSE_MAX_CLIENTS;
@@ -52,6 +56,8 @@ export class HouseRoom extends Room<{ state: HouseState }> {
   private grid: CollisionGrid = houseCollisionGrid(this.dims, []);
   private seats = new Map<string, DeskSpot>();
   private visibility: HouseRecord['visibility'] = 'friends';
+  private memberIds = new Set<string>();
+  private lastVisitorReload = 0;
 
   private moves = new MovementGuard(
     () => this.grid,
@@ -80,9 +86,15 @@ export class HouseRoom extends Room<{ state: HouseState }> {
       if (player) this.moves.handle(client, player, msg, this.focus.isSeated(client.sessionId));
     });
     onValidated(this, ClientMsg.HouseReload, emptySchema, (client) => {
-      if (authOf(client).userId !== this.state.ownerId) return;
-      void this.reload().then(() => houseEvents.emit('changed', this.state.ownerId));
+      // A housemate saved a layout, upgraded or changed settings: re-read from Postgres.
+      // Others (e.g. someone who just moved in, not yet in memberIds) are rate-limited.
+      const member = this.memberIds.has(authOf(client).userId);
+      const now = Date.now();
+      if (!member && now - this.lastVisitorReload < 10_000) return;
+      if (!member) this.lastVisitorReload = now;
+      void this.reload();
     });
+    onValidated(this, ClientMsg.HouseDoor, emptySchema, (client) => this.useDoor(client));
     this.focus.register();
     this.chat.register();
     registerProfileReload(this, () => this.state.players);
@@ -101,6 +113,7 @@ export class HouseRoom extends Room<{ state: HouseState }> {
   ): Promise<AuthedUser> {
     const user = await authenticate(context);
     if (
+      !this.memberIds.has(user.userId) &&
       user.userId !== this.state.ownerId &&
       !(await db().canVisit(user.userId, this.state.ownerId))
     ) {
@@ -109,16 +122,17 @@ export class HouseRoom extends Room<{ state: HouseState }> {
     return user;
   }
 
-  override onJoin(client: Client): void {
+  override onJoin(client: Client, options: unknown): void {
     const auth = authOf(client);
-    const spawn = this.findSpawn();
+    const parsed = houseJoinSchema.safeParse(options);
+    const spawn = this.findSpawn(parsed.success && parsed.data.at === 'door' ? 'door' : 'gate');
     const player = new PlayerState();
     player.id = client.sessionId;
     player.name = auth.username;
     player.avatar = auth.avatar;
     player.x = spawn.x;
     player.y = spawn.y;
-    player.dir = 'up';
+    player.dir = parsed.success && parsed.data.at === 'door' ? 'down' : 'right';
     player.moving = false;
     player.status = 'walking';
     player.focusMin = 0;
@@ -188,6 +202,9 @@ export class HouseRoom extends Room<{ state: HouseState }> {
     s.floor = house.floor ?? '';
     s.visibility = house.visibility;
     s.exteriorStyle = house.exteriorStyle;
+    this.memberIds = new Set(house.memberIds);
+    s.members.clear();
+    for (const id of house.memberIds) s.members.push(id);
     s.items.clear();
     for (const item of house.items) {
       const st = new PlacedItemState();
@@ -196,13 +213,15 @@ export class HouseRoom extends Room<{ state: HouseState }> {
       st.room = item.room;
       st.x = item.x;
       st.y = item.y;
+      st.placedBy = item.placedBy;
       s.items.push(st);
     }
 
     const placements = house.items.map((i) => ({ ...i, rotation: 0 }));
-    this.grid = houseCollisionGrid(this.dims, placements);
+    const exteriorWidth = houseExteriorWidth(house.level);
+    this.grid = houseCollisionGrid(this.dims, placements, undefined, exteriorWidth);
     this.seats = new Map(
-      studySeats(this.dims, placements).map((seat) => [
+      studySeats(this.dims, placements, undefined, exteriorWidth).map((seat) => [
         seat.id,
         {
           id: seat.id,
@@ -226,14 +245,14 @@ export class HouseRoom extends Room<{ state: HouseState }> {
       const player = this.state.players.get(client.sessionId);
       if (!player) continue;
       if (!this.focus.isSeated(client.sessionId) && !canStand(this.grid, player.x, player.y)) {
-        const spawn = this.findSpawn();
+        const spawn = this.findSpawn('gate');
         player.x = spawn.x;
         player.y = spawn.y;
         this.moves.reset(client.sessionId);
         correct(client, player);
       }
       const userId = authOf(client).userId;
-      if (userId === this.state.ownerId) continue;
+      if (userId === this.state.ownerId || this.memberIds.has(userId)) continue;
       if (!(await db().canVisit(userId, this.state.ownerId))) {
         const notice: HouseNoticeMessage = {
           message: `${this.state.ownerName} closed their house to visitors.`,
@@ -244,8 +263,28 @@ export class HouseRoom extends Room<{ state: HouseState }> {
     }
   }
 
-  private findSpawn(): Vec2 {
-    const spawn = houseWorld.spawn(this.dims);
-    return canStand(this.grid, spawn.x, spawn.y) ? spawn : { ...spawn, y: spawn.y + 8 };
+  /** The garden gate (arriving from town) or the doorstep (logging in at home). */
+  private findSpawn(at: 'gate' | 'door'): Vec2 {
+    const spawn = at === 'door' ? houseWorld.doorstepSpawn() : houseWorld.arrivalSpawn();
+    return canStand(this.grid, spawn.x, spawn.y) ? spawn : houseWorld.arrivalSpawn();
+  }
+
+  /** Front door: from the doorstep go inside, from just inside the exit go out to the yard. */
+  private useDoor(client: Client): void {
+    const player = this.state.players.get(client.sessionId);
+    if (!player || this.focus.isSeated(client.sessionId)) return;
+    let to: Vec2;
+    if (atFrontDoor(player)) to = houseWorld.insideSpawn(this.dims);
+    else if (atExit(this.dims, player)) to = houseWorld.doorstepSpawn();
+    else {
+      log.warn('door used away from the door', { sessionId: client.sessionId });
+      return;
+    }
+    player.x = to.x;
+    player.y = to.y;
+    player.dir = atFrontDoor(to) ? 'down' : 'up';
+    player.moving = false;
+    this.moves.reset(client.sessionId);
+    correct(client, player);
   }
 }

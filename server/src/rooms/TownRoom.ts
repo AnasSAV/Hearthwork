@@ -2,7 +2,6 @@ import { CloseCode, Room, type AuthContext, type Client } from 'colyseus';
 import {
   canStand,
   ClientMsg,
-  LotState,
   moveSchema,
   PlayerState,
   RECONNECT_GRACE_SEC,
@@ -13,10 +12,8 @@ import {
   type Vec2,
 } from '@focus-town/shared';
 import { authenticate, type AuthedUser } from '../auth.js';
-import { db } from '../db.js';
 import { FocusController } from '../focus/FocusController.js';
 import { focusRegistry } from '../focus/registry.js';
-import { houseEvents } from '../houseEvents.js';
 import { log } from '../log.js';
 import { isAtDesk, townMap } from '../maps.js';
 import { ChatController, clockNow } from './ChatController.js';
@@ -54,10 +51,6 @@ export class TownRoom extends Room<{ state: TownState }> {
     () => `town:${this.roomId}`,
     () => this.state.players,
   );
-  private readonly onHouseChanged = (ownerId: string) => {
-    const shown = [...this.state.lots.values()].some((l) => l.ownerId === ownerId);
-    if (shown) void this.refreshLots();
-  };
 
   override onCreate(): void {
     onValidated(this, ClientMsg.Move, moveSchema, (client, msg) => {
@@ -75,10 +68,6 @@ export class TownRoom extends Room<{ state: TownState }> {
     this.clock.setInterval(() => {
       this.state.focusingNow = focusRegistry.count();
     }, 2_000);
-    // Houses on the lots: load now, refresh when one changes, and every minute for new owners.
-    void this.refreshLots();
-    houseEvents.on('changed', this.onHouseChanged);
-    this.clock.setInterval(() => void this.refreshLots(), 60_000);
     log.info('town room created', { roomId: this.roomId });
   }
 
@@ -88,8 +77,10 @@ export class TownRoom extends Room<{ state: TownState }> {
 
   override onJoin(client: Client, options: unknown): void {
     const auth = authOf(client);
-    const parsed = townJoinSchema.safeParse(options ?? {});
-    const spawn = this.findSpawn(parsed.success ? parsed.data.fromPlot : undefined);
+    if (!townJoinSchema.safeParse(options ?? {}).success) {
+      log.warn('town join options ignored', { sessionId: client.sessionId });
+    }
+    const spawn = this.findSpawn();
     const player = new PlayerState();
     player.id = client.sessionId;
     player.name = auth.username;
@@ -144,39 +135,11 @@ export class TownRoom extends Room<{ state: TownState }> {
   }
 
   override onDispose(): void {
-    houseEvents.off('changed', this.onHouseChanged);
     log.info('town room disposed', { roomId: this.roomId });
   }
 
-  /** Sync the lots map with the houses on plots 0..N-1. */
-  private async refreshLots(): Promise<void> {
-    let lots;
-    try {
-      lots = await db().getLots(townMap.plots.size);
-    } catch (err) {
-      log.error('could not load town lots', { error: String(err) });
-      return;
-    }
-    const seen = new Set<string>();
-    for (const lot of lots) {
-      const key = String(lot.plotIndex);
-      seen.add(key);
-      const state = this.state.lots.get(key) ?? new LotState();
-      state.plotIndex = lot.plotIndex;
-      state.ownerId = lot.ownerId;
-      state.ownerName = lot.ownerName;
-      state.level = lot.level;
-      state.style = lot.style;
-      if (!this.state.lots.has(key)) this.state.lots.set(key, state);
-    }
-    for (const key of [...this.state.lots.keys()]) if (!seen.has(key)) this.state.lots.delete(key);
-  }
-
-  /** The doorstep of the house a player just left, or the map spawn point (nudged). */
-  private findSpawn(fromPlot?: number): Vec2 {
-    const plot = fromPlot !== undefined ? townMap.plots.get(fromPlot) : undefined;
-    if (plot && canStand(townMap.grid, plot.doorstep.x, plot.doorstep.y))
-      return { ...plot.doorstep };
+  /** The map spawn point, nudged so arrivals don't stack exactly on top of each other. */
+  private findSpawn(): Vec2 {
     const base = townMap.spawn;
     for (let attempt = 0; attempt < 10; attempt++) {
       const x = base.x + Math.round((Math.random() - 0.5) * 24);

@@ -24,7 +24,10 @@ export interface ActiveFocus extends FocusStateMessage {
 export interface HouseInfo {
   ownerId: string;
   ownerName: string;
+  /** You own this house. */
   isOwner: boolean;
+  /** You live here (owner or housemate): you can decorate and change settings. */
+  isMember: boolean;
   level: number;
   width: number;
   height: number;
@@ -33,14 +36,6 @@ export interface HouseInfo {
   exteriorStyle: string;
   wallpaper: string;
   floor: string;
-}
-
-/** A town lot doorstep the player is standing on. */
-export interface NearLot {
-  plotIndex: number;
-  ownerId: string;
-  ownerName: string;
-  isMine: boolean;
 }
 
 /** A running group-table Pomodoro (server times in ms). */
@@ -66,7 +61,8 @@ export interface UiState {
   inventoryVersion: number;
   /** null in town. */
   house: HouseInfo | null;
-  nearLot: NearLot | null;
+  /** The world map (town, your home, friends' and public homes) is open. */
+  mapOpen: boolean;
   houseSettingsOpen: boolean;
   friendsOpen: boolean;
   /** Short message shown as a toast. */
@@ -95,7 +91,7 @@ const initial: UiState = {
   inventoryOpen: false,
   inventoryVersion: 0,
   house: null,
-  nearLot: null,
+  mapOpen: false,
   houseSettingsOpen: false,
   friendsOpen: false,
   notice: null,

@@ -16,6 +16,8 @@ export const ClientMsg = {
   FocusEnd: 'focus:end',
   /** Owner saved a layout, upgraded or changed settings: reload the house from the database. */
   HouseReload: 'house:reload',
+  /** Go through the front door (yard ↔ inside); the server checks you're standing at it. */
+  HouseDoor: 'house:door',
   /** The player changed their name or character: reload it from the database. */
   ProfileReload: 'profile:reload',
   Chat: 'chat',
@@ -86,14 +88,13 @@ export const focusBeatSchema = z.strictObject({
 });
 export type FocusBeatMessage = z.infer<typeof focusBeatSchema>;
 
-export const townJoinSchema = z.object({
-  /** Coming out of the house on this plot: spawn on its doorstep. */
-  fromPlot: z.number().int().min(0).max(255).optional(),
-});
+export const townJoinSchema = z.object({});
 export type TownJoinOptions = z.infer<typeof townJoinSchema>;
 
 export const houseJoinSchema = z.object({
   ownerId: z.uuid(),
+  /** Where to appear: at the garden gate (arriving from town, default) or on the doorstep. */
+  at: z.enum(['gate', 'door']).optional(),
 });
 export type HouseJoinOptions = z.infer<typeof houseJoinSchema>;
 

@@ -4,30 +4,20 @@ import {
   findObjects,
   getProperty,
   MapObjectType,
-  type LotState,
   type TableTimerState,
   type TiledMap,
   type TiledObject,
   type TownState,
 } from '@focus-town/shared';
 import { ABOVE_DEPTH, GROUND_DEPTH } from '../game/depths';
-import { LotView } from '../game/exteriors';
-import { goToHouse, type TownSceneData } from '../game/navigation';
 import { joinTown } from '../net/colyseus';
-import { supabase } from '../net/supabase';
-import { uiStore, type NearDesk, type NearLot, type TableTimer } from '../store';
-import { TOWN_MAP_KEY, TOWN_TILESET_KEY } from './BootScene';
+import { uiStore, type NearDesk, type TableTimer } from '../store';
+import { TOWN_ANIMS_KEY, TOWN_MAP_KEY, TOWN_TILESET_KEY } from './BootScene';
 import { WorldScene } from './WorldScene';
 
 interface Door {
   x: number;
   y: number;
-}
-
-interface Plot {
-  index: number;
-  door: Door;
-  view: LotView;
 }
 
 /** True if feet at `p` are on the doorstep (the tile right below `door`). */
@@ -37,24 +27,13 @@ const onDoorstep = (door: Door, p: { x: number; y: number }) =>
 export class TownScene extends WorldScene<TownState> {
   private desks: TiledObject[] = [];
   private shopDoor: Door | null = null;
-  private plots = new Map<number, Plot>();
-  private lots = new Map<number, LotState>();
-  private fromPlot: number | undefined;
-  private myUserId: string | null = null;
 
   constructor() {
     super('Town');
   }
 
-  init(data: TownSceneData): void {
-    this.fromPlot = data.fromPlot;
-  }
-
   protected buildWorld(): void {
     uiStore.set({ house: null });
-    void supabase.auth
-      .getSession()
-      .then(({ data }) => (this.myUserId = data.session?.user.id ?? null));
 
     const map = this.make.tilemap({ key: TOWN_MAP_KEY });
     const tileset = map.addTilesetImage(TOWN_TILESET_KEY);
@@ -91,37 +70,36 @@ export class TownScene extends WorldScene<TownState> {
     const shop = buildings.find((b) => b.name === 'shop');
     this.shopDoor = shop ? doorOf(shop) : null;
 
-    this.plots = new Map();
-    this.lots = new Map();
-    for (const p of findObjects(mapData.data, MapObjectType.Plot)) {
-      const index = getProperty<number>(p, 'plotIndex');
-      const door = doorOf(p);
-      if (index === undefined || !door) continue;
-      const view = new LotView(this, p, this.textResolution());
-      this.labels.push(view.label);
-      this.plots.set(index, { index, door, view });
+    // Animated pieces (flags, fish, a fountain): `anim` objects, frames "<name>:<i>".
+    for (const o of findObjects(mapData.data, MapObjectType.Anim)) {
+      const frames = getProperty<number>(o, 'frames') ?? 1;
+      const key = `town-anim:${o.name}`;
+      if (!this.anims.exists(key)) {
+        this.anims.create({
+          key,
+          frames: Array.from({ length: frames }, (_, i) => ({
+            key: TOWN_ANIMS_KEY,
+            frame: `${o.name}:${i}`,
+          })),
+          frameRate: getProperty<number>(o, 'fps') ?? 8,
+          repeat: -1,
+        });
+      }
+      const bottom = o.y + o.height;
+      this.add
+        .sprite(o.x, bottom, TOWN_ANIMS_KEY, `${o.name}:0`)
+        .setOrigin(0, 1)
+        .setDepth(bottom)
+        .play({ key, startFrame: Math.floor(Math.random() * frames) });
     }
   }
 
   protected joinRoom(): Promise<Room<unknown, TownState>> {
-    return joinTown(this.fromPlot !== undefined ? { fromPlot: this.fromPlot } : {});
+    return joinTown();
   }
 
   protected bindWorld(room: Room<unknown, TownState>): void {
     const callbacks = Callbacks.get(room);
-    const draw = (lot: LotState) => {
-      this.lots.set(lot.plotIndex, lot);
-      this.plots.get(lot.plotIndex)?.view.show(lot);
-    };
-    callbacks.onAdd('lots', (lot: LotState) => {
-      draw(lot);
-      callbacks.onChange(lot, () => draw(lot));
-    });
-    callbacks.onRemove('lots', (lot: LotState) => {
-      this.lots.delete(lot.plotIndex);
-      this.plots.get(lot.plotIndex)?.view.show(null);
-    });
-
     // Group-table Pomodoros for the focus panel.
     const syncTables = () => {
       const tables: Record<string, TableTimer> = {};
@@ -143,10 +121,6 @@ export class TownScene extends WorldScene<TownState> {
       uiStore.set({ shopOpen: true });
       return true;
     }
-    if (ui.nearLot) {
-      goToHouse({ ownerId: ui.nearLot.ownerId, fromPlot: ui.nearLot.plotIndex });
-      return true;
-    }
     return false;
   }
 
@@ -154,7 +128,6 @@ export class TownScene extends WorldScene<TownState> {
     this.updateNearDesk();
     const nearShop = !!this.shopDoor && onDoorstep(this.shopDoor, this.pos);
     if (uiStore.get().nearShop !== nearShop) uiStore.set({ nearShop });
-    this.updateNearLot();
   }
 
   private updateNearDesk(): void {
@@ -173,26 +146,8 @@ export class TownScene extends WorldScene<TownState> {
     uiStore.set({ nearDesk: near, ...(near ? {} : { timerOpen: false, focusError: null }) });
   }
 
-  private updateNearLot(): void {
-    let near: NearLot | null = null;
-    for (const plot of this.plots.values()) {
-      const lot = this.lots.get(plot.index);
-      if (lot && onDoorstep(plot.door, this.pos)) {
-        near = {
-          plotIndex: plot.index,
-          ownerId: lot.ownerId,
-          ownerName: lot.ownerName,
-          isMine: lot.ownerId === this.myUserId,
-        };
-        break;
-      }
-    }
-    const current = uiStore.get().nearLot;
-    if ((current?.plotIndex ?? null) !== (near?.plotIndex ?? null)) uiStore.set({ nearLot: near });
-  }
-
   protected override onTeardown(): void {
-    uiStore.set({ nearShop: false, nearLot: null, shopOpen: false, tables: {} });
+    uiStore.set({ nearShop: false, shopOpen: false, tables: {} });
   }
 }
 

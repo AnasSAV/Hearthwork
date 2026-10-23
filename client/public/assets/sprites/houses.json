@@ -119,32 +119,12 @@
     "w": 160,
     "h": 96
    }
-  },
-  "sale": {
-   "frame": {
-    "x": 768,
-    "y": 0,
-    "w": 16,
-    "h": 32
-   },
-   "rotated": false,
-   "trimmed": false,
-   "spriteSourceSize": {
-    "x": 0,
-    "y": 0,
-    "w": 16,
-    "h": 32
-   },
-   "sourceSize": {
-    "w": 16,
-    "h": 32
-   }
   }
  },
  "meta": {
   "image": "houses.png",
   "size": {
-   "w": 784,
+   "w": 768,
    "h": 96
   },
   "scale": "1"

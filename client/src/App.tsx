@@ -16,6 +16,7 @@ import { FriendsPanel } from './ui/FriendsPanel';
 import { HouseBar } from './ui/HouseBar';
 import { HouseSettings } from './ui/HouseSettings';
 import { InventoryDrawer } from './ui/InventoryDrawer';
+import { MapPanel } from './ui/MapPanel';
 import { ShopPanel } from './ui/ShopPanel';
 import { StatsPanel } from './ui/StatsPanel';
 import { Toast } from './ui/Toast';
@@ -50,6 +51,7 @@ function Game() {
         <FriendsPanel />
         <StatsPanel />
         <CharacterPanel />
+        <MapPanel />
         <Toast />
         <ConnectionOverlay />
       </div>

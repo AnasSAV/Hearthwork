@@ -1172,3 +1172,119 @@ kbd {
 .chat-form input:disabled {
   opacity: 0.6;
 }
+
+/* ---------- World map ---------- */
+
+.world-map {
+  width: min(860px, calc(100vw - 32px));
+  max-height: calc(100vh - 32px);
+  overflow-y: auto;
+}
+
+.map-field {
+  position: relative;
+  height: min(520px, calc(100vh - 220px));
+  min-height: 360px;
+  border-radius: 12px;
+  overflow: hidden;
+  background:
+    radial-gradient(circle at 50% 50%, rgba(255, 236, 170, 0.18) 0 14%, transparent 15%),
+    radial-gradient(circle at 20% 30%, rgba(40, 90, 50, 0.6), transparent 40%),
+    radial-gradient(circle at 80% 70%, rgba(40, 90, 50, 0.6), transparent 40%), #4f8a4b;
+}
+
+.map-paths {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
+.map-paths line {
+  stroke: #e6d7a8;
+  stroke-width: 1.4;
+  stroke-dasharray: 3 3;
+  vector-effect: non-scaling-stroke;
+  stroke-width: 3px;
+}
+
+.map-paths line.home {
+  stroke: var(--accent);
+}
+
+.map-node {
+  position: absolute;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  transform: translate(-50%, -50%);
+  font: inherit;
+  color: var(--text);
+  background: rgba(29, 27, 42, 0.78);
+  border: 2px solid transparent;
+  border-radius: 10px;
+  padding: 6px 8px;
+  cursor: pointer;
+  max-width: 150px;
+  text-align: center;
+}
+
+.map-node small {
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.map-node:hover:not(:disabled) {
+  border-color: var(--accent);
+}
+
+.map-node:disabled {
+  cursor: default;
+}
+
+.map-node.here {
+  border-color: #b8f2c2;
+}
+
+.map-node.home strong {
+  color: var(--accent);
+}
+
+.map-town {
+  left: 50%;
+  top: 50%;
+  padding: 10px 14px;
+}
+
+.map-town-icon {
+  display: block;
+  width: 120px;
+  height: 88px;
+  border-radius: 6px;
+  background: url('/assets/sprites/town-map.png') center / cover no-repeat;
+  image-rendering: pixelated;
+}
+
+.map-house-icon {
+  display: block;
+  background-repeat: no-repeat;
+  image-rendering: pixelated;
+}
+
+.map-more {
+  display: flex;
+  flex-direction: column;
+}
+
+.home-choice {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.people {
+  list-style: none;
+  margin: 0 0 8px;
+  padding: 0;
+}

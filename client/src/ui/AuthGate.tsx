@@ -3,6 +3,7 @@ import type { Session } from '@supabase/supabase-js';
 import { parseAvatar } from '@focus-town/shared';
 import { supabase, supabaseConfigured } from '../net/supabase';
 import { Login } from './Login';
+import { HomeChoice } from './HomeChoice';
 import { ProfileSetup } from './ProfileSetup';
 
 interface ProfileRow {
@@ -36,6 +37,8 @@ export function AuthGate({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null | undefined>(undefined);
   /** Profile check result, tagged with the user it belongs to. */
   const [profile, setProfile] = useState<{ userId: string; gate: ProfileGate } | null>(null);
+  /** A brand-new player just made their character: ask where they'll live. */
+  const [choosingHome, setChoosingHome] = useState(false);
   const userId = session?.user.id;
 
   useEffect(() => {
@@ -94,7 +97,10 @@ export function AuthGate({ children }: { children: ReactNode }) {
           <ProfileSetup
             initialUsername={gate.profile.username}
             initialAvatar={gate.profile.avatar}
-            onDone={() => void refreshProfile()}
+            onDone={() => {
+              if (gate.profile.username.startsWith('player_')) setChoosingHome(true);
+              void refreshProfile();
+            }}
           />
         </Centered>
       );
@@ -111,6 +117,13 @@ export function AuthGate({ children }: { children: ReactNode }) {
         </Centered>
       );
     case 'ready':
+      if (choosingHome) {
+        return (
+          <Centered>
+            <HomeChoice onDone={() => setChoosingHome(false)} />
+          </Centered>
+        );
+      }
       return <>{children}</>;
   }
 }

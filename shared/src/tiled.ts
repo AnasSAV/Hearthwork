@@ -54,7 +54,8 @@ export const MapLayer = {
 export const MapObjectType = {
   Spawn: 'spawn',
   Desk: 'desk',
-  Plot: 'plot',
+  /** Animated piece (flag, fish…); properties `frames` and `fps`. */
+  Anim: 'anim',
   Building: 'building',
 } as const;
 

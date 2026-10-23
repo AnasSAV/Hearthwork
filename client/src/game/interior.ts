@@ -32,8 +32,6 @@ export class InteriorView {
 
   render(dims: HouseDims, look: InteriorLook, items: readonly EditItem[]): void {
     this.clear();
-    const w = houseWorld.width(dims);
-    const h = houseWorld.height(dims);
     const wall = this.lookSprite(look.wallpaper, 'wall');
     const floor = this.lookSprite(look.floor, 'floor');
     const border = roomBorderSprite();
@@ -44,8 +42,9 @@ export class InteriorView {
     const floorAt = (x: number, y: number) =>
       this.tile(floor.sheet, blockTile(floor, x, y), x, y, -20);
 
-    for (let y = 0; y < h; y++)
-      for (let x = 0; x < w; x++)
+    const area = houseWorld.interiorBounds(dims);
+    for (let y = area.y; y < area.y + area.h; y++)
+      for (let x = area.x; x < area.x + area.w; x++)
         this.tile(border.sheet, tileFrame(this.scene, border.sheet, border.x, border.y), x, y, -21);
     for (let r = 0; r < dims.rooms; r++) {
       const o = houseWorld.roomOrigin(dims, r);

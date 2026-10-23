@@ -55,6 +55,8 @@ export abstract class WorldScene<S extends object> extends Phaser.Scene {
   };
   protected pos = { x: 0, y: 0 };
   protected dir: Direction = 'down';
+  /** Movement keys held this frame: -1/0/1 per axis. */
+  protected heldInput = { x: 0, y: 0 };
   private moving = false;
   private lastSent: MoveMessage | null = null;
   private lastSentAt = 0;
@@ -103,6 +105,9 @@ export abstract class WorldScene<S extends object> extends Phaser.Scene {
     keyboard.addKey('I').on('down', () => {
       uiStore.set({ inventoryOpen: !uiStore.get().inventoryOpen });
     });
+    keyboard.addKey('M').on('down', () => {
+      uiStore.set({ mapOpen: !uiStore.get().mapOpen });
+    });
     keyboard.addKey('ESC').on('down', () => this.escape());
 
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => this.teardown());
@@ -114,13 +119,21 @@ export abstract class WorldScene<S extends object> extends Phaser.Scene {
   /** Esc closes the topmost panel. */
   protected escape(): void {
     const ui = uiStore.get();
-    if (ui.shopOpen || ui.inventoryOpen || ui.houseSettingsOpen || ui.friendsOpen || ui.statsOpen) {
+    if (
+      ui.shopOpen ||
+      ui.inventoryOpen ||
+      ui.houseSettingsOpen ||
+      ui.friendsOpen ||
+      ui.statsOpen ||
+      ui.mapOpen
+    ) {
       uiStore.set({
         shopOpen: false,
         inventoryOpen: false,
         houseSettingsOpen: false,
         friendsOpen: false,
         statsOpen: false,
+        mapOpen: false,
       });
     } else if (!ui.focus) uiStore.set({ timerOpen: false, focusError: null });
   }
@@ -341,6 +354,7 @@ export abstract class WorldScene<S extends object> extends Phaser.Scene {
         (cursors.down.isDown || wasd.S.isDown ? 1 : 0) -
         (cursors.up.isDown || wasd.W.isDown ? 1 : 0),
     };
+    this.heldInput = input;
     const wantsToMove = input.x !== 0 || input.y !== 0;
     // Cap the step so a long frame (tab refocus) can't fling the player across the map.
     const next = stepMovement(this.grid, this.pos, input, Math.min(delta, 50));

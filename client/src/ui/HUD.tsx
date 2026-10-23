@@ -1,22 +1,14 @@
 import { goToHouse } from '../game/navigation';
 import { useEditor } from '../house/editor';
-import { fetchMyHouse } from '../net/houses';
+import { fetchMyHome } from '../net/houses';
 import { supabase } from '../net/supabase';
 import { showNotice, uiStore, useUi } from '../store';
 
-/** The town shows houses on its first six lots; others are reached through Home/Friends. */
-const TOWN_LOTS = 6;
-
-async function goHome() {
+/** Go to the home you live in (yours, or a friend's you moved into). */
+export async function goHome(): Promise<void> {
   try {
-    const house = await fetchMyHouse();
-    if (!house) return showNotice('You have no house yet.');
-    goToHouse({
-      ownerId: house.ownerId,
-      ...(house.plotIndex !== null && house.plotIndex < TOWN_LOTS
-        ? { fromPlot: house.plotIndex }
-        : {}),
-    });
+    const home = await fetchMyHome();
+    goToHouse({ ownerId: home.owner_id, at: 'door' });
   } catch (e) {
     showNotice(e instanceof Error ? e.message : String(e));
   }
@@ -32,7 +24,6 @@ export function HUD() {
   const nearShop = useUi((s) => s.nearShop);
   const shopOpen = useUi((s) => s.shopOpen);
   const focusing = useUi((s) => s.focus !== null);
-  const nearLot = useUi((s) => s.nearLot);
   const house = useUi((s) => s.house);
   const editing = useEditor((s) => s.active);
   const timerOpen = useUi((s) => s.timerOpen);
@@ -60,9 +51,19 @@ export function HUD() {
         <span title={`${online} in this town`}>
           {focusingNow} {focusingNow === 1 ? 'person' : 'people'} focusing now
         </span>
-        {!house?.isOwner && !focusing && (
+        {!house?.isMember && !focusing && (
           <button type="button" className="link" onClick={() => void goHome()}>
             Home
+          </button>
+        )}
+        {!focusing && (
+          <button
+            type="button"
+            className="link"
+            title="World map (M)"
+            onClick={() => uiStore.set({ mapOpen: true })}
+          >
+            Map
           </button>
         )}
         <button type="button" className="link" onClick={() => uiStore.set({ friendsOpen: true })}>
@@ -97,11 +98,6 @@ export function HUD() {
           Press <kbd>E</kbd> to start focusing
         </div>
       )}
-      {nearLot && (
-        <div className="hint panel">
-          Press <kbd>E</kbd> to {nearLot.isMine ? 'go home' : `visit ${nearLot.ownerName}'s house`}
-        </div>
-      )}
       {nearShop && !shopOpen && (
         <div className="hint panel">
           Press <kbd>E</kbd> to enter the Furniture Shop
@@ -109,8 +105,8 @@ export function HUD() {
       )}
       {!editing && (
         <div className="controls panel">
-          WASD / arrows: walk · E: use · I: inventory · Enter: chat
-          {house ? ' · walk out the door to leave' : ''}
+          WASD / arrows: walk · E: use · I: inventory · M: map · Enter: chat
+          {house ? ' · the gate leads to town' : ''}
         </div>
       )}
     </>

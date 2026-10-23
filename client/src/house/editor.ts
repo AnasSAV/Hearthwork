@@ -14,9 +14,12 @@ import { supabase } from '../net/supabase';
 
 export interface EditItem {
   itemId: string;
+  /** Interior room, or YARD_ROOM (-1) for the yard. */
   room: number;
   x: number;
   y: number;
+  /** Housemate whose inventory it came from; missing = the player editing. */
+  placedBy?: string;
 }
 
 /** The house as last loaded from the room; edit mode starts from a copy of it. */
@@ -37,6 +40,8 @@ export interface EditorState {
   owned: Map<string, number>;
   /** Item attached to the cursor, waiting to be placed. */
   carrying: string | null;
+  /** Whose item is being carried, if a housemate's (it keeps its owner when put down). */
+  carryingBy: string | null;
   /** Carrying started with a press in the drawer: release over the room places it. */
   dragging: boolean;
   saving: boolean;
@@ -61,12 +66,16 @@ let state: EditorState = {
   floor: null,
   owned: new Map(),
   carrying: null,
+  carryingBy: null,
   dragging: false,
   saving: false,
   error: null,
   version: 0,
 };
 const listeners = new Set<() => void>();
+/** The signed-in player (items with their id as `placedBy` are theirs). */
+let me: string | null = null;
+const isMine = (p: EditItem) => !p.placedBy || p.placedBy === me;
 
 function set(patch: Partial<EditorState>, layoutChanged = false): void {
   state = { ...state, ...patch, version: state.version + (layoutChanged ? 1 : 0) };
@@ -88,6 +97,10 @@ export const editor = {
     source = layout;
   },
 
+  setMe(userId: string | null): void {
+    me = userId;
+  },
+
   async begin(): Promise<void> {
     set(
       {
@@ -97,6 +110,7 @@ export const editor = {
         wallpaper: source.wallpaper,
         floor: source.floor,
         carrying: null,
+        carryingBy: null,
         dragging: false,
         error: null,
       },
@@ -110,19 +124,29 @@ export const editor = {
   },
 
   stop(): void {
-    set({ active: false, carrying: null, dragging: false, saving: false, error: null }, true);
+    set(
+      {
+        active: false,
+        carrying: null,
+        carryingBy: null,
+        dragging: false,
+        saving: false,
+        error: null,
+      },
+      true,
+    );
   },
 
-  /** How many more of `itemId` can be placed. */
+  /** How many more of your own `itemId` can be placed. */
   available(itemId: string): number {
-    const placed = state.placements.filter((p) => p.itemId === itemId).length;
-    const carried = state.carrying === itemId ? 1 : 0;
+    const placed = state.placements.filter((p) => p.itemId === itemId && isMine(p)).length;
+    const carried = state.carrying === itemId && !state.carryingBy ? 1 : 0;
     return (state.owned.get(itemId) ?? 0) - placed - carried;
   },
 
   carry(itemId: string, dragging: boolean): void {
     if (state.carrying !== itemId && editor.available(itemId) <= 0) return;
-    set({ carrying: itemId, dragging, error: null });
+    set({ carrying: itemId, carryingBy: null, dragging, error: null });
   },
 
   /** The drag ended outside the room: keep carrying, place with a click. */
@@ -130,9 +154,9 @@ export const editor = {
     set({ dragging: false });
   },
 
-  /** Put the carried item back in the inventory. */
+  /** Put the carried item back in the inventory (its owner's, if a housemate's). */
   drop(): void {
-    set({ carrying: null, dragging: false });
+    set({ carrying: null, carryingBy: null, dragging: false });
   },
 
   check(p: EditItem): PlaceCheck {
@@ -143,8 +167,15 @@ export const editor = {
   place(p: EditItem): PlaceCheck {
     const check = editor.check(p);
     if (!check.ok) return check;
+    const placed: EditItem = state.carryingBy ? { ...p, placedBy: state.carryingBy } : p;
     set(
-      { placements: [...state.placements, p], carrying: null, dragging: false, error: null },
+      {
+        placements: [...state.placements, placed],
+        carrying: null,
+        carryingBy: null,
+        dragging: false,
+        error: null,
+      },
       true,
     );
     return check;
@@ -175,7 +206,16 @@ export const editor = {
           canPlace(state.dims, rest.filter((q) => q !== p).map(toPlacement), toPlacement(p)).ok,
       );
     }
-    set({ placements: rest, carrying: hit.p.itemId, dragging: false, error: null }, true);
+    set(
+      {
+        placements: rest,
+        carrying: hit.p.itemId,
+        carryingBy: isMine(hit.p) ? null : (hit.p.placedBy ?? null),
+        dragging: false,
+        error: null,
+      },
+      true,
+    );
     return true;
   },
 
@@ -200,6 +240,7 @@ export const editor = {
           x: p.x,
           y: p.y,
           rotation: 0,
+          ...(p.placedBy ? { placed_by: p.placedBy } : {}),
         })),
       },
     });
