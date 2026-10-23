@@ -44,7 +44,15 @@ export async function fetchInventory(): Promise<Map<string, number>> {
 }
 
 export async function fetchHouseLevel(): Promise<number> {
-  const { data, error } = await supabase.from('houses').select('level').maybeSingle();
+  // Players can read friends' and public houses too, so pick their own explicitly.
+  const { data: session } = await supabase.auth.getSession();
+  const uid = session.session?.user.id;
+  if (!uid) return 1;
+  const { data, error } = await supabase
+    .from('houses')
+    .select('level')
+    .eq('owner_id', uid)
+    .maybeSingle();
   if (error) throw new Error(error.message);
   return (data as { level: number } | null)?.level ?? 1;
 }
