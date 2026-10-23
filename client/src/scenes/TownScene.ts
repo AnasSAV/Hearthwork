@@ -1,4 +1,3 @@
-import type Phaser from 'phaser';
 import { Callbacks, type Room } from '@colyseus/sdk';
 import {
   collisionGridFromTiled,
@@ -11,12 +10,13 @@ import {
   type TiledObject,
   type TownState,
 } from '@focus-town/shared';
+import { ABOVE_DEPTH, GROUND_DEPTH } from '../game/depths';
 import { LotView } from '../game/exteriors';
 import { goToHouse, type TownSceneData } from '../game/navigation';
 import { joinTown } from '../net/colyseus';
 import { supabase } from '../net/supabase';
 import { uiStore, type NearDesk, type NearLot, type TableTimer } from '../store';
-import { TOWN_MAP_KEY } from './BootScene';
+import { TOWN_MAP_KEY, TOWN_TILESET_KEY } from './BootScene';
 import { WorldScene } from './WorldScene';
 
 interface Door {
@@ -57,11 +57,12 @@ export class TownScene extends WorldScene<TownState> {
       .then(({ data }) => (this.myUserId = data.session?.user.id ?? null));
 
     const map = this.make.tilemap({ key: TOWN_MAP_KEY });
-    const tilesets = [map.addTilesetImage('tinytown'), map.addTilesetImage('indoor')].filter(
-      (t): t is Phaser.Tilemaps.Tileset => t !== null,
-    );
-    for (const name of ['ground', 'decor', 'buildings'])
-      map.createLayer(name, tilesets)?.setDepth(-10);
+    const tileset = map.addTilesetImage(TOWN_TILESET_KEY);
+    if (!tileset) throw new Error('town tileset missing');
+    for (const name of ['ground', 'paths', 'decor', 'below', 'below2'])
+      map.createLayer(name, tileset)?.setDepth(GROUND_DEPTH);
+    // Tree tops and lamp heads: drawn over players walking behind them.
+    for (const name of ['above', 'above2']) map.createLayer(name, tileset)?.setDepth(ABOVE_DEPTH);
     this.cameras.main.setBounds(0, 0, map.widthInPixels, map.heightInPixels);
 
     const mapData = this.cache.tilemap.get(TOWN_MAP_KEY) as { data: TiledMap };
@@ -84,7 +85,7 @@ export class TownScene extends WorldScene<TownState> {
             resolution: this.textResolution(),
           })
           .setOrigin(0.5, 1)
-          .setDepth(-5),
+          .setDepth(ABOVE_DEPTH + 1),
       );
     }
     const shop = buildings.find((b) => b.name === 'shop');
@@ -96,7 +97,7 @@ export class TownScene extends WorldScene<TownState> {
       const index = getProperty<number>(p, 'plotIndex');
       const door = doorOf(p);
       if (index === undefined || !door) continue;
-      const view = new LotView(this, { x: p.x, y: p.y }, this.textResolution());
+      const view = new LotView(this, p, this.textResolution());
       this.labels.push(view.label);
       this.plots.set(index, { index, door, view });
     }

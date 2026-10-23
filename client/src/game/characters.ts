@@ -8,6 +8,7 @@ import {
   DIRECTIONS,
   avatarCell,
   avatarFrame,
+  avatarSitFrame,
   decodeAvatar,
   type Direction,
 } from '@focus-town/shared';
@@ -22,6 +23,7 @@ export function loadCharacterAtlases(load: Phaser.Loader.LoaderPlugin): void {
 const textureKey = (code: string) => `avatar:${code}`;
 export const idleAnimKey = (code: string, dir: Direction) => `idle:${code}:${dir}`;
 export const walkAnimKey = (code: string, dir: Direction) => `walk:${code}:${dir}`;
+export const sitAnimKey = (code: string, side: 'left' | 'right') => `sit:${code}:${side}`;
 
 /**
  * Composite an avatar's layers into its own sprite sheet (idle, walk and sit rows of 16x32
@@ -74,6 +76,17 @@ export function ensureAvatarTexture(scene: Phaser.Scene, code: string): string {
       key: walkAnimKey(code, dir),
       frames: frames('walk', dir),
       frameRate: 10,
+      repeat: -1,
+    });
+  }
+  for (const side of ['left', 'right'] as const) {
+    scene.anims.create({
+      key: sitAnimKey(code, side),
+      frames: Array.from({ length: AVATAR_ANIM_FRAMES }, (_, i) => ({
+        key,
+        frame: avatarSitFrame(side, i),
+      })),
+      frameRate: 4,
       repeat: -1,
     });
   }

@@ -117,12 +117,12 @@ export function HouseSettings() {
                     onClick={() =>
                       void run(async () => {
                         await updateHouseSettings(data.house.visibility, style);
-                        return `Your house now has a ${style === 'brick' ? 'red roof' : 'blue roof'}.`;
+                        return `Your house now has ${style === 'brick' ? 'shuttered' : 'glass'} windows.`;
                       })
                     }
                   >
-                    <strong>{style === 'brick' ? 'Brick' : 'Cottage'}</strong>
-                    <small>{style === 'brick' ? 'Red roof, stone' : 'Blue roof, timber'}</small>
+                    <strong>{style === 'brick' ? 'Shutters' : 'Classic'}</strong>
+                    <small>{style === 'brick' ? 'Wooden shutters' : 'Glass windows'}</small>
                   </button>
                 ))}
               </div>

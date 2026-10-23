@@ -1,6 +1,10 @@
 import Phaser from 'phaser';
 import type { Direction } from '@focus-town/shared';
-import { ensureAvatarTexture, idleAnimKey, walkAnimKey } from './characters';
+import { ensureAvatarTexture, idleAnimKey, sitAnimKey, walkAnimKey } from './characters';
+
+/** Sprite y while standing / sitting (LimeZu sit frames line up with a chair's bottom edge). */
+const STAND_Y = 1;
+const SIT_Y = 2;
 
 /** A player avatar with a name tag. The container's (x, y) is the point between the feet. */
 export class PlayerSprite extends Phaser.GameObjects.Container {
@@ -29,7 +33,7 @@ export class PlayerSprite extends Phaser.GameObjects.Container {
   ) {
     super(scene, x, y);
     // 16x32 LimeZu frame; the feet touch the bottom edge and the head starts ~7px from the top.
-    this.body_ = scene.add.sprite(0, 1, ensureAvatarTexture(scene, avatar));
+    this.body_ = scene.add.sprite(0, STAND_Y, ensureAvatarTexture(scene, avatar));
     this.body_.setOrigin(0.5, 1);
     this.body_.play(idleAnimKey(avatar, 'down'));
     const style = {
@@ -60,7 +64,7 @@ export class PlayerSprite extends Phaser.GameObjects.Container {
     if (avatar !== this.avatar) {
       this.avatar = avatar;
       this.body_.setTexture(ensureAvatarTexture(this.scene, avatar));
-      this.body_.play((this.moving ? walkAnimKey : idleAnimKey)(avatar, this.dir));
+      this.playAnim();
     }
     if (name !== this.name_) {
       this.name_ = name;
@@ -122,6 +126,7 @@ export class PlayerSprite extends Phaser.GameObjects.Container {
     this.status = status;
     this.focusMin = focusMin;
     this.setAlpha(status === 'away' ? 0.45 : 1);
+    this.playAnim();
     if (status === 'focusing') {
       const short = this.name_.length > 9 ? `${this.name_.slice(0, 8)}…` : this.name_;
       this.label.setText(short).setColor('#b8f2c2');
@@ -139,7 +144,20 @@ export class PlayerSprite extends Phaser.GameObjects.Container {
     if (dir === this.dir && moving === this.moving) return;
     this.dir = dir;
     this.moving = moving;
-    this.body_.play((moving ? walkAnimKey : idleAnimKey)(this.avatar, dir), true);
+    this.playAnim();
+  }
+
+  /** Walk, stand, or sit (focusing in a side-facing chair; LimeZu only has side sit frames). */
+  private playAnim(): void {
+    const side = this.dir === 'left' || this.dir === 'right' ? this.dir : null;
+    const sitting = this.status === 'focusing' && !this.moving && side !== null;
+    this.body_.y = sitting ? SIT_Y : STAND_Y;
+    this.body_.play(
+      sitting && side
+        ? sitAnimKey(this.avatar, side)
+        : (this.moving ? walkAnimKey : idleAnimKey)(this.avatar, this.dir),
+      true,
+    );
   }
 
   /** Jump straight to a position (local player, corrections). */

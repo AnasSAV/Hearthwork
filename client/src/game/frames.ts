@@ -34,8 +34,3 @@ export function itemFrame(
     rect,
   };
 }
-
-/** Tiny Town tile index (12 columns) → frame. */
-export function tinyFrame(scene: Phaser.Scene, index: number): string {
-  return tileFrame(scene, SHEETS.tinytown, index % 12, Math.floor(index / 12));
-}
