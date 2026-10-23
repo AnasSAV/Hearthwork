@@ -404,3 +404,174 @@ kbd {
   background: rgba(29, 27, 42, 0.6);
   pointer-events: auto;
 }
+
+/* ---------- Shop ---------- */
+
+.shop {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  width: min(760px, calc(100vw - 32px));
+  max-height: min(640px, calc(100vh - 32px));
+  padding: 20px;
+}
+
+.shop-header {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.shop-header > div:first-child {
+  flex: 1;
+}
+
+.shop-coins {
+  font-weight: 800;
+  font-size: 18px;
+  color: var(--accent);
+  white-space: nowrap;
+}
+
+.icon-btn {
+  font: inherit;
+  color: var(--muted);
+  background: none;
+  border: 0;
+  font-size: 16px;
+  cursor: pointer;
+  padding: 2px 6px;
+}
+
+.tabs {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.tabs button {
+  font: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text);
+  background: rgba(253, 246, 227, 0.06);
+  border: 1px solid transparent;
+  border-radius: 999px;
+  padding: 5px 12px;
+  cursor: pointer;
+}
+
+.tabs button.selected {
+  border-color: var(--accent);
+  background: rgba(244, 184, 96, 0.15);
+}
+
+.shop-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 10px;
+  overflow-y: auto;
+  padding-right: 4px;
+}
+
+.shop-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 12px 10px;
+  border-radius: 10px;
+  background: rgba(253, 246, 227, 0.05);
+  border: 1px solid var(--panel-border);
+  text-align: center;
+}
+
+.shop-card.locked .item-sprite-box {
+  opacity: 0.45;
+}
+
+.shop-card-name {
+  font-weight: 700;
+  font-size: 13px;
+}
+
+.shop-card-meta {
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.shop-card .btn {
+  width: 100%;
+  font-size: 13px;
+}
+
+.owned {
+  color: #b8f2c2;
+}
+
+.item-sprite-box {
+  display: grid;
+  place-items: center;
+  border-radius: 8px;
+  background: #c9a46c;
+}
+
+.item-sprite {
+  display: block;
+  background-repeat: no-repeat;
+  image-rendering: pixelated;
+}
+
+/* ---------- Inventory drawer ---------- */
+
+.drawer {
+  position: absolute;
+  top: 60px;
+  right: 12px;
+  bottom: 12px;
+  width: min(300px, calc(100vw - 24px));
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 16px;
+  overflow-y: auto;
+}
+
+.drawer-group {
+  margin: 4px 0 6px;
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--muted);
+}
+
+.drawer-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 6px;
+}
+
+.drawer-item {
+  position: relative;
+}
+
+.drawer-name {
+  display: block;
+  margin-top: 3px;
+  font-size: 10px;
+  line-height: 1.2;
+  color: var(--muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.drawer-item .qty {
+  position: absolute;
+  right: 4px;
+  top: 32px;
+  font-size: 11px;
+  font-weight: 800;
+  color: var(--text);
+  text-shadow: 0 1px 2px #000;
+}

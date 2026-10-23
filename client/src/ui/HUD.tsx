@@ -1,5 +1,5 @@
 import { supabase } from '../net/supabase';
-import { useUi } from '../store';
+import { uiStore, useUi } from '../store';
 
 export function HUD() {
   const name = useUi((s) => s.playerName);
@@ -8,6 +8,8 @@ export function HUD() {
   const wallet = useUi((s) => s.wallet);
   const connected = useUi((s) => s.connection.kind === 'connected');
   const nearDesk = useUi((s) => s.nearDesk);
+  const nearShop = useUi((s) => s.nearShop);
+  const shopOpen = useUi((s) => s.shopOpen);
   const focusing = useUi((s) => s.focus !== null);
   const timerOpen = useUi((s) => s.timerOpen);
 
@@ -34,6 +36,13 @@ export function HUD() {
         <span title={`${online} in this town`}>
           {focusingNow} {focusingNow === 1 ? 'person' : 'people'} focusing now
         </span>
+        <button
+          type="button"
+          className="link"
+          onClick={() => uiStore.set({ inventoryOpen: !uiStore.get().inventoryOpen })}
+        >
+          Inventory
+        </button>
         <button type="button" className="link" onClick={() => void supabase.auth.signOut()}>
           Sign out
         </button>
@@ -48,7 +57,12 @@ export function HUD() {
           Press <kbd>E</kbd> to start focusing
         </div>
       )}
-      <div className="controls panel">WASD / arrow keys to walk · E to use a desk</div>
+      {nearShop && !shopOpen && (
+        <div className="hint panel">
+          Press <kbd>E</kbd> to enter the Furniture Shop
+        </div>
+      )}
+      <div className="controls panel">WASD / arrows: walk · E: use · I: inventory</div>
     </>
   );
 }

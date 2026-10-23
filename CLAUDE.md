@@ -17,7 +17,8 @@ Full brief: `docs/SPEC.md`. Judgement calls and API deviations: `docs/DECISIONS.
 ```
 client/   src/scenes (Phaser), src/ui (React), src/net (Colyseus/Supabase), public/assets
 server/   src/rooms (TownRoom, HouseRoom), src/focus, src/db.ts (service-role, server only)
-shared/   src/schemas.ts (Zod), src/state.ts (Colyseus schema), src/movement.ts, src/constants.ts
+shared/   src/schemas.ts (Zod), src/state.ts (Colyseus schema), src/movement.ts, src/constants.ts,
+          src/focus.ts (verified-minute rules), src/catalog.ts (items → `npm run seed:items`)
 supabase/ migrations/*.sql, seed.sql
 tools/    asset/map generators (bootstrap only, Tiled .tmx is the source of truth afterwards)
 docs/     SPEC.md, DECISIONS.md

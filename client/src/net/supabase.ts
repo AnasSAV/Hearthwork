@@ -17,3 +17,8 @@ export async function currentAccessToken(): Promise<string | null> {
   const { data } = await supabase.auth.getSession();
   return data.session?.access_token ?? null;
 }
+
+// Dev-only console handle, e.g. to check that RLS blocks
+// `await __supabase.from('profiles').update({ coins: 99999 }).eq('id', '<your id>')`.
+if (import.meta.env.DEV)
+  (window as unknown as { __supabase: typeof supabase }).__supabase = supabase;

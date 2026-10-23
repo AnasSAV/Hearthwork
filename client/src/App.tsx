@@ -5,6 +5,8 @@ import { AuthGate } from './ui/AuthGate';
 import { ConnectionOverlay } from './ui/ConnectionOverlay';
 import { FocusPanel } from './ui/FocusPanel';
 import { HUD } from './ui/HUD';
+import { InventoryDrawer } from './ui/InventoryDrawer';
+import { ShopPanel } from './ui/ShopPanel';
 
 function Game() {
   const gameRef = useRef<HTMLDivElement>(null);
@@ -24,6 +26,8 @@ function Game() {
       <div className="overlay">
         <HUD />
         <FocusPanel />
+        <InventoryDrawer />
+        <ShopPanel />
         <ConnectionOverlay />
       </div>
     </>

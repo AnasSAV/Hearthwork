@@ -28,6 +28,12 @@ export interface UiState {
   wallet: WalletMessage | null;
   /** Desk seat the player is standing on, if any. */
   nearDesk: NearDesk | null;
+  /** Standing at the Furniture Shop's door. */
+  nearShop: boolean;
+  shopOpen: boolean;
+  inventoryOpen: boolean;
+  /** Bumped after purchases so the inventory drawer refetches. */
+  inventoryVersion: number;
   /** The focus timer panel is open (choosing a block, or running). */
   timerOpen: boolean;
   focus: ActiveFocus | null;
@@ -42,6 +48,10 @@ const initial: UiState = {
   focusingNow: 0,
   wallet: null,
   nearDesk: null,
+  nearShop: false,
+  shopOpen: false,
+  inventoryOpen: false,
+  inventoryVersion: 0,
   timerOpen: false,
   focus: null,
   focusSummary: null,

@@ -158,3 +158,45 @@ Judgement calls and places where the brief and the real libraries didn't match. 
 
 - `npm run test:db` runs SQL integration tests against a local Supabase stack (Docker).
   `npm run e2e:focus` runs a real-time 6½-minute focus session through the real server.
+
+## Phase 3 (2026-10-23)
+
+### Catalog
+
+- 50 items (22 furniture, 18 decor, 4 plants, 3 wallpapers, 3 floors) from Kenney Roguelike
+  Indoors plus a few Tiny Town plants/walls. `shared/src/catalog.ts` is the single source and
+  `npm run seed:items` generates `supabase/seed.sql` from it. A unit test fails if they drift.
+  At runtime the `items` table is authoritative: the shop reads prices from it and `buy_item`
+  charges from it.
+- `items.sprite_key` is self-describing, `sheet:x,y,w,h` (tile rectangle in a tileset), so the
+  client can draw any item without a separate atlas. The rectangle size is the footprint.
+- Extra `items` columns: `surface_host` (tables, desks, dressers can hold `surface` items like
+  candelabras, for Phase 4's `canPlace`) and `active` (retired items stay for inventories but
+  leave the shop).
+- Categories follow the brief (`furniture | wall | floor | decor | plant`). `wall`/`floor` are
+  wallpapers and floorings that restyle the room. Hung decor (paintings, shields) is category
+  `decor` with layer `wall`. Rugs are `decor` with layer `rug` and cost 90–120: they're big, so
+  they sit above the 40–80 "small decor" band.
+- Level gates: long dining table, piano and the two big couches need house level 2; the
+  gilded mirror needs level 3.
+
+### Buying
+
+- `buy_item(item_id, request_id)` is called straight from the browser (as the brief says),
+  with the player's JWT. The client sends only the item id plus a fresh UUID per click. The
+  function locks the profile row, so concurrent purchases by one player run one at a time,
+  reads the price from `items`, and checks house level and balance. It then writes the coin
+  change, a `purchase` ledger row (ref = purchase id), a `purchases` row and the inventory
+  increment in one transaction.
+- Double-clicks: the button disables while a purchase is in flight (with a ref guard for clicks
+  that land before re-render). A repeated `request_id` returns the original result without
+  charging. Five simultaneous buys with coins for one buy exactly one (tested).
+- Wallpapers and floors can only be bought once.
+- The HUD balance updates from `buy_item`'s returned balance. Focus awards still come from the
+  game server.
+
+### Dev tooling
+
+- `client/vite.config.ts` adds `shared/src` to Vite's file watcher: it's outside the Vite root,
+  so without this, edits to `shared/` were served stale until Vite restarted.
+- Dev builds expose `window.__supabase` so RLS can be poked from the browser console.

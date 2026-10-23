@@ -40,6 +40,9 @@ export class TownScene extends Phaser.Scene {
   private room: TownRoom | null = null;
   private grid!: CollisionGrid;
   private desks: TiledObject[] = [];
+  /** Feet position just outside the Furniture Shop's door. */
+  private shopDoor: { x: number; y: number } | null = null;
+  private buildingLabels: Phaser.GameObjects.Text[] = [];
   private sprites = new Map<string, PlayerSprite>();
   private local: PlayerSprite | null = null;
 
@@ -68,6 +71,29 @@ export class TownScene extends Phaser.Scene {
     const mapData = this.cache.tilemap.get(TOWN_MAP_KEY) as { data: TiledMap };
     this.grid = collisionGridFromTiled(mapData.data);
     this.desks = findObjects(mapData.data, MapObjectType.Desk);
+    const buildings = findObjects(mapData.data, MapObjectType.Building);
+    this.buildingLabels = [];
+    for (const b of buildings) {
+      const label = getProperty<string>(b, 'label');
+      if (!label) continue;
+      const text = this.add
+        .text(b.x + b.width / 2, b.y - 2, label, {
+          fontFamily: 'system-ui, -apple-system, "Segoe UI", sans-serif',
+          fontSize: '7px',
+          fontStyle: 'bold',
+          color: '#fff3b0',
+          stroke: '#1d1b2a',
+          strokeThickness: 2,
+          resolution: this.textResolution(),
+        })
+        .setOrigin(0.5, 1)
+        .setDepth(-5);
+      this.buildingLabels.push(text);
+    }
+    const shop = buildings.find((b) => b.name === 'shop');
+    const doorX = shop && getProperty<number>(shop, 'doorX');
+    const doorY = shop && getProperty<number>(shop, 'doorY');
+    this.shopDoor = doorX !== undefined && doorY !== undefined ? { x: doorX, y: doorY } : null;
 
     this.cameras.main.setBounds(0, 0, map.widthInPixels, map.heightInPixels);
     this.cameras.main.setBackgroundColor('#1d1b2a');
@@ -81,10 +107,16 @@ export class TownScene extends Phaser.Scene {
     };
     keyboard.addKey('E').on('down', () => {
       const ui = uiStore.get();
-      if (ui.nearDesk && !ui.focus) uiStore.set({ timerOpen: true, focusSummary: null });
+      if (ui.nearShop) uiStore.set({ shopOpen: true });
+      else if (ui.nearDesk && !ui.focus) uiStore.set({ timerOpen: true, focusSummary: null });
+    });
+    keyboard.addKey('I').on('down', () => {
+      uiStore.set({ inventoryOpen: !uiStore.get().inventoryOpen });
     });
     keyboard.addKey('ESC').on('down', () => {
-      if (!uiStore.get().focus) uiStore.set({ timerOpen: false, focusError: null });
+      const ui = uiStore.get();
+      if (ui.shopOpen || ui.inventoryOpen) uiStore.set({ shopOpen: false, inventoryOpen: false });
+      else if (!ui.focus) uiStore.set({ timerOpen: false, focusError: null });
     });
 
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => this.teardown());
@@ -99,6 +131,7 @@ export class TownScene extends Phaser.Scene {
     const zoom = Math.max(2, Math.floor(Math.min(width / 384, height / 256)));
     this.cameras.main.setZoom(zoom);
     for (const s of this.sprites.values()) s.setTextResolution(this.textResolution());
+    for (const t of this.buildingLabels) t.setResolution(this.textResolution());
   }
 
   private textResolution(): number {
@@ -229,8 +262,9 @@ export class TownScene extends Phaser.Scene {
 
   override update(time: number, delta: number): void {
     if (!this.local || !this.room) return;
-    // Seated at a desk: the server holds the player in place until the session ends.
-    if (uiStore.get().focus) return;
+    // Seated at a desk (the server holds the player in place), or browsing the shop.
+    const ui = uiStore.get();
+    if (ui.focus || ui.shopOpen) return;
 
     const { cursors, wasd } = this.keys;
     const input = {
@@ -253,6 +287,7 @@ export class TownScene extends Phaser.Scene {
     this.local.setMotion(this.dir, wantsToMove);
     this.sendMove(time);
     this.updateNearDesk();
+    this.updateNearShop();
   }
 
   /** Send the predicted position at most every MOVE_SEND_INTERVAL_MS, and only when it changed. */
@@ -290,6 +325,17 @@ export class TownScene extends Phaser.Scene {
       ? { id: desk.name, table: getProperty<string>(desk, 'table') ?? null }
       : null;
     uiStore.set({ nearDesk: near, ...(near ? {} : { timerOpen: false, focusError: null }) });
+  }
+
+  private updateNearShop(): void {
+    const door = this.shopDoor;
+    // Standing on the doorstep: the tile right below the door.
+    const near =
+      !!door &&
+      Math.abs(this.pos.x - door.x) <= 10 &&
+      this.pos.y > door.y &&
+      this.pos.y <= door.y + 16;
+    if (uiStore.get().nearShop !== near) uiStore.set({ nearShop: near });
   }
 
   private teardown(): void {
