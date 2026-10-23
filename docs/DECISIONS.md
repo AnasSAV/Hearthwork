@@ -279,3 +279,68 @@ Judgement calls and places where the brief and the real libraries didn't match. 
   paid as usual.
 - The brief's `HouseEdit` scene became an edit mode inside `HouseScene` (same scene, same
   room), driven by `client/src/house/editor.ts`.
+
+## Phase 5 (2026-10-23)
+
+### Chat
+
+- Room-scoped (town instance or house). The server trims, strips control and zero-width
+  characters, caps at 200 chars, masks profanity (`shared/src/chat.ts`, a small English list
+  with l33t and repeated-letter matching and Scunthorpe-safe word boundaries), and allows one
+  message per second (extra ones get a "slow down" notice rather than a disconnect).
+- The last 50 messages stay in room memory; newcomers get the last 20. **Reports** carry only a
+  message id: the server looks up its own copy and stores it in `chat_reports` (service role),
+  so nobody can report words that were never said. Review open reports in the SQL editor:
+  `select * from chat_reports where not resolved order by created_at desc`.
+- **Mute** is per viewer and stored in the browser (localStorage), by user id. Muted players'
+  messages and speech bubbles are hidden.
+- While any text field has focus, Phaser's keyboard is disabled (it captured W/A/S/D/E/I
+  globally, which also broke the Friends search box).
+
+### Group focus tables
+
+- The two plaza tables (`table` property on their seats in the map) share one Pomodoro. The
+  first person to sit picks 25 or 50 minutes (open-ended isn't offered there); later arrivals
+  join the same countdown, synced as `TownState.tables`. Each person's minutes are still
+  verified individually. Late joiners can't finish the whole block, so they get no completion
+  bonus. The table closes 90 s after the countdown (grace for the last heartbeat), and empty
+  tables reset.
+- Clients need the server's clock for countdowns, so rooms send `clock` on join and every
+  30 s.
+
+### Radio and ambience
+
+- The brief's mechanism is followed exactly: `client/public/radio/playlist.json` has tracks and
+  durations plus `startedAt`; every client computes `(serverNow - startedAt) mod
+playlistLength` (`shared/src/radio.ts`, unit-tested) and plays that track from that offset.
+- **No music files are shipped**: there were no license-cleared lofi tracks to bundle. The
+  default tracks are `synth:<seed>`: deterministic lofi generated in the browser with WebAudio
+  (chords, bass, swung drums, melody, vinyl crackle), identical for everyone, CC0 by
+  construction. To add real tracks, drop license-cleared files in `client/public/radio/` and
+  list them with `src`, `durationSec` and `license`; both kinds can be mixed.
+- Ambient rain, fireplace, birds and wind are synthesised too, with a per-player mix saved in
+  the browser.
+- Audio starts on a click (browser autoplay rules). Playing audio also keeps background tabs
+  from being throttled, which pairs well with the focus timer's audio-only mode.
+
+### Stats
+
+- A **Stats** panel (in-game modal rather than a separate page) shows totals, current and
+  longest streak, best day, sessions, coins earned/spent, a 14-day bar chart and a 26-week
+  streak calendar. One SQL function, `my_stats()`, does the aggregates; `focus_daily` feeds the
+  charts. Charts follow the dataviz rules: one sequential blue ramp stepped for the dark
+  surface, a hover tooltip on every mark and a table view.
+- Streaks shown anywhere (HUD, stats) are the _effective_ streak: zero if the last focus day
+  was before yesterday (UTC). Previously the HUD showed a stale stored value.
+
+### Operations
+
+- `npm run check:ledger` (and the nightly workflow) fails if any balance differs from its ledger.
+- `npm run load -- --bots N --seconds S` runs signed-in bots with legal movement and chat. On
+  the dev machine: 30 bots, join p50/p95 36/53 ms, 7,773 moves with 0 server corrections, chat
+  delivered to all 30.
+- Deploy files: `render.yaml`, `deploy/pm2/ecosystem.config.cjs` (one fork-mode instance),
+  `deploy/caddy/Caddyfile`, `client/public/_headers`, `.node-version`, and workflows for CI,
+  keep-alive, encrypted nightly `supabase db dump` and the ledger check. Walkthrough:
+  `docs/DEPLOY.md`.
+- Production builds run on Node 22 (Render, Pages, CI); development used Node 24.

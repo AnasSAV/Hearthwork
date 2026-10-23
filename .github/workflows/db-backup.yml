@@ -1,0 +1,43 @@
+# Nightly encrypted backup of the Supabase database (the free tier has no automatic backups).
+# Needs repo secrets:
+#   SUPABASE_DB_URL     Session pooler connection string (Dashboard → Connect; IPv4, port 5432)
+#   BACKUP_PASSPHRASE   Long random passphrase; dumps contain user data, so they're encrypted
+# Backups are kept as workflow artifacts for 30 days. Restore steps: docs/DEPLOY.md.
+name: Database backup
+
+on:
+  schedule:
+    - cron: '23 2 * * *' # nightly, 02:23 UTC
+  workflow_dispatch:
+
+jobs:
+  dump:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: supabase/setup-cli@v3
+        with:
+          version: latest
+      - name: Dump roles, schema and data (auth + public)
+        env:
+          DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+        run: |
+          set -euo pipefail
+          supabase db dump --db-url "$DB_URL" --role-only -f roles.sql
+          supabase db dump --db-url "$DB_URL" -f schema.sql
+          supabase db dump --db-url "$DB_URL" --data-only --use-copy -f data.sql
+          supabase db dump --db-url "$DB_URL" --data-only --use-copy --schema auth -f auth_data.sql
+          tar czf backup.tgz roles.sql schema.sql auth_data.sql data.sql
+      - name: Encrypt
+        env:
+          BACKUP_PASSPHRASE: ${{ secrets.BACKUP_PASSPHRASE }}
+        run: |
+          set -euo pipefail
+          gpg --batch --yes --pinentry-mode loopback --passphrase "$BACKUP_PASSPHRASE" \
+            --symmetric --cipher-algo AES256 -o "focus-town-$(date -u +%F).tgz.gpg" backup.tgz
+          rm backup.tgz roles.sql schema.sql auth_data.sql data.sql
+      - uses: actions/upload-artifact@v7
+        with:
+          name: db-backup-${{ github.run_id }}
+          path: focus-town-*.tgz.gpg
+          retention-days: 30
+          if-no-files-found: error

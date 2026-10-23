@@ -1,0 +1,18 @@
+# Caddy in front of the game server: automatic HTTPS (Let's Encrypt) and WebSocket proxying.
+# 1. Point a DNS A record (e.g. game.example.com) at the VM's public IP.
+# 2. Replace the domain below, copy this file to /etc/caddy/Caddyfile, `sudo systemctl reload caddy`.
+# The client then uses VITE_SERVER_URL=https://game.example.com (the SDK switches to wss://).
+
+game.example.com {
+	encode zstd gzip
+
+	# Colyseus HTTP (matchmaking, /health) and WebSockets on the same port.
+	reverse_proxy 127.0.0.1:2567
+
+	log {
+		output file /var/log/caddy/focus-town.log {
+			roll_size 10MiB
+			roll_keep 5
+		}
+	}
+}

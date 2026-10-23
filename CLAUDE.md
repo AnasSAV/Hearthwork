@@ -23,7 +23,8 @@ shared/   src/schemas.ts (Zod), src/state.ts (Colyseus schema), src/movement.ts,
           src/house.ts (canPlace + interior geometry; mirrored by save_layout in SQL)
 supabase/ migrations/*.sql, seed.sql
 tools/    asset/map generators (bootstrap only, Tiled .tmx is the source of truth afterwards)
-docs/     SPEC.md, DECISIONS.md
+docs/     SPEC.md, DECISIONS.md, SETUP.md (keys), DEPLOY.md
+deploy/   pm2 + Caddy configs; render.yaml at the root; .github/workflows (CI, backups, checks)
 ```
 
 `shared` is consumed as TypeScript source (no build step); Vite and tsx compile it.

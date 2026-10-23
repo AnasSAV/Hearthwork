@@ -17,7 +17,10 @@ Sign up, pick a username and avatar, walk to a desk in the plaza and press **E**
 Spend coins at the Furniture Shop (red roof, north-west): stand at its door and press **E**.
 **I** opens your inventory. **Home** takes you to your house: press **Decorate** to place
 furniture, **Settings** for visibility, exterior and upgrades. Add friends from **Friends**
-and visit their houses (you can study at their desks too).
+and visit their houses (you can study at their desks too). **Enter** opens chat, **Sounds**
+(top right) plays the synced lofi radio and ambience, and **Stats** shows your streaks.
+
+Deploying: see `docs/DEPLOY.md` (Supabase, Render, Cloudflare Pages, Oracle VM, GitHub Actions).
 Use a second browser (or a private window) with another account to see two players.
 
 ## Scripts
@@ -32,6 +35,8 @@ Use a second browser (or a private window) with another account to see two playe
 | `npm run test:db`                 | SQL integration tests against local Supabase                         |
 | `npm run e2e:focus`               | 6½-minute real focus session through the running server              |
 | `npm run e2e:house`               | Decorate, visit, study at a friend's desk, go private, upgrade       |
+| `npm run load -- --bots 30`       | Load test: signed-in bots walking and chatting                       |
+| `npm run check:ledger`            | Verify every balance equals its coin ledger                          |
 | `npm run smoke`                   | Two bots join a running server and check sync, speed and wall checks |
 | `npm run map:town`                | Regenerate the town map (overwrites `town.tmx`/`town.json`)          |
 | `npm run seed:items`              | Regenerate `supabase/seed.sql` from `shared/src/catalog.ts`          |

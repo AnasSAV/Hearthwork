@@ -1,0 +1,13 @@
+# Cloudflare Pages response headers.
+/*
+  X-Content-Type-Options: nosniff
+  X-Frame-Options: DENY
+  Referrer-Policy: strict-origin-when-cross-origin
+  Permissions-Policy: camera=(), microphone=(), geolocation=()
+
+# Built JS/CSS are content-hashed; tilesets and maps are not, so keep this to a day.
+/assets/*
+  Cache-Control: public, max-age=86400
+
+/radio/*
+  Cache-Control: public, max-age=3600

@@ -1,0 +1,25 @@
+# Nightly check that every player's coin balance equals the sum of their ledger rows.
+# A failure means a bug (or tampering) and GitHub emails the repo owner about the failed run.
+# Needs repo secrets SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY.
+name: Ledger consistency
+
+on:
+  schedule:
+    - cron: '47 3 * * *' # nightly, 03:47 UTC
+  workflow_dispatch:
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .node-version
+          cache: npm
+      - run: npm ci
+      - name: profiles.coins == sum(coin_ledger.delta) for everyone
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+        run: npx tsx tools/db/check-ledger.ts

@@ -1,0 +1,25 @@
+# Render Blueprint for the Colyseus game server (free web service, for prototyping).
+# Render → New → Blueprint → pick this repo. Then fill in the two secret env vars below.
+# The free tier sleeps after 15 min without traffic and takes ~1 min to wake; the client shows
+# "Waking up server…" meanwhile. Filesystem is wiped on restart: all state lives in Supabase.
+services:
+  - type: web
+    name: focus-town-server
+    runtime: node
+    plan: free
+    # Pick the region closest to your players (and to your Supabase project).
+    region: singapore
+    buildCommand: npm ci --include=dev && npm run build -w @focus-town/server
+    startCommand: npm run start -w @focus-town/server
+    healthCheckPath: /health
+    autoDeploy: true
+    envVars:
+      - key: NODE_VERSION
+        value: '22'
+      - key: NODE_ENV
+        value: production
+      - key: SUPABASE_URL
+        sync: false
+      # Secret / service-role key. Server only, never in the client build.
+      - key: SUPABASE_SERVICE_ROLE_KEY
+        sync: false

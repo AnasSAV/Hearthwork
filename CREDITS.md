@@ -17,6 +17,13 @@ it's deserved. Support Kenney at https://kenney.nl/support.
   `tools/maps/build-town.ts` from the tilesets above. Edit the `.tmx` in
   [Tiled](https://www.mapeditor.org/) and re-export JSON with tilesets embedded.
 
+## Audio
+
+- The radio's default tracks and the ambient sounds are generated live in the browser with
+  WebAudio (`client/src/audio/`). They are original to this project (CC0); no audio files are
+  shipped. Any real tracks added to `client/public/radio/playlist.json` must be license-cleared,
+  with the license recorded in their `license` field.
+
 ## Code references
 
 - Patterns borrowed (not code) from [SkyOffice](https://github.com/kevinshen56714/SkyOffice) (MIT).
