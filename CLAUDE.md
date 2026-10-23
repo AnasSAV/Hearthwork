@@ -4,13 +4,16 @@ Multiplayer pixel town where verified focus time earns coins for decorating your
 Full brief: `docs/SPEC.md`. Judgement calls and API deviations: `docs/DECISIONS.md`.
 
 ## Stack
+
 - Client: Phaser 4 (game) + React 19 overlays + Vite. Colyseus SDK `@colyseus/sdk` 0.18.
 - Server: Colyseus 0.18 (`colyseus`, `@colyseus/schema` v5, `schema()` builder, no decorators), Node 24, run with `tsx`.
 - Shared: Zod 4 message schemas, Colyseus state schema, movement/collision, constants.
 - DB/Auth: Supabase (Postgres + RLS + SQL functions). Maps: Tiled JSON. Art: Kenney CC0, 16×16.
 - TypeScript 6.0.x (not 7: typescript-eslint doesn't support 7 yet).
+- Vite 7.x (not 8: Windows Smart App Control blocks rolldown's native binary on the dev machine).
 
 ## Layout
+
 ```
 client/   src/scenes (Phaser), src/ui (React), src/net (Colyseus/Supabase), public/assets
 server/   src/rooms (TownRoom, HouseRoom), src/focus, src/db.ts (service-role, server only)
@@ -19,15 +22,18 @@ supabase/ migrations/*.sql, seed.sql
 tools/    asset/map generators (bootstrap only, Tiled .tmx is the source of truth afterwards)
 docs/     SPEC.md, DECISIONS.md
 ```
+
 `shared` is consumed as TypeScript source (no build step); Vite and tsx compile it.
 
 ## Commands
+
 - `npm install` once at the root (npm workspaces).
 - `npm run dev`: server on :2567 + client on :5173.
 - `npm run typecheck`, `npm run lint`, `npm run format`, `npm test`.
 - `npm run build`: production builds of client and server.
 
 ## Core rules (never break)
+
 - Server is the only source of truth for time and coins. Clients send intents only
   (`focus:start`, `focus:beat`, `focus:end`, `buy`, `move` …), never durations, coin amounts or prices.
 - Every coin change writes a `coin_ledger` row in the same transaction that changes
@@ -40,6 +46,7 @@ docs/     SPEC.md, DECISIONS.md
 - Game server keeps no important state only in memory/disk (Render free tier restarts at will).
 
 ## Conventions
+
 - Commits: small and working, clear messages, authored by AnasSAV only (no co-author trailers).
 - Stop after each phase in SPEC.md and wait for the user.
 - Note any deviation from the brief in `docs/DECISIONS.md`.

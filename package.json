@@ -1,0 +1,39 @@
+{
+  "name": "focus-town",
+  "private": true,
+  "type": "module",
+  "workspaces": [
+    "shared",
+    "server",
+    "client"
+  ],
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "dev": "concurrently -k -n server,client -c magenta,cyan \"npm:dev -w @focus-town/server\" \"npm:dev -w @focus-town/client\"",
+    "build": "npm run build -w @focus-town/server && npm run build -w @focus-town/client",
+    "typecheck": "npm run typecheck --workspaces --if-present && tsc -p tools",
+    "lint": "eslint .",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "test": "vitest run",
+    "smoke": "tsx tools/bots/smoke.ts",
+    "map:town": "tsx tools/maps/build-town.ts"
+  },
+  "devDependencies": {
+    "@colyseus/sdk": "^0.18.6",
+    "@eslint/js": "^10.0.1",
+    "@types/node": "^24.19.2",
+    "concurrently": "^10.0.6",
+    "eslint": "^10.13.0",
+    "eslint-plugin-react-hooks": "^7.1.1",
+    "globals": "^17.13.0",
+    "prettier": "^3.9.10",
+    "tsx": "^4.23.15",
+    "typescript": "~6.0.3",
+    "typescript-eslint": "^8.72.0",
+    "vite": "~7.3.7",
+    "vitest": "^5.0.5"
+  }
+}

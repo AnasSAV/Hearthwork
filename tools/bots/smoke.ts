@@ -1,0 +1,107 @@
+/**
+ * Multiplayer smoke test: two bots join the town, one walks, the other must see it; then the
+ * walker tries a teleport and a wall walk-through, which the server must reject.
+ *
+ * Run against a live server: npx tsx tools/bots/smoke.ts [http://localhost:2567]
+ */
+import { Callbacks, Client, type Room } from '@colyseus/sdk';
+import {
+  canStand,
+  ClientMsg,
+  collisionGridFromTiled,
+  ServerMsg,
+  TownState,
+  type MoveCorrectMessage,
+  type MoveMessage,
+  type PlayerState,
+  type TiledMap,
+} from '@focus-town/shared';
+import townJson from '../../client/public/assets/maps/town.json' with { type: 'json' };
+
+const url = process.argv[2] ?? 'http://localhost:2567';
+const grid = collisionGridFromTiled(townJson as TiledMap);
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
+function check(cond: boolean, label: string): void {
+  console.log(`${cond ? 'PASS' : 'FAIL'}  ${label}`);
+  if (!cond) process.exitCode = 1;
+}
+
+const client = new Client(url);
+const walker: Room<unknown, TownState> = await client.joinOrCreate(
+  'town',
+  { name: 'WalkerBot', avatar: 1 },
+  TownState,
+);
+const watcher: Room<unknown, TownState> = await client.joinOrCreate(
+  'town',
+  { name: 'WatcherBot', avatar: 2 },
+  TownState,
+);
+check(walker.roomId === watcher.roomId, 'both bots share one town instance');
+
+await sleep(300);
+check(watcher.state.players.size >= 2, `watcher sees ${watcher.state.players.size} players`);
+
+const corrections: MoveCorrectMessage[] = [];
+walker.onMessage(ServerMsg.MoveCorrect, (m: MoveCorrectMessage) => corrections.push(m));
+
+let seenMoves = 0;
+Callbacks.get(watcher).onAdd('players', (p: PlayerState, id: string) => {
+  if (id !== walker.sessionId) return;
+  Callbacks.get(watcher).onChange(p, () => seenMoves++);
+});
+
+// 1. Walk along the open road at legal speed.
+const me = walker.state.players.get(walker.sessionId)!;
+let x = me.x;
+const y = me.y;
+for (let i = 0; i < 10; i++) {
+  const nx = x + 8; // 8px per 100ms = 80px/s
+  if (!canStand(grid, nx, y)) break;
+  x = nx;
+  const msg: MoveMessage = { x, y, dir: 'right', moving: true };
+  walker.send(ClientMsg.Move, msg);
+  await sleep(110);
+}
+await sleep(300);
+const seen = watcher.state.players.get(walker.sessionId)!;
+check(Math.abs(seen.x - x) < 0.01, `watcher sees walker at x=${seen.x} (expected ${x})`);
+check(seenMoves > 0, `watcher received ${seenMoves} position updates`);
+check(corrections.length === 0, 'legal walk produced no corrections');
+
+// 2. Teleport attempt.
+walker.send(ClientMsg.Move, { x: x + 200, y, dir: 'right', moving: true } satisfies MoveMessage);
+await sleep(300);
+check(corrections.length === 1, 'teleport rejected with a correction');
+check(Math.abs(seen.x - x) < 0.01, 'teleport did not change server position');
+
+// 3. Step into the nearest solid tile in reach.
+let target: { x: number; y: number } | null = null;
+for (let dy = -40; dy <= 40 && !target; dy += 2) {
+  for (let dx = -40; dx <= 40; dx += 2) {
+    if (!canStand(grid, x + dx, y + dy)) {
+      target = { x: x + dx, y: y + dy };
+      break;
+    }
+  }
+}
+if (target) {
+  await sleep(600);
+  walker.send(ClientMsg.Move, { ...target, dir: 'up', moving: true } satisfies MoveMessage);
+  await sleep(300);
+  check(corrections.length === 2, `walking into a wall at (${target.x}, ${target.y}) rejected`);
+} else {
+  console.log('SKIP  no solid tile within reach of the walker');
+}
+
+// 4. Invalid payload is ignored, connection survives.
+walker.send(ClientMsg.Move, { x: 'nope', y: Infinity });
+walker.send('not-a-real-message', { hi: 1 });
+await sleep(300);
+check(walker.connection.isOpen, 'connection survives invalid payloads');
+
+await walker.leave();
+await watcher.leave();
+console.log(process.exitCode ? 'SMOKE TEST FAILED' : 'SMOKE TEST PASSED');
+process.exit();

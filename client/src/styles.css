@@ -1,0 +1,147 @@
+:root {
+  --ink: #1d1b2a;
+  --paper: #fdf6e3;
+  --panel: rgba(29, 27, 42, 0.82);
+  --panel-border: rgba(253, 246, 227, 0.18);
+  --accent: #f4b860;
+  --text: #fdf6e3;
+  --muted: #b9b3c9;
+  font-family:
+    system-ui,
+    -apple-system,
+    'Segoe UI',
+    sans-serif;
+  color: var(--text);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  margin: 0;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  background: var(--ink);
+}
+
+.game {
+  position: fixed;
+  inset: 0;
+}
+
+.game canvas {
+  display: block;
+  image-rendering: pixelated;
+}
+
+/* React UI sits over the canvas; only actual panels take pointer events. */
+.overlay {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+}
+
+.panel {
+  pointer-events: auto;
+  background: var(--panel);
+  border: 1px solid var(--panel-border);
+  border-radius: 10px;
+  padding: 8px 12px;
+  font-size: 14px;
+  backdrop-filter: blur(4px);
+}
+
+.hud {
+  position: absolute;
+  top: 12px;
+  left: 12px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.hud-name {
+  font-weight: 700;
+  color: var(--accent);
+}
+
+.hud-sep {
+  width: 1px;
+  height: 14px;
+  background: var(--panel-border);
+}
+
+.hint {
+  position: absolute;
+  bottom: 56px;
+  left: 50%;
+  transform: translateX(-50%);
+}
+
+.controls {
+  position: absolute;
+  bottom: 12px;
+  left: 12px;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.connection {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  background: rgba(29, 27, 42, 0.55);
+  pointer-events: auto;
+}
+
+.connection-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  max-width: 340px;
+  padding: 20px 24px;
+  text-align: center;
+}
+
+.connection-title {
+  font-size: 16px;
+  font-weight: 700;
+}
+
+.connection-detail {
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.4;
+}
+
+.spinner {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  border: 3px solid var(--panel-border);
+  border-top-color: var(--accent);
+  animation: spin 0.9s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.btn {
+  font: inherit;
+  font-weight: 600;
+  color: var(--ink);
+  background: var(--accent);
+  border: 0;
+  border-radius: 8px;
+  padding: 6px 14px;
+  cursor: pointer;
+}
