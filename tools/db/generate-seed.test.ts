@@ -25,6 +25,16 @@ describe('item catalog', () => {
     }
   });
 
+  it('draws furniture as wide as its footprint and at least as tall', () => {
+    for (const item of CATALOG) {
+      if (item.category === 'wall' || item.category === 'floor') continue;
+      expect(item.sprite.w, item.id).toBe(item.size.w);
+      expect(item.sprite.h, item.id).toBeGreaterThanOrEqual(item.size.h);
+      expect(item.size.w * item.size.h, item.id).toBeGreaterThan(0);
+      if (item.layer === 'wall' || item.layer === 'surface') expect(item.size.h, item.id).toBe(1);
+    }
+  });
+
   it('keeps prices in the ranges from the brief', () => {
     for (const item of CATALOG) {
       if (item.category === 'furniture') expect(item.price).toBeGreaterThanOrEqual(150);

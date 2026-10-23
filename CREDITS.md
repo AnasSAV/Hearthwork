@@ -2,30 +2,29 @@
 
 ## LimeZu
 
-Characters (and, as the art conversion continues, the town and interiors) are by **LimeZu**:
+All game art (characters, town, houses and interiors) is by **LimeZu**:
 [Modern Interiors](https://limezu.itch.io/moderninteriors) and
 [Modern Exteriors](https://limezu.itch.io/modernexteriors). These packs are paid and licensed:
 they may be used and edited in this game with credit, but not redistributed or resold. The
 repository only contains small atlases derived from them by `tools/art/`; get the packs from
 LimeZu to regenerate or extend the art.
 
-| File in `client/public/assets/`              | Source                                                                                | How it was derived                                                                                                 |
-| -------------------------------------------- | ------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------ |
-| `characters/{body,eyes,outfit,hair,acc}.png` | Modern Interiors, `2_Characters/Character_Generator/*/16x16`                          | `tools/art/build_characters.py`: idle, walk and sit rows of each part (16×32 frames), packed 5 parts per atlas row |
-| `tilesets/town.png`                          | Modern Exteriors, `ME_Theme_Sorter_16x16/*_Singles_16x16` and `1_Terrains_and_Fences` | `tools/art/build_town.py`: every 16×16 tile the town map uses, deduplicated                                        |
-| `sprites/houses.png` (+ `.json`)             | Modern Exteriors, Camping `Mobile_House_{Small,Medium,Big}_{1,2}`, `Sign_4`           | `tools/art/build_town.py`: house exteriors per style and level, "for sale" sign                                    |
+| File in `client/public/assets/`              | Source                                                                                                                                | How it was derived                                                                                                 |
+| -------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------ |
+| `characters/{body,eyes,outfit,hair,acc}.png` | Modern Interiors, `2_Characters/Character_Generator/*/16x16`                                                                          | `tools/art/build_characters.py`: idle, walk and sit rows of each part (16×32 frames), packed 5 parts per atlas row |
+| `tilesets/town.png`                          | Modern Exteriors, `ME_Theme_Sorter_16x16/*_Singles_16x16` and `1_Terrains_and_Fences`                                                 | `tools/art/build_town.py`: every 16×16 tile the town map uses, deduplicated                                        |
+| `sprites/houses.png` (+ `.json`)             | Modern Exteriors, Camping `Mobile_House_{Small,Medium,Big}_{1,2}`, `Sign_4`                                                           | `tools/art/build_town.py`: house exteriors per style and level, "for sale" sign                                    |
+| `tilesets/furniture.png`                     | Modern Interiors, `Theme_Sorter_Singles` (living room, bedroom, library, music, art, kitchen) and `Theme_Sorter/2_LivingRoom` (sofas) | `tools/art/build_interiors.py`: one sprite per catalog item, packed                                                |
+| `tilesets/room.png`                          | Modern Interiors, `Room_Builder_subfiles` (walls, floors, borders)                                                                    | `tools/art/build_interiors.py`: 3×2 wall and floor blocks per style, room border                                   |
 
-## Kenney
+## Ours
 
-The remaining art is CC0 (public domain) by **Kenney** (www.kenney.nl). Credit isn't required,
-but it's deserved. Support Kenney at https://kenney.nl/support.
+| File in `client/public/assets/` | How it was made                                                             |
+| ------------------------------- | --------------------------------------------------------------------------- |
+| `tilesets/collision.png`        | 16×16 translucent red marker tile for the hidden `collision` layer in Tiled |
 
-| File in `client/public/assets/` | Source pack       | Download page                              | How it was derived                                                                                 |
-| ------------------------------- | ----------------- | ------------------------------------------ | -------------------------------------------------------------------------------------------------- |
-| `tilesets/tinytown.png`         | Tiny Town 1.1     | https://kenney.nl/assets/tiny-town         | `Tilemap/tilemap_packed.png` copied unchanged (12×11 tiles, 16×16, no spacing)                     |
-| `tilesets/indoor.png`           | Roguelike Indoors | https://kenney.nl/assets/roguelike-indoors | `Tilesheets/roguelikeIndoor_transparent.png` repacked without the 1px spacing (27×18 tiles, 16×16) |
-| `tilesets/collision.png`        | (ours)            |                                            | 16×16 translucent red marker tile for the hidden `collision` layer in Tiled                        |
-| `tilesets/house.png`            | (ours)            |                                            | 4 hand-drawn 16×16 tiles: default plank floor, plaster wall, outer wall, door mat                  |
+Earlier versions used Kenney's CC0 packs (Tiny Town, Roguelike Indoors, RPG Urban Pack); none of
+that art is left in the game.
 
 ## Maps
 

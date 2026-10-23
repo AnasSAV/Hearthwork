@@ -33,7 +33,7 @@ describe('canPlace', () => {
   });
 
   it('respects room bounds and rooms the house has', () => {
-    expect(canPlace(L1, [], at('rug_amber', 6, 2)).ok).toBe(false); // 3 wide from x=6 → 9 > 8
+    expect(canPlace(L1, [], at('rug_amber', 7, 2)).ok).toBe(false); // 2 wide from x=7 → 9 > 8
     expect(canPlace(L1, [], at('bed_single', 1, 5)).ok).toBe(false); // 2 tall from y=5 → 7 > 6
     expect(canPlace(L1, [], at('stool', 1, 1, 1)).ok).toBe(false);
     expect(canPlace(L3, [], at('stool', 1, 1, 1)).ok).toBe(true);
@@ -54,7 +54,7 @@ describe('canPlace', () => {
 
   it('keeps the front door and the doorway between rooms clear', () => {
     expect(canPlace(L1, [], at('stool', doorX(L1), L1.height - 1)).ok).toBe(false);
-    expect(canPlace(L1, [], at('rug_oval', doorX(L1), L1.height - 1)).ok).toBe(true);
+    expect(canPlace(L1, [], at('rug_oval', doorX(L1), L1.height - 2)).ok).toBe(true);
     expect(canPlace(L3, [], at('stool', L3.width - 1, 4)).ok).toBe(false);
     expect(canPlace(L3, [], at('stool', 0, 4, 1)).ok).toBe(false);
   });

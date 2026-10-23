@@ -652,7 +652,8 @@ kbd {
 
 .drawer-grid {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  /* minmax(0, …): long item names (nowrap) must not widen their column. */
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 6px;
 }
 

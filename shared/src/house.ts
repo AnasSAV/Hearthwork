@@ -37,8 +37,8 @@ export interface Tile {
 
 export function coveredTiles(item: CatalogItem, p: Placement): Tile[] {
   const tiles: Tile[] = [];
-  for (let dy = 0; dy < item.sprite.h; dy++) {
-    for (let dx = 0; dx < item.sprite.w; dx++) tiles.push({ x: p.x + dx, y: p.y + dy });
+  for (let dy = 0; dy < item.size.h; dy++) {
+    for (let dx = 0; dx < item.size.w; dx++) tiles.push({ x: p.x + dx, y: p.y + dy });
   }
   return tiles;
 }
@@ -76,7 +76,7 @@ export function canPlace(
   if (candidate.room < 0 || candidate.room >= dims.rooms) return fail('No such room');
 
   const { x, y } = candidate;
-  const { w, h } = item.sprite;
+  const { w, h } = item.size;
   if (x < 0 || x + w > dims.width) return fail('Outside the room');
   if (item.layer === 'wall') {
     if (y !== 0 || h !== 1) return fail('Wall items go on the top wall');
@@ -198,9 +198,9 @@ export function studySeats(
     const item = lookup(p.itemId);
     if (!item?.studySpot) continue;
     const o = houseWorld.roomOrigin(dims, p.room);
-    const y = p.y + item.sprite.h;
+    const y = p.y + item.size.h;
     if (y >= dims.height) continue;
-    for (let dx = 0; dx < item.sprite.w; dx++) {
+    for (let dx = 0; dx < item.size.w; dx++) {
       const tile = { x: o.x + p.x + dx, y: o.y + y };
       if (grid.solid[tile.y * grid.width + tile.x] === 0) seats.push({ id: `${p.id}:${dx}`, tile });
     }

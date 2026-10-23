@@ -8,7 +8,8 @@ export function ItemSprite({ spriteKey, box = 64 }: { spriteKey: string; box?: n
   const rect = parseSpriteKey(spriteKey);
   if (!rect) return <span className="item-sprite" style={{ width: box, height: box }} />;
   const sheet = SPRITE_SHEETS[rect.sheet];
-  const scale = Math.max(1, Math.min(4, Math.floor(box / (Math.max(rect.w, rect.h) * 16))));
+  // Leave a little padding so small items don't fill the box edge to edge.
+  const scale = Math.max(1, Math.min(4, Math.floor((box - 8) / (Math.max(rect.w, rect.h) * 16))));
   return (
     <span className="item-sprite-box" style={{ width: box, height: box }}>
       <span

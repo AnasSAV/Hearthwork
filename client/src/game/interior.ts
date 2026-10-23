@@ -2,17 +2,17 @@ import type Phaser from 'phaser';
 import {
   CATALOG_BY_ID,
   coveredTiles,
+  defaultRoomSprite,
   houseWorld,
   linkY,
+  roomBorderSprite,
   spriteKey,
   TILE_SIZE,
   type HouseDims,
+  type SpriteRect,
 } from '@focus-town/shared';
 import type { EditItem } from '../house/editor';
-import { itemFrame, SHEETS, tileFrame } from './frames';
-
-/** house.png frames: 0 floor, 1 wall, 2 outer wall, 3 door mat. */
-const HOUSE_TILE = { floor: 0, wall: 1, outer: 2, mat: 3 } as const;
+import { itemFrame, tileFrame } from './frames';
 
 export interface InteriorLook {
   /** Item ids; null/'' = default. */
@@ -21,7 +21,8 @@ export interface InteriorLook {
 }
 
 /**
- * Draws a house interior: outer walls, wallpaper row, floor and furniture. Item depths follow
+ * Draws a house interior: a dark border, walls two tiles tall (the border row above each room
+ * shows the top of its wall), repeating floor blocks and the furniture. Item depths follow
  * their bottom edge so players walk in front of and behind furniture naturally.
  */
 export class InteriorView {
@@ -33,38 +34,31 @@ export class InteriorView {
     this.clear();
     const w = houseWorld.width(dims);
     const h = houseWorld.height(dims);
-    const wallTex = this.lookFrame(look.wallpaper, HOUSE_TILE.wall);
-    const floorTex = this.lookFrame(look.floor, HOUSE_TILE.floor);
-    const outer = {
-      sheet: SHEETS.house,
-      frame: tileFrame(this.scene, SHEETS.house, HOUSE_TILE.outer, 0),
-    };
+    const wall = this.lookSprite(look.wallpaper, 'wall');
+    const floor = this.lookSprite(look.floor, 'floor');
+    const border = roomBorderSprite();
+    // One tile of a 3x2 wall/floor block. Floors repeat the whole block; walls repeat its
+    // middle column (the outer columns are end pieces with a seam).
+    const blockTile = (s: SpriteRect, x: number, y: number) =>
+      tileFrame(this.scene, s.sheet, s.x + (x % s.w), s.y + (y % s.h));
+    const floorAt = (x: number, y: number) =>
+      this.tile(floor.sheet, blockTile(floor, x, y), x, y, -20);
 
-    // Start with outer wall everywhere, then carve out the rooms.
-    const kind: ('outer' | 'wall' | 'floor')[] = new Array(w * h).fill('outer');
+    for (let y = 0; y < h; y++)
+      for (let x = 0; x < w; x++)
+        this.tile(border.sheet, tileFrame(this.scene, border.sheet, border.x, border.y), x, y, -21);
     for (let r = 0; r < dims.rooms; r++) {
       const o = houseWorld.roomOrigin(dims, r);
       for (let x = 0; x < dims.width; x++) {
-        kind[o.y * w + o.x + x] = 'wall';
-        for (let y = 1; y < dims.height; y++) kind[(o.y + y) * w + o.x + x] = 'floor';
+        const wx = o.x + x;
+        this.tile(wall.sheet, blockTile(wall, 1, 0), wx, o.y - 1, -20);
+        this.tile(wall.sheet, blockTile(wall, 1, 1), wx, o.y, -20);
+        for (let y = 1; y < dims.height; y++) floorAt(wx, o.y + y);
       }
-      if (r > 0) kind[(o.y + linkY(dims)) * w + o.x - 1] = 'floor';
-    }
-    for (let y = 0; y < h; y++) {
-      for (let x = 0; x < w; x++) {
-        const k = kind[y * w + x]!;
-        const tex = k === 'wall' ? wallTex : k === 'floor' ? floorTex : outer;
-        this.tile(tex.sheet, tex.frame, x, y, -20);
-      }
+      if (r > 0) floorAt(o.x - 1, o.y + linkY(dims));
     }
     const exit = houseWorld.exitTile(dims);
-    this.tile(
-      SHEETS.house,
-      tileFrame(this.scene, SHEETS.house, HOUSE_TILE.mat, 0),
-      exit.x,
-      exit.y,
-      -19,
-    );
+    floorAt(exit.x, exit.y);
 
     // Furniture.
     const hostBottom = new Map<string, number>(); // `${room}:${x}:${y}` → bottom px of the table there
@@ -78,7 +72,7 @@ export class InteriorView {
       if (!item) continue;
       const o = houseWorld.roomOrigin(dims, p.room);
       const left = (o.x + p.x) * TILE_SIZE;
-      const bottom = (o.y + p.y + item.sprite.h) * TILE_SIZE;
+      const bottom = (o.y + p.y + item.size.h) * TILE_SIZE;
       let depth: number;
       if (item.layer === 'rug') depth = -15;
       else if (item.layer === 'wall') depth = -14;
@@ -105,10 +99,9 @@ export class InteriorView {
     this.objects = [];
   }
 
-  private lookFrame(itemId: string | null, fallback: number): { sheet: string; frame: string } {
+  private lookSprite(itemId: string | null, kind: 'wall' | 'floor'): SpriteRect {
     const item = itemId ? CATALOG_BY_ID.get(itemId) : undefined;
-    const f = item && itemFrame(this.scene, spriteKey(item.sprite));
-    return f ?? { sheet: SHEETS.house, frame: tileFrame(this.scene, SHEETS.house, fallback, 0) };
+    return item?.category === kind ? item.sprite : defaultRoomSprite(kind);
   }
 
   private tile(sheet: string, frame: string, x: number, y: number, depth: number): void {

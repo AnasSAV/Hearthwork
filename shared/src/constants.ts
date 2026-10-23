@@ -1,4 +1,4 @@
-/** Tile size in pixels for every map and tileset (Kenney 16×16 packs). */
+/** Tile size in pixels for every map and tileset (LimeZu 16×16 packs). */
 export const TILE_SIZE = 16;
 
 /** Walking speed in world pixels per second. */

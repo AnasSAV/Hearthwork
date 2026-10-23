@@ -254,8 +254,8 @@ export class HouseScene extends WorldScene<HouseState> {
       return {
         itemId,
         room,
-        x: lx - Math.floor((item.sprite.w - 1) / 2),
-        y: ly - (item.sprite.h - 1),
+        x: lx - Math.floor((item.size.w - 1) / 2),
+        y: ly - (item.size.h - 1),
       };
     }
     return null;
@@ -295,13 +295,13 @@ export class HouseScene extends WorldScene<HouseState> {
     const color = editor.check(target).ok ? 0x5ee37a : 0xff4d4d;
     this.ghostRect
       .setPosition(left, top)
-      .setSize(item.sprite.w * TILE_SIZE, item.sprite.h * TILE_SIZE)
+      .setSize(item.size.w * TILE_SIZE, item.size.h * TILE_SIZE)
       .setFillStyle(color, 0.35)
       .setStrokeStyle(1, color, 0.9)
       .setVisible(true);
     this.ghost
       .setTexture(f.sheet, f.frame)
-      .setPosition(left, top + item.sprite.h * TILE_SIZE)
+      .setPosition(left, top + item.size.h * TILE_SIZE)
       .setAlpha(0.85)
       .setVisible(true);
   }

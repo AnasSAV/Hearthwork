@@ -3,9 +3,12 @@
  * (`npm run seed:items` regenerates it); the database copy is authoritative at runtime, and
  * prices are only ever read from there by the server/SQL.
  *
- * Sprites are rectangles of 16×16 tiles in one of the tilesets under client/public/assets/tilesets.
- * The rectangle size is the item's footprint (w × h tiles).
+ * Sprites are rectangles of 16×16 tiles in furniture.png / room.png (client/public/assets/tilesets,
+ * built from LimeZu's Modern Interiors by tools/art/build_interiors.py). An item's `size` is its
+ * footprint on the room grid; its sprite is as wide and may be taller, drawn bottom-aligned so the
+ * extra rows rise above the footprint. Wallpapers and floors use 3×2 blocks that repeat.
  */
+import { FURNITURE_SHEET, FURNITURE_SPRITES, ROOM_SHEET, ROOM_SPRITES } from './interiorSprites.js';
 
 export const ITEM_CATEGORIES = ['furniture', 'decor', 'plant', 'wall', 'floor'] as const;
 export type ItemCategory = (typeof ITEM_CATEGORIES)[number];
@@ -22,8 +25,8 @@ export const ITEM_LAYERS = ['floor', 'rug', 'surface', 'wall'] as const;
 export type ItemLayer = (typeof ITEM_LAYERS)[number];
 
 export const SPRITE_SHEETS = {
-  indoor: { url: 'assets/tilesets/indoor.png', width: 432, height: 288 },
-  tinytown: { url: 'assets/tilesets/tinytown.png', width: 192, height: 176 },
+  furniture: { url: 'assets/tilesets/furniture.png', ...FURNITURE_SHEET },
+  room: { url: 'assets/tilesets/room.png', ...ROOM_SHEET },
 } as const;
 export type SpriteSheet = keyof typeof SPRITE_SHEETS;
 
@@ -42,6 +45,8 @@ export interface CatalogItem {
   category: ItemCategory;
   price: number;
   layer: ItemLayer;
+  /** Footprint in tiles (`items.footprint_w/h`). */
+  size: { w: number; h: number };
   sprite: SpriteRect;
   minHouseLevel: number;
   /** Surface items (lamps, candles…) can be placed on top of this item. */
@@ -56,7 +61,7 @@ export function spriteKey(s: SpriteRect): string {
 }
 
 export function parseSpriteKey(key: string): SpriteRect | null {
-  const m = /^(indoor|tinytown):(\d+),(\d+),(\d+),(\d+)$/.exec(key);
+  const m = /^(furniture|room):(\d+),(\d+),(\d+),(\d+)$/.exec(key);
   if (!m) return null;
   return {
     sheet: m[1] as SpriteSheet,
@@ -67,46 +72,60 @@ export function parseSpriteKey(key: string): SpriteRect | null {
   };
 }
 
-const at = (sheet: SpriteSheet, x: number, y: number, w = 1, h = 1): SpriteRect => ({
-  sheet,
-  x,
-  y,
-  w,
-  h,
-});
+const rect = (sheet: SpriteSheet, r: readonly number[] | undefined, what: string): SpriteRect => {
+  if (!r) throw new Error(`No sprite for ${what}`);
+  return { sheet, x: r[0]!, y: r[1]!, w: r[2]!, h: r[3]! };
+};
 
-type Def = Omit<CatalogItem, 'minHouseLevel'> & { minHouseLevel?: number };
+/** Wallpapers and floors restyle a room with a 3×2 block from room.png; the rest is furniture. */
+function spriteOf(id: string, category: ItemCategory): SpriteRect {
+  return category === 'wall' || category === 'floor'
+    ? rect('room', ROOM_SPRITES[`${category}:${id}`], id)
+    : rect('furniture', FURNITURE_SPRITES[id], id);
+}
+
+/** The wall or floor block of a room without a wallpaper/flooring item. */
+export const defaultRoomSprite = (kind: 'wall' | 'floor'): SpriteRect =>
+  rect('room', ROOM_SPRITES[`${kind}:default`], `default ${kind}`);
+
+/** The dark border around and between rooms. */
+export const roomBorderSprite = (): SpriteRect => rect('room', ROOM_SPRITES.border, 'border');
+
+type Def = Omit<CatalogItem, 'minHouseLevel' | 'sprite' | 'size'> & {
+  size: [number, number];
+  minHouseLevel?: number;
+};
 
 const DEFS: Def[] = [
   // --- Furniture (150–400) ---
   {
     id: 'table_long',
-    name: 'Long dining table',
+    name: 'Farmhouse table',
     category: 'furniture',
     price: 380,
     layer: 'floor',
-    sprite: at('indoor', 0, 0, 3, 2),
+    size: [2, 2],
     surfaceHost: true,
     studySpot: true,
     minHouseLevel: 2,
   },
   {
     id: 'table_oval',
-    name: 'Oval table',
+    name: 'Glass-top table',
     category: 'furniture',
     price: 300,
     layer: 'floor',
-    sprite: at('indoor', 3, 0, 2, 2),
+    size: [2, 2],
     surfaceHost: true,
     studySpot: true,
   },
   {
     id: 'table_round',
-    name: 'Round table',
+    name: 'Pine table',
     category: 'furniture',
     price: 220,
     layer: 'floor',
-    sprite: at('indoor', 6, 0, 1, 2),
+    size: [2, 2],
     surfaceHost: true,
     studySpot: true,
   },
@@ -116,17 +135,17 @@ const DEFS: Def[] = [
     category: 'furniture',
     price: 150,
     layer: 'floor',
-    sprite: at('indoor', 7, 0),
+    size: [1, 1],
     surfaceHost: true,
     studySpot: true,
   },
   {
     id: 'table_low',
-    name: 'Low table',
+    name: 'Coffee table',
     category: 'furniture',
     price: 200,
     layer: 'floor',
-    sprite: at('indoor', 4, 4, 2, 1),
+    size: [2, 1],
     surfaceHost: true,
     studySpot: true,
   },
@@ -136,7 +155,7 @@ const DEFS: Def[] = [
     category: 'furniture',
     price: 260,
     layer: 'floor',
-    sprite: at('indoor', 0, 15, 2, 1),
+    size: [2, 1],
     surfaceHost: true,
     studySpot: true,
   },
@@ -146,7 +165,7 @@ const DEFS: Def[] = [
     category: 'furniture',
     price: 150,
     layer: 'floor',
-    sprite: at('indoor', 0, 2),
+    size: [1, 1],
   },
   {
     id: 'chair_cushion',
@@ -154,23 +173,23 @@ const DEFS: Def[] = [
     category: 'furniture',
     price: 170,
     layer: 'floor',
-    sprite: at('indoor', 0, 3),
+    size: [1, 1],
   },
   {
     id: 'bed_orange',
-    name: 'Cozy double bed',
+    name: 'Moss double bed',
     category: 'furniture',
     price: 380,
     layer: 'floor',
-    sprite: at('indoor', 14, 6, 2, 2),
+    size: [2, 2],
   },
   {
     id: 'bed_green',
-    name: 'Forest double bed',
+    name: 'Sky double bed',
     category: 'furniture',
     price: 380,
     layer: 'floor',
-    sprite: at('indoor', 12, 6, 2, 2),
+    size: [2, 2],
   },
   {
     id: 'bed_single',
@@ -178,7 +197,7 @@ const DEFS: Def[] = [
     category: 'furniture',
     price: 250,
     layer: 'floor',
-    sprite: at('indoor', 8, 6, 1, 2),
+    size: [1, 2],
   },
   {
     id: 'piano',
@@ -186,34 +205,34 @@ const DEFS: Def[] = [
     category: 'furniture',
     price: 400,
     layer: 'floor',
-    sprite: at('indoor', 23, 8, 2, 2),
+    size: [2, 1],
     minHouseLevel: 2,
   },
   {
     id: 'couch_orange',
-    name: 'Big amber couch',
+    name: 'Tan loveseat',
     category: 'furniture',
     price: 390,
     layer: 'floor',
-    sprite: at('indoor', 23, 11, 2, 3),
+    size: [2, 1],
     minHouseLevel: 2,
   },
   {
     id: 'couch_green',
-    name: 'Big moss couch',
+    name: 'Grey sofa',
     category: 'furniture',
     price: 390,
     layer: 'floor',
-    sprite: at('indoor', 23, 15, 2, 3),
+    size: [3, 1],
     minHouseLevel: 2,
   },
   {
     id: 'dresser',
-    name: 'Dresser',
+    name: 'Low dresser',
     category: 'furniture',
     price: 240,
     layer: 'floor',
-    sprite: at('indoor', 0, 16, 2, 1),
+    size: [2, 1],
     surfaceHost: true,
   },
   {
@@ -222,7 +241,7 @@ const DEFS: Def[] = [
     category: 'furniture',
     price: 240,
     layer: 'floor',
-    sprite: at('indoor', 0, 17, 2, 1),
+    size: [2, 1],
     surfaceHost: true,
   },
   {
@@ -231,32 +250,32 @@ const DEFS: Def[] = [
     category: 'furniture',
     price: 220,
     layer: 'floor',
-    sprite: at('indoor', 0, 12, 2, 1),
+    size: [2, 1],
     surfaceHost: true,
   },
   {
     id: 'cabinet_books',
-    name: 'Book cabinet',
+    name: 'Narrow bookcase',
     category: 'furniture',
     price: 180,
     layer: 'floor',
-    sprite: at('indoor', 5, 15),
+    size: [1, 1],
   },
   {
     id: 'cabinet_potions',
-    name: 'Potion cabinet',
+    name: 'Wardrobe',
     category: 'furniture',
     price: 190,
     layer: 'floor',
-    sprite: at('indoor', 6, 15),
+    size: [1, 1],
   },
   {
     id: 'shelf_wide',
-    name: 'Wide display shelf',
+    name: 'Tall bookshelf',
     category: 'furniture',
     price: 280,
     layer: 'floor',
-    sprite: at('indoor', 20, 17, 2, 1),
+    size: [2, 1],
   },
   {
     id: 'mirror_standing',
@@ -264,18 +283,17 @@ const DEFS: Def[] = [
     category: 'furniture',
     price: 220,
     layer: 'floor',
-    sprite: at('indoor', 22, 14, 1, 2),
+    size: [1, 1],
   },
   {
     id: 'mirror_gilded',
-    name: 'Gilded mirror',
+    name: 'Framed mirror',
     category: 'furniture',
     price: 320,
     layer: 'floor',
-    sprite: at('indoor', 22, 16, 1, 2),
+    size: [1, 1],
     minHouseLevel: 3,
   },
-
   // --- Decor (40–80; rugs a bit more since they're big) ---
   {
     id: 'stool',
@@ -283,7 +301,7 @@ const DEFS: Def[] = [
     category: 'decor',
     price: 50,
     layer: 'floor',
-    sprite: at('indoor', 16, 3),
+    size: [1, 1],
   },
   {
     id: 'pouf',
@@ -291,79 +309,79 @@ const DEFS: Def[] = [
     category: 'decor',
     price: 60,
     layer: 'floor',
-    sprite: at('indoor', 17, 3),
+    size: [1, 1],
   },
   {
     id: 'vase_bronze',
-    name: 'Bronze urn',
+    name: 'Clay vase',
     category: 'decor',
     price: 60,
     layer: 'floor',
-    sprite: at('indoor', 16, 4),
+    size: [1, 1],
   },
   {
     id: 'vase_silver',
-    name: 'Silver urn',
+    name: 'Porcelain vase',
     category: 'decor',
     price: 70,
     layer: 'floor',
-    sprite: at('indoor', 17, 4),
+    size: [1, 1],
   },
   {
     id: 'candelabra_silver',
-    name: 'Silver candelabra',
+    name: 'Cream table lamp',
     category: 'decor',
     price: 65,
     layer: 'surface',
-    sprite: at('indoor', 19, 0),
+    size: [1, 1],
   },
   {
     id: 'candelabra_gold',
-    name: 'Golden candelabra',
+    name: 'Red table lamp',
     category: 'decor',
     price: 80,
     layer: 'surface',
-    sprite: at('indoor', 20, 0),
+    size: [1, 1],
   },
   {
     id: 'rug_amber',
-    name: 'Amber rug',
+    name: 'Checked rug',
     category: 'decor',
     price: 120,
     layer: 'rug',
-    sprite: at('indoor', 16, 8, 3, 1),
+    size: [2, 2],
   },
   {
     id: 'rug_oval',
-    name: 'Oval rug',
+    name: 'Round pink rug',
     category: 'decor',
     price: 90,
     layer: 'rug',
-    sprite: at('indoor', 19, 8, 2, 1),
+    size: [2, 2],
   },
   {
     id: 'rug_teal',
-    name: 'Lagoon rug',
+    name: 'Blue rug',
     category: 'decor',
     price: 120,
     layer: 'rug',
-    sprite: at('indoor', 16, 14, 3, 1),
+    size: [2, 2],
   },
   {
     id: 'rug_moss',
-    name: 'Moss rug',
+    name: 'Golden rug',
     category: 'decor',
     price: 120,
     layer: 'rug',
-    sprite: at('indoor', 16, 16, 3, 1),
+    size: [2, 2],
   },
   {
     id: 'rug_cream',
-    name: 'Cream rug',
+    name: 'Pink rug',
     category: 'decor',
     price: 120,
     layer: 'rug',
-    sprite: at('indoor', 16, 17, 3, 1),
+    size: [2, 2],
   },
   {
     id: 'painting_meadow',
@@ -371,57 +389,56 @@ const DEFS: Def[] = [
     category: 'decor',
     price: 70,
     layer: 'wall',
-    sprite: at('indoor', 19, 12),
+    size: [1, 1],
   },
   {
     id: 'painting_sunset',
-    name: 'Sunset painting',
+    name: 'Ember painting',
     category: 'decor',
     price: 70,
     layer: 'wall',
-    sprite: at('indoor', 19, 13),
+    size: [1, 1],
   },
   {
     id: 'painting_lagoon',
-    name: 'Lagoon painting',
+    name: 'Abstract painting',
     category: 'decor',
     price: 70,
     layer: 'wall',
-    sprite: at('indoor', 19, 14),
+    size: [1, 1],
   },
   {
     id: 'painting_scroll',
-    name: 'Scroll painting',
+    name: 'Flower painting',
     category: 'decor',
     price: 80,
     layer: 'wall',
-    sprite: at('indoor', 20, 12, 2, 1),
+    size: [1, 1],
   },
   {
     id: 'gallery_frames',
-    name: 'Gallery frames',
+    name: 'Cork board',
     category: 'decor',
     price: 50,
     layer: 'wall',
-    sprite: at('indoor', 16, 12),
+    size: [2, 1],
   },
   {
     id: 'shield_round',
-    name: 'Round shield',
+    name: 'Medal frame',
     category: 'decor',
     price: 75,
     layer: 'wall',
-    sprite: at('indoor', 22, 9),
+    size: [1, 1],
   },
   {
     id: 'torch',
-    name: 'Wall torch',
+    name: 'Trophy poster',
     category: 'decor',
     price: 55,
     layer: 'wall',
-    sprite: at('indoor', 21, 6),
+    size: [1, 1],
   },
-
   // --- Plants (40–80) ---
   {
     id: 'plant_fern',
@@ -429,57 +446,56 @@ const DEFS: Def[] = [
     category: 'plant',
     price: 60,
     layer: 'floor',
-    sprite: at('indoor', 16, 0),
+    size: [1, 1],
   },
   {
     id: 'plant_bush',
-    name: 'Round shrub',
+    name: 'Fig tree',
     category: 'plant',
     price: 70,
     layer: 'floor',
-    sprite: at('tinytown', 5, 0),
+    size: [1, 1],
   },
   {
     id: 'plant_mushrooms',
-    name: 'Mushroom patch',
+    name: 'Snake plant',
     category: 'plant',
     price: 40,
     layer: 'floor',
-    sprite: at('tinytown', 5, 2),
+    size: [1, 1],
   },
   {
     id: 'plant_sprout',
-    name: 'Little sprout',
+    name: 'Bonsai',
     category: 'plant',
     price: 45,
     layer: 'surface',
-    sprite: at('indoor', 17, 0),
+    size: [1, 1],
   },
-
   // --- Wallpapers and floors (200 each, restyle the room) ---
   {
     id: 'wall_wood',
-    name: 'Timber wallpaper',
+    name: 'Walnut wallpaper',
     category: 'wall',
     price: 200,
     layer: 'wall',
-    sprite: at('tinytown', 1, 6),
+    size: [3, 2],
   },
   {
     id: 'wall_stone',
-    name: 'Slate wallpaper',
+    name: 'Brick wallpaper',
     category: 'wall',
     price: 200,
     layer: 'wall',
-    sprite: at('tinytown', 5, 6),
+    size: [3, 2],
   },
   {
     id: 'wall_pale',
-    name: 'Pale stone wallpaper',
+    name: 'Cream wallpaper',
     category: 'wall',
     price: 200,
     layer: 'wall',
-    sprite: at('tinytown', 1, 8),
+    size: [3, 2],
   },
   {
     id: 'floor_oak',
@@ -487,27 +503,32 @@ const DEFS: Def[] = [
     category: 'floor',
     price: 200,
     layer: 'floor',
-    sprite: at('indoor', 23, 10),
+    size: [3, 2],
   },
   {
     id: 'floor_amber',
-    name: 'Amber planks',
+    name: 'Herringbone floor',
     category: 'floor',
     price: 200,
     layer: 'floor',
-    sprite: at('indoor', 24, 1),
+    size: [3, 2],
   },
   {
     id: 'floor_moss',
-    name: 'Moss carpet',
+    name: 'Walnut floor',
     category: 'floor',
     price: 200,
     layer: 'floor',
-    sprite: at('indoor', 24, 5),
+    size: [3, 2],
   },
 ];
 
-export const CATALOG: readonly CatalogItem[] = DEFS.map((d) => ({ minHouseLevel: 1, ...d }));
+export const CATALOG: readonly CatalogItem[] = DEFS.map(({ size, ...d }) => ({
+  minHouseLevel: 1,
+  ...d,
+  size: { w: size[0], h: size[1] },
+  sprite: spriteOf(d.id, d.category),
+}));
 
 export const CATALOG_BY_ID: ReadonlyMap<string, CatalogItem> = new Map(
   CATALOG.map((i) => [i.id, i]),

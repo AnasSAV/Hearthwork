@@ -1,6 +1,7 @@
 import Phaser from 'phaser';
 import { loadCharacterAtlases } from '../game/characters';
 import { HOUSES_KEY } from '../game/exteriors';
+import { SHEETS } from '../game/frames';
 import { uiStore } from '../store';
 
 export const TOWN_MAP_KEY = 'town';
@@ -18,10 +19,9 @@ export class BootScene extends Phaser.Scene {
     this.load.tilemapTiledJSON(TOWN_MAP_KEY, 'maps/town.json');
     this.load.image(TOWN_TILESET_KEY, 'tilesets/town.png');
     this.load.atlas(HOUSES_KEY, 'sprites/houses.png', 'sprites/houses.json');
-    // Kenney sheets for house furniture until the interiors move to LimeZu too.
-    this.load.image('tinytown', 'tilesets/tinytown.png');
-    this.load.image('indoor', 'tilesets/indoor.png');
-    this.load.image('house', 'tilesets/house.png');
+    // House interiors (catalog sprites).
+    this.load.image(SHEETS.furniture, 'tilesets/furniture.png');
+    this.load.image(SHEETS.room, 'tilesets/room.png');
     loadCharacterAtlases(this.load);
   }
 
