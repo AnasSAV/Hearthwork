@@ -31,6 +31,8 @@ docs/     SPEC.md, DECISIONS.md
 - `npm run dev`: server on :2567 + client on :5173.
 - `npm run typecheck`, `npm run lint`, `npm run format`, `npm test`.
 - `npm run build`: production builds of client and server.
+- DB: `supabase start` (Docker) → keys into `server/.env` + `client/.env` (see docs/SETUP.md).
+  `npm run test:db` (SQL tests), `npm run smoke` / `npm run e2e:focus` (need `npm run dev`).
 
 ## Core rules (never break)
 

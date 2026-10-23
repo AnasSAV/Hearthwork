@@ -6,10 +6,12 @@ import { CHARACTERS_KEY, characterFrame, walkAnimKey } from './characters';
 export class PlayerSprite extends Phaser.GameObjects.Container {
   private readonly body_: Phaser.GameObjects.Sprite;
   private readonly label: Phaser.GameObjects.Text;
+  /** Small line above the name, e.g. focus minutes. */
+  private readonly badge: Phaser.GameObjects.Text;
   private dir: Direction = 'down';
   private moving = false;
   private moveTween: Phaser.Tweens.Tween | null = null;
-  private away = false;
+  private statusKey = '';
 
   constructor(
     scene: Phaser.Scene,
@@ -17,38 +19,60 @@ export class PlayerSprite extends Phaser.GameObjects.Container {
     y: number,
     private readonly avatar: number,
     private readonly name_: string,
-    isLocal: boolean,
+    private readonly isLocal: boolean,
     textResolution: number,
   ) {
     super(scene, x, y);
     this.body_ = scene.add.sprite(0, 1, CHARACTERS_KEY, characterFrame(avatar, 0, 'down'));
     this.body_.setOrigin(0.5, 1);
+    const style = {
+      fontFamily: 'system-ui, -apple-system, "Segoe UI", sans-serif',
+      fontStyle: 'bold',
+      stroke: '#1d1b2a',
+      strokeThickness: 2,
+      resolution: textResolution,
+    };
     this.label = scene.add
-      .text(0, -17, name_, {
-        fontFamily: 'system-ui, -apple-system, "Segoe UI", sans-serif',
-        fontSize: '6px',
-        fontStyle: 'bold',
-        color: isLocal ? '#fff3b0' : '#ffffff',
-        stroke: '#1d1b2a',
-        strokeThickness: 2,
-        resolution: textResolution,
-      })
+      .text(0, -17, name_, { ...style, fontSize: '6px', color: this.nameColor() })
       .setOrigin(0.5, 1);
-    this.add([this.body_, this.label]);
+    this.badge = scene.add
+      .text(0, -24, '', { ...style, fontSize: '5px', color: '#b8f2c2' })
+      .setOrigin(0.5, 1)
+      .setVisible(false);
+    this.add([this.body_, this.label, this.badge]);
     scene.add.existing(this);
     this.setDepth(y);
   }
 
   setTextResolution(resolution: number): void {
     this.label.setResolution(resolution);
+    this.badge.setResolution(resolution);
   }
 
-  /** Dim the avatar while its connection is dropped and the server is holding its seat. */
-  setAway(away: boolean): void {
-    if (away === this.away) return;
-    this.away = away;
-    this.setAlpha(away ? 0.45 : 1);
-    this.label.setText(away ? `${this.name_} (away)` : this.name_);
+  private nameColor(): string {
+    return this.isLocal ? '#fff3b0' : '#ffffff';
+  }
+
+  /**
+   * Show what the player is doing: focusing players get their verified minutes on a small line
+   * above a shortened name (desks sit close together), dropped players are dimmed while the
+   * server holds their seat.
+   */
+  setStatus(status: string, focusMin: number): void {
+    const key = `${status}:${focusMin}`;
+    if (key === this.statusKey) return;
+    this.statusKey = key;
+    this.setAlpha(status === 'away' ? 0.45 : 1);
+    if (status === 'focusing') {
+      const short = this.name_.length > 9 ? `${this.name_.slice(0, 8)}…` : this.name_;
+      this.label.setText(short).setColor('#b8f2c2');
+      this.badge.setText(`focusing ${focusMin}m`).setVisible(true);
+    } else {
+      this.label
+        .setText(status === 'away' ? `${this.name_} (away)` : this.name_)
+        .setColor(this.nameColor());
+      this.badge.setVisible(false);
+    }
   }
 
   /** Update facing + walk animation. */

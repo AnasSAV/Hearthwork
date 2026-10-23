@@ -2,7 +2,8 @@
  * Multiplayer smoke test: two bots join the town, one walks, the other must see it; then the
  * walker tries a teleport and a wall walk-through, which the server must reject.
  *
- * Run against a live server: npx tsx tools/bots/smoke.ts [http://localhost:2567]
+ * Creates two throwaway accounts (see testPlayers.ts) and deletes them afterwards.
+ * Run against a live server: npm run smoke [-- http://localhost:2567]
  */
 import { Callbacks, Client, type Room } from '@colyseus/sdk';
 import {
@@ -17,6 +18,7 @@ import {
   type TiledMap,
 } from '@focus-town/shared';
 import townJson from '../../client/public/assets/maps/town.json' with { type: 'json' };
+import { createTestPlayer, deleteTestPlayer } from './testPlayers.js';
 
 const url = process.argv[2] ?? 'http://localhost:2567';
 const grid = collisionGridFromTiled(townJson as TiledMap);
@@ -27,17 +29,24 @@ function check(cond: boolean, label: string): void {
   if (!cond) process.exitCode = 1;
 }
 
-const client = new Client(url);
-const walker: Room<unknown, TownState> = await client.joinOrCreate(
-  'town',
-  { name: 'WalkerBot', avatar: 1 },
-  TownState,
-);
-const watcher: Room<unknown, TownState> = await client.joinOrCreate(
-  'town',
-  { name: 'WatcherBot', avatar: 2 },
-  TownState,
-);
+// Joining without a Supabase token must be refused.
+let anonymousRejected = false;
+try {
+  await new Client(url).joinOrCreate('town', {}, TownState);
+} catch {
+  anonymousRejected = true;
+}
+check(anonymousRejected, 'joining without signing in is rejected');
+
+const walkerPlayer = await createTestPlayer('walker', 1);
+const watcherPlayer = await createTestPlayer('watcher', 2);
+async function join(token: string): Promise<Room<unknown, TownState>> {
+  const client = new Client(url);
+  client.auth.token = token;
+  return client.joinOrCreate('town', {}, TownState);
+}
+const walker = await join(walkerPlayer.token);
+const watcher = await join(watcherPlayer.token);
 check(walker.roomId === watcher.roomId, 'both bots share one town instance');
 
 await sleep(300);
@@ -103,5 +112,7 @@ check(walker.connection.isOpen, 'connection survives invalid payloads');
 
 await walker.leave();
 await watcher.leave();
+await deleteTestPlayer(walkerPlayer);
+await deleteTestPlayer(watcherPlayer);
 console.log(process.exitCode ? 'SMOKE TEST FAILED' : 'SMOKE TEST PASSED');
 process.exit();

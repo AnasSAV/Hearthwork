@@ -1,6 +1,7 @@
 import { Client, ServerError, type Room } from '@colyseus/sdk';
-import { TownState, type TownJoinOptions } from '@focus-town/shared';
+import { TownState } from '@focus-town/shared';
 import { uiStore } from '../store';
+import { currentAccessToken } from './supabase';
 
 export const SERVER_URL: string = import.meta.env.VITE_SERVER_URL ?? 'http://localhost:2567';
 
@@ -25,7 +26,7 @@ async function serverAwake(timeoutMs: number): Promise<boolean> {
  * (Render's free tier takes ~1 minute to wake). Join rejections from a running server are
  * not retried.
  */
-export async function joinTown(options: TownJoinOptions): Promise<TownRoom> {
+export async function joinTown(): Promise<TownRoom> {
   let attempt = 0;
   for (;;) {
     uiStore.set({
@@ -38,8 +39,15 @@ export async function joinTown(options: TownJoinOptions): Promise<TownRoom> {
       await sleep(Math.min(1000 * attempt, 5000));
       continue;
     }
+    // Fresh Supabase access token on every attempt (it auto-refreshes, and expires hourly).
+    const token = await currentAccessToken();
+    if (!token) {
+      uiStore.set({ connection: { kind: 'error', message: 'You are signed out.' } });
+      throw new Error('signed out');
+    }
+    colyseus.auth.token = token;
     try {
-      const room = await colyseus.joinOrCreate('town', options, TownState);
+      const room = await colyseus.joinOrCreate('town', {}, TownState);
       uiStore.set({ connection: { kind: 'connected' } });
       return room;
     } catch (err) {

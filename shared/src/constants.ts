@@ -29,3 +29,37 @@ export const RECONNECT_GRACE_SEC = 20;
 
 export const NAME_MAX_LEN = 16;
 export const AVATAR_COUNT = 6;
+
+// ---------------------------------------------------------------------------------------------
+// Focus economy. The server passes the reward constants to the `award_focus` SQL function, so
+// tuning them here is enough (the SQL defaults only matter for manual calls).
+// ---------------------------------------------------------------------------------------------
+
+/** Coins per verified minute before the streak multiplier. */
+export const BASE_RATE = 1;
+/** Streak bonus per consecutive day: multiplier = 1 + STREAK_STEP × min(streakDays, STREAK_MAX_DAYS). */
+export const STREAK_STEP = 0.05;
+export const STREAK_MAX_DAYS = 10;
+/** Verified minutes per UTC day that earn coins. Later minutes still count for stats and streaks. */
+export const DAILY_REWARD_CAP_MIN = 480;
+
+/** Pomodoro block lengths a player can pick (null = open-ended). */
+export const FOCUS_BLOCKS = [25, 50] as const;
+export type FocusBlock = (typeof FOCUS_BLOCKS)[number];
+/** Bonus coins for finishing a whole block. */
+export const COMPLETION_BONUS: Record<FocusBlock, number> = { 25: 5, 50: 12 };
+
+/** Client sends a heartbeat this often while focusing. */
+export const FOCUS_BEAT_INTERVAL_MS = 60_000;
+/** Beats closer together than this are ignored. */
+export const FOCUS_BEAT_MIN_INTERVAL_MS = 50_000;
+/** A beat later than this after the previous one doesn't verify its minute. */
+export const FOCUS_BEAT_LATE_MS = 80_000;
+/** A minute only counts if the player touched keyboard/mouse within this many seconds. */
+export const FOCUS_MAX_INPUT_IDLE_SEC = 600;
+/** After this many verified minutes the player must click "still here?" before more count. */
+export const FOCUS_PRESENCE_EVERY_MIN = 25;
+/** This many missed beats in a row ends the session. */
+export const FOCUS_MISSED_BEATS_LIMIT = 3;
+/** Verified minutes are saved to the database in chunks of this size. */
+export const FOCUS_AWARD_EVERY_MIN = 5;

@@ -79,3 +79,82 @@ Judgement calls and places where the brief and the real libraries didn't match. 
 - React `<StrictMode>` is off because its dev double-mount would boot Phaser and join the room
   twice.
 - Dev builds expose `window.__game` for debugging and browser tests. Production builds strip it.
+
+## Phase 2 (2026-10-23)
+
+### Auth
+
+- The game server verifies the Supabase access token with `supabase.auth.getClaims(token)`
+  (supabase-js 2.118). It checks locally against the project's JWKS when asymmetric JWT signing
+  keys are on (Supabase's recommendation), and asks the Auth server for legacy shared-secret
+  projects. So no JWT secret is needed in `server/.env`.
+- The client sets `colyseus.auth.token = <access token>` before `joinOrCreate`; Colyseus 0.18
+  delivers it to `onAuth(client, options, context)` as `context.token`. A fresh token is read
+  from Supabase on every join attempt (tokens expire hourly).
+- Keys: Supabase's new **publishable** (`sb_publishable_…`) and **secret** (`sb_secret_…`) keys
+  work in the same slots as the legacy `anon` / `service_role` keys. Env names stay
+  `VITE_SUPABASE_ANON_KEY` / `SUPABASE_SERVICE_ROLE_KEY` to match the brief.
+- Signup creates the profile with a placeholder username (`player_<id>`) and empty avatar,
+  because Google sign-ins have no username yet. The client shows the username/avatar picker
+  until `avatar.body` is set. `update_profile()` is the only way players change their profile
+  (no direct UPDATE privilege), and joins are refused until the profile is complete.
+- Usernames: `^[A-Za-z0-9_]{3,16}$`, unique case-insensitively.
+- One account can be in town from several tabs (useful for testing), but only one focus
+  session per user exists. Starting one ends the other with reason `replaced`.
+
+### Database
+
+- Privileges are stricter than the brief's minimum: players and even the service role have
+  only SELECT on game tables. All writes go through `SECURITY DEFINER` functions with
+  `search_path = ''`, and EXECUTE is revoked from PUBLIC/anon/authenticated and granted
+  per function. `coin_ledger` is append-only (no UPDATE/DELETE grants).
+- Extra table `focus_daily (user_id, day, minutes, coin_minutes, coins)` tracks the daily coin
+  cap. It will also power the streak calendar.
+- Extra functions: `start_focus_session`, `end_focus_session`, `abandon_active_sessions`
+  (server startup), `ledger_mismatches` (invariant check).
+- A partial unique index guarantees one `active` focus session per user at the database level.
+- `house_levels` rows are inserted by the migration, not `seed.sql`, because the signup
+  trigger's level-1 house needs them to exist. Plot assignment takes the lowest free
+  `plot_index` under an advisory lock.
+- `award_focus(user, session, minutes, bonus, base_rate, streak_step, streak_max, daily_cap)`:
+  the extra parameters (with defaults matching the brief) are passed from
+  `shared/src/constants.ts`, so the constants stay single-sourced. It only accepts sessions
+  that are still `active` and belong to the user.
+
+### Economy rules (interpretation)
+
+- "Today" is the **UTC** day for both the daily cap and streaks. A per-user timezone would be
+  nicer, but a client-supplied timezone could be abused to reset the cap early.
+- `streakDays` counts consecutive UTC days with focus **including today**, so the first day
+  already gets ×1.05 and the multiplier caps at ×1.5 from day 10.
+- Coins per award chunk are `round()`ed (half up). With 5-minute chunks that means 5.25→5,
+  12.5→13, so the rounding roughly evens out.
+- The completion bonus is not limited by the daily cap (it's small).
+- A 25/50-minute block is complete when that many minutes are **verified** (not wall-clock).
+  The on-screen countdown jumps back when a minute doesn't count, and says why.
+- Session status: `completed` = block finished, or an open-ended session the player ended
+  themselves; `abandoned` = ended early, replaced, missed beats, disconnected or server
+  restart. Verified minutes are paid either way.
+- "Still here?" appears after every 25 verified minutes (not wall-clock), except when a 25-min
+  block just finished. While it's open, no minute counts.
+- Beats: on time = 50–80 s after the previous one. 3 missed beats (about 3½ min of silence) end
+  the session. Verified minutes never exceed elapsed minutes.
+- Players are seated at the desk while focusing: the server snaps them to the chair and rejects
+  moves until the session ends. Disconnecting (after the reconnect grace period) ends it.
+- The client sends beats from a Web Worker timer because browsers throttle background-tab
+  timers (Chrome: once per minute after 5 minutes hidden), which would make audio-only beats
+  late.
+- Server restarts lose the in-memory trackers. On startup the server marks leftover `active`
+  rows abandoned (single-process assumption, true on Render and one VM). At most 4 unsaved
+  verified minutes per session are lost.
+
+### Not in Phase 2
+
+- Group focus tables (shared Pomodoro at the same table) are in the Multiplayer section of the
+  brief but not in any phase's checklist. The map already tags group-table seats with `table`.
+  Planned for Phase 5 polish unless you want it sooner.
+
+### Testing
+
+- `npm run test:db` runs SQL integration tests against a local Supabase stack (Docker).
+  `npm run e2e:focus` runs a real-time 6½-minute focus session through the real server.

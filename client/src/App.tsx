@@ -1,15 +1,21 @@
 import { useEffect, useRef } from 'react';
 import { createGame } from './game/createGame';
+import { uiStore } from './store';
+import { AuthGate } from './ui/AuthGate';
 import { ConnectionOverlay } from './ui/ConnectionOverlay';
+import { FocusPanel } from './ui/FocusPanel';
 import { HUD } from './ui/HUD';
 
-export function App() {
+function Game() {
   const gameRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (!gameRef.current) return;
     const game = createGame(gameRef.current);
-    return () => game.destroy(true);
+    return () => {
+      game.destroy(true);
+      uiStore.reset();
+    };
   }, []);
 
   return (
@@ -17,8 +23,17 @@ export function App() {
       <div ref={gameRef} className="game" />
       <div className="overlay">
         <HUD />
+        <FocusPanel />
         <ConnectionOverlay />
       </div>
     </>
+  );
+}
+
+export function App() {
+  return (
+    <AuthGate>
+      <Game />
+    </AuthGate>
   );
 }

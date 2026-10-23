@@ -14,15 +14,20 @@ import {
   stepMovement,
   type CollisionGrid,
   type Direction,
+  type FocusEndedMessage,
+  type FocusErrorMessage,
+  type FocusStateMessage,
   type MoveMessage,
   type PlayerState,
   type TiledMap,
   type TiledObject,
+  type WalletMessage,
 } from '@focus-town/shared';
 import { PlayerSprite } from '../game/PlayerSprite';
 import { joinTown, type TownRoom } from '../net/colyseus';
-import { guestIdentity } from '../net/guest';
-import { uiStore } from '../store';
+import { startHeartbeat, stopHeartbeat } from '../net/heartbeat';
+import { attachTownSender } from '../net/townBridge';
+import { uiStore, type NearDesk } from '../store';
 import { TOWN_MAP_KEY } from './BootScene';
 
 /** Remote players glide slightly longer than the send interval so motion stays continuous. */
@@ -74,6 +79,13 @@ export class TownScene extends Phaser.Scene {
       cursors: keyboard.createCursorKeys(),
       wasd: keyboard.addKeys('W,A,S,D') as Record<'W' | 'A' | 'S' | 'D', Phaser.Input.Keyboard.Key>,
     };
+    keyboard.addKey('E').on('down', () => {
+      const ui = uiStore.get();
+      if (ui.nearDesk && !ui.focus) uiStore.set({ timerOpen: true, focusSummary: null });
+    });
+    keyboard.addKey('ESC').on('down', () => {
+      if (!uiStore.get().focus) uiStore.set({ timerOpen: false, focusError: null });
+    });
 
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => this.teardown());
     window.addEventListener('pagehide', this.leaveOnPageHide);
@@ -94,11 +106,9 @@ export class TownScene extends Phaser.Scene {
   }
 
   private async connect(): Promise<void> {
-    const identity = guestIdentity();
-    uiStore.set({ playerName: identity.name });
     let room: TownRoom;
     try {
-      room = await joinTown(identity);
+      room = await joinTown();
     } catch {
       return; // joinTown already reported the error to the UI
     }
@@ -125,6 +135,7 @@ export class TownScene extends Phaser.Scene {
 
   private bindRoom(room: TownRoom): void {
     const callbacks = Callbacks.get(room);
+    attachTownSender((type, payload) => room.send(type, payload));
 
     callbacks.onAdd('players', (player: PlayerState, sessionId: string) => {
       const isLocal = sessionId === room.sessionId;
@@ -138,6 +149,7 @@ export class TownScene extends Phaser.Scene {
         this.textResolution(),
       );
       sprite.setMotion(asDirection(player.dir), false);
+      sprite.setStatus(player.status, player.focusMin);
       this.sprites.set(sessionId, sprite);
       this.updateOnlineCount();
 
@@ -146,13 +158,21 @@ export class TownScene extends Phaser.Scene {
         this.pos = { x: player.x, y: player.y };
         this.dir = asDirection(player.dir);
         this.cameras.main.startFollow(sprite, true, 0.15, 0.15);
+        uiStore.set({ playerName: player.name });
+        callbacks.onChange(player, () => {
+          sprite.setStatus(player.status, player.focusMin);
+          // Seated by the server: face the desk.
+          if (player.status === 'focusing') {
+            this.dir = asDirection(player.dir);
+            sprite.setMotion(this.dir, false);
+          }
+        });
         return;
       }
-      sprite.setAway(player.status === 'away');
       callbacks.onChange(player, () => {
         sprite.glideTo(player.x, player.y, REMOTE_TWEEN_MS);
         sprite.setMotion(asDirection(player.dir), player.moving);
-        sprite.setAway(player.status === 'away');
+        sprite.setStatus(player.status, player.focusMin);
       });
     });
 
@@ -163,12 +183,31 @@ export class TownScene extends Phaser.Scene {
       this.updateOnlineCount();
     });
 
+    callbacks.listen('focusingNow', (value: number) => uiStore.set({ focusingNow: value }));
+
     room.onMessage(ServerMsg.MoveCorrect, (payload: unknown) => {
       const parsed = moveCorrectSchema.safeParse(payload);
       if (!parsed.success) return;
       this.pos = { x: parsed.data.x, y: parsed.data.y };
       this.local?.placeAt(this.pos.x, this.pos.y);
       this.lastSent = null;
+    });
+    room.onMessage(ServerMsg.Wallet, (wallet: WalletMessage) => uiStore.set({ wallet }));
+    room.onMessage(ServerMsg.FocusState, (msg: FocusStateMessage) => {
+      if (!uiStore.get().focus) startHeartbeat();
+      uiStore.set({
+        focus: { ...msg, receivedAt: Date.now() },
+        timerOpen: false,
+        focusError: null,
+        focusSummary: null,
+      });
+    });
+    room.onMessage(ServerMsg.FocusEnded, (msg: FocusEndedMessage) => {
+      stopHeartbeat();
+      uiStore.set({ focus: null, focusSummary: msg, timerOpen: false });
+    });
+    room.onMessage(ServerMsg.FocusError, (msg: FocusErrorMessage) => {
+      uiStore.set({ focusError: msg.message });
     });
 
     room.onDrop(() => uiStore.set({ connection: { kind: 'reconnecting' } }));
@@ -190,6 +229,8 @@ export class TownScene extends Phaser.Scene {
 
   override update(time: number, delta: number): void {
     if (!this.local || !this.room) return;
+    // Seated at a desk: the server holds the player in place until the session ends.
+    if (uiStore.get().focus) return;
 
     const { cursors, wasd } = this.keys;
     const input = {
@@ -243,14 +284,33 @@ export class TownScene extends Phaser.Scene {
         this.pos.y > d.y &&
         this.pos.y <= d.y + d.height,
     );
-    const id = desk ? (getProperty<string>(desk, 'table') ?? desk.name) : null;
-    if (uiStore.get().nearDesk !== id) uiStore.set({ nearDesk: id });
+    const current = uiStore.get().nearDesk;
+    if ((current?.id ?? null) === (desk?.name ?? null)) return;
+    const near: NearDesk | null = desk
+      ? { id: desk.name, table: getProperty<string>(desk, 'table') ?? null }
+      : null;
+    uiStore.set({ nearDesk: near, ...(near ? {} : { timerOpen: false, focusError: null }) });
   }
 
   private teardown(): void {
     this.scale.off(Phaser.Scale.Events.RESIZE, this.applyZoom, this);
     window.removeEventListener('pagehide', this.leaveOnPageHide);
     window.removeEventListener('pageshow', this.rejoinOnPageShow);
+    attachTownSender(null);
+    stopHeartbeat();
+    const focus = uiStore.get().focus;
+    if (focus) {
+      // The connection died mid-session; coins awarded so far are already saved.
+      uiStore.set({
+        focus: null,
+        focusSummary: {
+          reason: 'error',
+          verifiedMin: focus.verifiedMin,
+          coinsEarned: focus.coinsEarned,
+          bonus: 0,
+        },
+      });
+    }
     for (const s of this.sprites.values()) s.destroy();
     this.sprites.clear();
     this.local = null;

@@ -9,11 +9,12 @@ Requires Node 22+ (developed on Node 24).
 
 ```bash
 npm install
+supabase start       # local Supabase in Docker; see docs/SETUP.md for keys / hosted setup
 npm run dev          # game server on :2567, client on http://localhost:5173
 ```
 
-Open two tabs on http://localhost:5173 to see two players. `?name=Alice&avatar=2` picks a
-guest name and avatar (0–5).
+Sign up, pick a username and avatar, walk to a desk in the plaza and press **E** to focus.
+Use a second browser (or a private window) with another account to see two players.
 
 ## Scripts
 
@@ -24,5 +25,7 @@ guest name and avatar (0–5).
 | `npm run typecheck`               | `tsc` for every workspace and `tools/`                               |
 | `npm run lint` / `npm run format` | ESLint / Prettier                                                    |
 | `npm test`                        | Vitest unit tests                                                    |
+| `npm run test:db`                 | SQL integration tests against local Supabase                         |
+| `npm run e2e:focus`               | 6½-minute real focus session through the running server              |
 | `npm run smoke`                   | Two bots join a running server and check sync, speed and wall checks |
 | `npm run map:town`                | Regenerate the town map (overwrites `town.tmx`/`town.json`)          |

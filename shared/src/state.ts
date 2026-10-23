@@ -25,6 +25,8 @@ export type PlayerState = SchemaType<typeof PlayerState>;
 export const TownState = schema(
   {
     players: t.map(PlayerState),
+    /** People in a focus session right now, across the whole server (for the HUD). */
+    focusingNow: t.uint16(),
   },
   'TownState',
 );
