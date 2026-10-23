@@ -18,8 +18,10 @@
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "test": "vitest run",
-    "smoke": "tsx tools/bots/smoke.ts",
-    "map:town": "tsx tools/maps/build-town.ts"
+    "smoke": "tsx --env-file=server/.env --env-file=client/.env tools/bots/smoke.ts",
+    "map:town": "tsx tools/maps/build-town.ts",
+    "test:db": "node --env-file=server/.env --env-file=client/.env node_modules/vitest/vitest.mjs run --config vitest.db.config.ts",
+    "e2e:focus": "tsx --env-file=server/.env --env-file=client/.env tools/bots/focus-e2e.ts"
   },
   "devDependencies": {
     "@colyseus/sdk": "^0.18.6",
