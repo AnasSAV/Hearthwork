@@ -186,6 +186,10 @@ export class HouseScene extends WorldScene<HouseState> {
   // Walking around
   // -------------------------------------------------------------------------------------------
 
+  protected override canClickPlayers(): boolean {
+    return !editor.get().active;
+  }
+
   protected override movementLocked(): boolean {
     return super.movementLocked() || editor.get().active;
   }

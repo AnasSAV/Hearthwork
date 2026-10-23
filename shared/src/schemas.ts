@@ -18,6 +18,8 @@ export const ClientMsg = {
   HouseReload: 'house:reload',
   Chat: 'chat',
   ChatReport: 'chat:report',
+  /** Private message to a nearby player. */
+  Whisper: 'whisper',
 } as const;
 
 /** Server → client message type names. */
@@ -42,6 +44,8 @@ export const ServerMsg = {
   ChatNotice: 'chat:notice',
   /** Server time in ms, for synced clocks (radio, table timers). */
   Clock: 'clock',
+  /** A private message (WhisperMessage), sent only to its two participants. */
+  Whisper: 'whisper',
 } as const;
 
 export interface ClockMessage {

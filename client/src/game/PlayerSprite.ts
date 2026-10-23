@@ -46,6 +46,18 @@ export class PlayerSprite extends Phaser.GameObjects.Container {
     this.setDepth(y);
   }
 
+  get playerName(): string {
+    return this.name_;
+  }
+
+  /** Make the avatar clickable (remote players: click to whisper). */
+  onClick(handler: () => void): void {
+    this.body_.setInteractive({ useHandCursor: true });
+    this.body_.on('pointerdown', (pointer: Phaser.Input.Pointer) => {
+      if (pointer.leftButtonDown()) handler();
+    });
+  }
+
   setTextResolution(resolution: number): void {
     this.label.setResolution(resolution);
     this.badge.setResolution(resolution);

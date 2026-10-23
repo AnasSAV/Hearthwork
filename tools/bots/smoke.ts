@@ -13,6 +13,7 @@ import {
   ServerMsg,
   TownState,
   type ChatMessage,
+  type WhisperMessage,
   type MoveCorrectMessage,
   type MoveMessage,
   type PlayerState,
@@ -62,6 +63,31 @@ Callbacks.get(watcher).onAdd('players', (p: PlayerState, id: string) => {
   Callbacks.get(watcher).onChange(p, () => seenMoves++);
 });
 
+// 0. Whispers: private to the two players, and only while they stand close together.
+const bystanderPlayer = await createTestPlayer('bystander', 4);
+const bystander = await join(bystanderPlayer.token);
+await sleep(300);
+const whispersTo = {
+  walker: [] as WhisperMessage[],
+  watcher: [] as WhisperMessage[],
+  bystander: [] as WhisperMessage[],
+};
+walker.onMessage(ServerMsg.Whisper, (m: WhisperMessage) => whispersTo.walker.push(m));
+watcher.onMessage(ServerMsg.Whisper, (m: WhisperMessage) => whispersTo.watcher.push(m));
+bystander.onMessage(ServerMsg.Whisper, (m: WhisperMessage) => whispersTo.bystander.push(m));
+// Everyone spawned within a few pixels of each other, so they're in whisper range.
+walker.send(ClientMsg.Whisper, { to: watcher.sessionId, text: 'psst, just between us' });
+await sleep(400);
+check(
+  whispersTo.watcher.length === 1 && whispersTo.watcher[0]!.text === 'psst, just between us',
+  'whisper delivered to the recipient',
+);
+check(whispersTo.walker.length === 1, 'sender gets their own whisper back');
+check(whispersTo.bystander.length === 0, 'a bystander does not see the whisper');
+await bystander.leave();
+await deleteTestPlayer(bystanderPlayer);
+await sleep(1100); // chat rate limit
+
 // 1. Walk along the open road at legal speed.
 const me = walker.state.players.get(walker.sessionId)!;
 let x = me.x;
@@ -110,6 +136,20 @@ walker.send(ClientMsg.Move, { x: 'nope', y: Infinity });
 walker.send('not-a-real-message', { hi: 1 });
 await sleep(300);
 check(walker.connection.isOpen, 'connection survives invalid payloads');
+
+// 4b. Now ~80px apart: too far to whisper.
+const farNotices: string[] = [];
+const offFar = walker.onMessage(ServerMsg.ChatNotice, (n: { message: string }) =>
+  farNotices.push(n.message),
+);
+walker.send(ClientMsg.Whisper, { to: watcher.sessionId, text: 'can you hear me?' });
+await sleep(400);
+offFar();
+check(
+  whispersTo.watcher.length === 1 && farNotices.some((n) => /walk closer/i.test(n)),
+  'whisper refused once the players are far apart',
+);
+await sleep(1100);
 
 // 5. Chat: delivered to the room, profanity masked, one message per second.
 const heard: ChatMessage[] = [];

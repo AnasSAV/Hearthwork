@@ -344,3 +344,17 @@ playlistLength` (`shared/src/radio.ts`, unit-tested) and plays that track from t
   keep-alive, encrypted nightly `supabase db dump` and the ledger check. Walkthrough:
   `docs/DEPLOY.md`.
 - Production builds run on Node 22 (Render, Pages, CI); development used Node 24.
+
+## After Phase 5 (2026-10-23)
+
+### Private chat (whispers)
+
+- A whisper is a 1-to-1 private conversation with someone **within 4 tiles** (64 px). Click a
+  nearby player (or pick them under "Nearby" in the chat) to open a 🔒 tab. Only the two
+  players receive the messages (no speech bubble, not in room history).
+- Range is checked by the server on every message (with 16 px slack for movement). If you
+  walk apart, the conversation stays visible but the input is disabled until you're close
+  again.
+- Whispers share the chat rate limit and profanity filter. Mute hides a player's whispers too.
+  Whispers can be reported by their recipient only; reports are stored from the server's copy.
+- Conversations are per room (session ids change between rooms) and clear when you leave.

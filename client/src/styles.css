@@ -970,3 +970,91 @@ kbd {
   padding: 4px 8px;
   white-space: nowrap;
 }
+
+/* ---------- Whispers ---------- */
+
+.chat-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 6px;
+  pointer-events: auto;
+}
+
+.chat-tabs button,
+.chat-nearby button {
+  font: inherit;
+  font-size: 12px;
+  color: var(--text);
+  background: rgba(253, 246, 227, 0.06);
+  border: 1px solid transparent;
+  border-radius: 999px;
+  padding: 2px 9px;
+  cursor: pointer;
+}
+
+.chat-tabs > button.selected,
+.chat-tab.selected > button:first-child {
+  border-color: var(--accent);
+  background: rgba(244, 184, 96, 0.15);
+}
+
+.chat-tab {
+  display: inline-flex;
+  align-items: center;
+}
+
+.chat-tab .close {
+  padding: 0 6px;
+  margin-left: -2px;
+  color: var(--muted);
+  background: none;
+}
+
+.badge {
+  display: inline-block;
+  min-width: 16px;
+  margin-left: 5px;
+  padding: 0 4px;
+  border-radius: 999px;
+  background: var(--accent);
+  color: var(--ink);
+  font-size: 10px;
+  font-weight: 800;
+  text-align: center;
+}
+
+.chat-unread {
+  font-size: 11px;
+  color: var(--accent);
+}
+
+.chat-nearby {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px;
+  font-size: 12px;
+  color: var(--muted);
+  text-shadow: 0 1px 2px #000;
+  pointer-events: auto;
+}
+
+.chat-log.private {
+  border-color: rgba(184, 160, 255, 0.45);
+}
+
+.chat-log.private .chat-name {
+  color: #cdb8ff;
+}
+
+.chat-private-head {
+  font-size: 11px;
+  color: var(--muted);
+  margin-bottom: 4px;
+}
+
+.chat-form input:disabled {
+  opacity: 0.6;
+}

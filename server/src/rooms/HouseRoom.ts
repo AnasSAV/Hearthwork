@@ -56,7 +56,11 @@ export class HouseRoom extends Room<{ state: HouseState }> {
     () => this.grid,
     () => this.clock.currentTime,
   );
-  private chat = new ChatController(this, () => `house:${this.state.ownerId}`);
+  private chat = new ChatController(
+    this,
+    () => `house:${this.state.ownerId}`,
+    () => this.state.players,
+  );
   private focus = new FocusController(this, () => this.state.players, {
     get: (id) => this.seats.get(id),
     isAt: (desk, pos) =>

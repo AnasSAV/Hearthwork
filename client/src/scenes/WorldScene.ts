@@ -20,9 +20,11 @@ import {
   type PlayerState,
   type TownState,
   type WalletMessage,
+  type WhisperMessage,
+  WHISPER_RANGE_PX,
 } from '@focus-town/shared';
 import { PlayerSprite } from '../game/PlayerSprite';
-import { chat } from '../net/chat';
+import { chat, type Partner } from '../net/chat';
 import { syncClock } from '../net/clock';
 import { startHeartbeat, stopHeartbeat } from '../net/heartbeat';
 import { attachRoomSender } from '../net/roomBridge';
@@ -56,6 +58,7 @@ export abstract class WorldScene<S extends object> extends Phaser.Scene {
   private moving = false;
   private lastSent: MoveMessage | null = null;
   private lastSentAt = 0;
+  private nearbyCheckedAt = 0;
 
   /** Draw the world and set `this.grid`. Called before joining. */
   protected abstract buildWorld(): void;
@@ -174,6 +177,7 @@ export abstract class WorldScene<S extends object> extends Phaser.Scene {
     // so view the room as a TownState room for typing only.
     const callbacks = Callbacks.get(room as unknown as Room<unknown, TownState>);
     attachRoomSender((type, payload) => room.send(type, payload));
+    chat.setMe(room.sessionId);
 
     callbacks.onAdd('players', (player: PlayerState, sessionId: string) => {
       const isLocal = sessionId === room.sessionId;
@@ -207,6 +211,13 @@ export abstract class WorldScene<S extends object> extends Phaser.Scene {
         });
         return;
       }
+      // Click a nearby player to whisper to them.
+      sprite.onClick(() => {
+        if (!this.canClickPlayers()) return;
+        const partner = { sessionId, name: player.name };
+        if (this.inWhisperRange(sprite)) chat.openWhisper(partner);
+        else chat.notice(`Walk closer to ${player.name} to whisper.`);
+      });
       callbacks.onChange(player, () => {
         sprite.glideTo(player.x, player.y, REMOTE_TWEEN_MS);
         sprite.setMotion(asDirection(player.dir), player.moving);
@@ -230,7 +241,12 @@ export abstract class WorldScene<S extends object> extends Phaser.Scene {
     });
     room.onMessage(ServerMsg.Wallet, (wallet: WalletMessage) => uiStore.set({ wallet }));
     room.onMessage(ServerMsg.Clock, (m: ClockMessage) => syncClock(m.now));
-    room.onMessage(ServerMsg.ChatHistory, (history: ChatMessage[]) => chat.reset(history));
+    room.onMessage(ServerMsg.ChatHistory, (history: ChatMessage[]) =>
+      chat.reset(history, room.sessionId),
+    );
+    room.onMessage(ServerMsg.Whisper, (m: WhisperMessage) => {
+      if (!chat.isMuted(m.userId)) chat.addWhisper(m);
+    });
     room.onMessage(ServerMsg.ChatNotice, (n: ChatNotice) => chat.notice(n.message));
     room.onMessage(ServerMsg.Chat, (m: ChatMessage) => {
       chat.add(m);
@@ -267,6 +283,28 @@ export abstract class WorldScene<S extends object> extends Phaser.Scene {
     });
   }
 
+  /** Clicking players opens a whisper; off while the house editor uses the pointer. */
+  protected canClickPlayers(): boolean {
+    return true;
+  }
+
+  private inWhisperRange(sprite: PlayerSprite): boolean {
+    return Math.hypot(sprite.x - this.pos.x, sprite.y - this.pos.y) <= WHISPER_RANGE_PX;
+  }
+
+  /** Who is close enough to whisper to (checked a few times a second). */
+  private updateNearby(time: number): void {
+    if (time - this.nearbyCheckedAt < 250 || !this.room) return;
+    this.nearbyCheckedAt = time;
+    const nearby: Partner[] = [];
+    for (const [sessionId, sprite] of this.sprites) {
+      if (sessionId === this.room.sessionId || !this.inWhisperRange(sprite)) continue;
+      nearby.push({ sessionId, name: sprite.playerName });
+    }
+    nearby.sort((a, b) => a.name.localeCompare(b.name));
+    chat.setNearby(nearby);
+  }
+
   /** The local player's sprite exists; default: camera follows it. */
   protected onLocalPlayer(sprite: PlayerSprite): void {
     this.cameras.main.startFollow(sprite, true, 0.15, 0.15);
@@ -285,6 +323,7 @@ export abstract class WorldScene<S extends object> extends Phaser.Scene {
 
   override update(time: number, delta: number): void {
     if (!this.local || !this.room) return;
+    this.updateNearby(time);
     if (this.movementLocked()) {
       this.local.setMotion(this.dir, false);
       return;

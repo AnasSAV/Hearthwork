@@ -48,7 +48,11 @@ export class TownRoom extends Room<{ state: TownState }> {
       timers: () => this.state.tables,
     },
   );
-  private chat = new ChatController(this, () => `town:${this.roomId}`);
+  private chat = new ChatController(
+    this,
+    () => `town:${this.roomId}`,
+    () => this.state.players,
+  );
   private readonly onHouseChanged = (ownerId: string) => {
     const shown = [...this.state.lots.values()].some((l) => l.ownerId === ownerId);
     if (shown) void this.refreshLots();

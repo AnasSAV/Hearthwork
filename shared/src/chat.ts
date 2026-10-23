@@ -15,6 +15,19 @@ export const chatSendSchema = z.strictObject({
     .max(CHAT_MAX_LEN * 2), // trimmed/cleaned and re-checked by the server
 });
 
+/** Whispers only reach players within this distance (and only while they stay that close). */
+export const WHISPER_RANGE_TILES = 4;
+export const WHISPER_RANGE_PX = WHISPER_RANGE_TILES * 16;
+
+export const whisperSendSchema = z.strictObject({
+  /** Colyseus session id of the recipient (in the same room). */
+  to: z.string().min(1).max(64),
+  text: z
+    .string()
+    .min(1)
+    .max(CHAT_MAX_LEN * 2),
+});
+
 export const chatReportSchema = z.strictObject({
   messageId: z.string().min(1).max(64),
   reason: z.string().max(200).optional(),
@@ -30,6 +43,17 @@ export interface ChatMessage {
   text: string;
   /** Server time (ms). */
   at: number;
+}
+
+export interface ChatParty {
+  sessionId: string;
+  userId: string;
+  name: string;
+}
+
+/** A private message. `sessionId`/`userId`/`name` are the sender, as in ChatMessage. */
+export interface WhisperMessage extends ChatMessage {
+  to: ChatParty;
 }
 
 export interface ChatNotice {
