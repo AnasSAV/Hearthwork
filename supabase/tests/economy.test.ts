@@ -6,7 +6,6 @@
  *
  * Skipped automatically when SUPABASE_URL isn't set.
  */
-import { execFileSync } from 'node:child_process';
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import {
@@ -16,20 +15,7 @@ import {
   STREAK_MAX_DAYS,
   STREAK_STEP,
 } from '../../shared/src/constants.js';
-
-const url = process.env.SUPABASE_URL;
-const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-const anonKey = process.env.VITE_SUPABASE_ANON_KEY;
-const DB_CONTAINER = process.env.SUPABASE_DB_CONTAINER ?? 'supabase_db_focus-town';
-
-/** Run SQL as the postgres superuser inside the local DB container (test setup only). */
-function sql(query: string): string {
-  return execFileSync(
-    'docker',
-    ['exec', DB_CONTAINER, 'psql', '-U', 'postgres', '-tA', '-v', 'ON_ERROR_STOP=1', '-c', query],
-    { encoding: 'utf8' },
-  ).trim();
-}
+import { anonKey, dbConfigured, serviceKey, sql, url } from './helpers.js';
 
 const rules = {
   p_base_rate: BASE_RATE,
@@ -38,7 +24,7 @@ const rules = {
   p_daily_cap_min: DAILY_REWARD_CAP_MIN,
 };
 
-describe.skipIf(!url || !serviceKey || !anonKey)('focus economy (local Supabase)', () => {
+describe.skipIf(!dbConfigured)('focus economy (local Supabase)', () => {
   let service: SupabaseClient;
   let player: SupabaseClient;
   let userId: string;
