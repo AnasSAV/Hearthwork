@@ -102,3 +102,19 @@ npm run e2e:focus    # ~6.5 min real-time focus session, checks coins + ledger (
 
 They read `server/.env` and `client/.env`, and create and delete their own throwaway accounts.
 Only run them against local or staging projects.
+
+## Rebuilding the art (optional)
+
+The repository already contains everything the game needs. Only to change the art: buy LimeZu's
+**Modern Interiors** and **Modern Exteriors** (16×16), unzip them into one folder with
+`Interior/` and `Exterior/` inside, install Python 3 and Pillow (`pip install pillow`), then:
+
+```bash
+npm run art:characters -- "D:/path/to/FocusTown-art"   # character part atlases + avatarParts.ts
+npm run art:interiors -- "D:/path/to/FocusTown-art"    # furniture.png, room.png + interiorSprites.ts
+npm run map:town -- "D:/path/to/FocusTown-art"         # town.png, town.json/.tmx, houses atlas
+npm run seed:items                                     # if catalog footprints or names changed
+```
+
+`map:town` overwrites `town.tmx`; after hand edits in Tiled, export the JSON from Tiled instead.
+Never commit the packs themselves (their license forbids redistribution).

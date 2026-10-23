@@ -85,6 +85,12 @@ export function Login() {
         >
           {mode === 'signin' ? 'New here? Create an account' : 'Have an account? Sign in'}
         </button>
+        <p className="fine-print credit">
+          Art by{' '}
+          <a href="https://limezu.itch.io" target="_blank" rel="noreferrer">
+            LimeZu
+          </a>
+        </p>
       </form>
     </div>
   );

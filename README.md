@@ -13,12 +13,14 @@ supabase start       # local Supabase in Docker; see docs/SETUP.md for keys / ho
 npm run dev          # game server on :2567, client on http://localhost:5173
 ```
 
-Sign up, pick a username and make a character, walk to a desk in the plaza and press **E** to focus.
-Spend coins at the Furniture Shop (red roof, north-west): stand at its door and press **E**.
+Sign up, pick a username and make a character, sit in a chair at one of the plaza tables and
+press **E** to focus. Spend coins at the Furniture Shop (the hardware store, north-west): stand
+at its door and press **E**.
 **I** opens your inventory. **Home** takes you to your house: press **Decorate** to place
 furniture, **Settings** for visibility, exterior and upgrades. Add friends from **Friends**
 and visit their houses (you can study at their desks too). **Enter** opens chat, **Sounds**
-(top right) plays the synced lofi radio and ambience, and **Stats** shows your streaks.
+(top right) plays the synced lofi radio and ambience, **Stats** shows your streaks and
+**Character** changes your look.
 
 Deploying: see `docs/DEPLOY.md` (Supabase, Render, Cloudflare Pages, Oracle VM, GitHub Actions).
 Use a second browser (or a private window) with another account to see two players.
@@ -38,5 +40,13 @@ Use a second browser (or a private window) with another account to see two playe
 | `npm run load -- --bots 30`       | Load test: signed-in bots walking and chatting                       |
 | `npm run check:ledger`            | Verify every balance equals its coin ledger                          |
 | `npm run smoke`                   | Two bots join a running server and check sync, speed and wall checks |
-| `npm run map:town`                | Regenerate the town map (overwrites `town.tmx`/`town.json`)          |
+| `npm run map:town -- <pack dir>`  | Rebuild the town map and tileset from the LimeZu pack (see SETUP)    |
+| `npm run art:characters -- <dir>` | Rebuild the character part atlases from the LimeZu pack              |
+| `npm run art:interiors -- <dir>`  | Rebuild furniture and room sprites from the LimeZu pack              |
 | `npm run seed:items`              | Regenerate `supabase/seed.sql` from `shared/src/catalog.ts`          |
+
+## Art
+
+Characters, town, houses and furniture are by [LimeZu](https://limezu.itch.io) (Modern Interiors
+and Modern Exteriors), used under their license with credit; see `CREDITS.md`. The packs
+themselves are not in this repository.

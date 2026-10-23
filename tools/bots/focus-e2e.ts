@@ -19,6 +19,7 @@ import {
   type WalletMessage,
 } from '@focus-town/shared';
 import townJson from '../../client/public/assets/maps/town.json' with { type: 'json' };
+import { findPath } from './path.js';
 import { createTestPlayer, deleteTestPlayer, serviceClient } from './testPlayers.js';
 
 const url = process.argv[2] ?? 'http://localhost:2567';
@@ -64,14 +65,14 @@ const refused = next<{ message: string }>(room, ServerMsg.FocusError);
 room.send(ClientMsg.FocusStart, { deskId: DESK, plannedMin: 25, audioOnly: false });
 check(/desk/i.test((await refused).message), 'focus:start away from the desk is refused');
 
-// Walk to the desk with legal moves: to the road centre, north into the plaza, then west.
+// Walk to the desk with legal moves along a path through the town.
 const desk = map.layers
   .flatMap((l) => (l.type === 'objectgroup' ? l.objects : []))
   .find((o) => o.name === DESK)!;
 const seat = { x: desk.x + desk.width / 2, y: desk.y + desk.height - 2 };
 const me = () => room.state.players.get(room.sessionId)!;
 let pos = { x: me().x, y: me().y };
-for (const target of [{ x: 384, y: pos.y }, { x: 384, y: seat.y }, seat]) {
+for (const target of findPath(grid, pos, seat)) {
   while (Math.hypot(target.x - pos.x, target.y - pos.y) > 0.5) {
     const d = Math.hypot(target.x - pos.x, target.y - pos.y);
     const step = Math.min(7, d);

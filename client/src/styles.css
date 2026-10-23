@@ -481,6 +481,14 @@ kbd {
   line-height: 1.4;
 }
 
+.credit {
+  text-align: center;
+}
+
+.credit a {
+  color: inherit;
+}
+
 .row {
   display: flex;
   gap: 8px;
