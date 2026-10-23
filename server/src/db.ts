@@ -50,6 +50,15 @@ export interface HouseRecord {
   items: { id: string; itemId: string; room: number; x: number; y: number }[];
 }
 
+export interface ChatReport {
+  reporterId: string;
+  reportedId: string;
+  room: string;
+  messageId: string;
+  message: string;
+  reason: string | null;
+}
+
 export interface LotRecord {
   plotIndex: number;
   ownerId: string;
@@ -77,6 +86,8 @@ export interface GameDb {
   canVisit(visitorId: string, ownerId: string): Promise<boolean>;
   /** Houses on plots [0, plotCount), for drawing them in town. */
   getLots(plotCount: number): Promise<LotRecord[]>;
+  /** Store a reported chat message for moderation. Returns false if already reported by them. */
+  reportChat(report: ChatReport): Promise<boolean>;
 }
 
 interface ProfileRow {
@@ -86,6 +97,14 @@ interface ProfileRow {
   coins: number;
   total_focus_min: number;
   streak_days: number;
+  last_focus_date: string | null;
+}
+
+/** A streak only counts if the last focus day was today or yesterday (UTC). */
+function effectiveStreak(streak: number, lastFocusDate: string | null): number {
+  if (!lastFocusDate) return 0;
+  const yesterday = new Date(Date.now() - 86_400_000).toISOString().slice(0, 10);
+  return lastFocusDate >= yesterday ? streak : 0;
 }
 
 export class SupabaseGameDb implements GameDb {
@@ -107,6 +126,20 @@ export class SupabaseGameDb implements GameDb {
     return this.houses.getLots(plotCount);
   }
 
+  async reportChat(r: ChatReport): Promise<boolean> {
+    const { error } = await this.sb.from('chat_reports').insert({
+      reporter_id: r.reporterId,
+      reported_id: r.reportedId,
+      room: r.room,
+      message_id: r.messageId,
+      message: r.message,
+      reason: r.reason,
+    });
+    if (error?.code === '23505') return false; // unique (reporter, message): already reported
+    if (error) throw new Error(`reportChat: ${error.message}`);
+    return true;
+  }
+
   async verifyAccessToken(token: string): Promise<string | null> {
     // Verifies locally against the project's JWKS when asymmetric signing keys are enabled,
     // otherwise asks the Auth server. Either way the signature and expiry are checked.
@@ -118,7 +151,7 @@ export class SupabaseGameDb implements GameDb {
   async getProfile(userId: string): Promise<Profile | null> {
     const { data, error } = await this.sb
       .from('profiles')
-      .select('id, username, avatar, coins, total_focus_min, streak_days')
+      .select('id, username, avatar, coins, total_focus_min, streak_days, last_focus_date')
       .eq('id', userId)
       .maybeSingle<ProfileRow>();
     if (error) throw new Error(`getProfile: ${error.message}`);
@@ -130,7 +163,7 @@ export class SupabaseGameDb implements GameDb {
       avatar,
       coins: data.coins,
       totalFocusMin: data.total_focus_min,
-      streakDays: data.streak_days,
+      streakDays: effectiveStreak(data.streak_days, data.last_focus_date),
       ready: typeof avatar.body === 'number',
     };
   }

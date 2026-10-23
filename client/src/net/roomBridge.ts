@@ -17,6 +17,11 @@ export function attachRoomSender(fn: Send | null): void {
   send = fn;
 }
 
+/** Send any client message to the current room (no-op while disconnected). */
+export function sendToRoom(type: string, payload?: unknown): void {
+  send?.(type, payload);
+}
+
 export const roomActions = {
   startFocus(deskId: string, plannedMin: FocusBlock | null, audioOnly: boolean): void {
     const msg: FocusStartMessage = { deskId, plannedMin, audioOnly };

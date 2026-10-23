@@ -6,7 +6,10 @@ import {
   focusBeatSchema,
   focusStartSchema,
   ServerMsg,
+  TABLE_GRACE_MS,
+  TableTimerState,
   type Direction,
+  type FocusBlock,
   type FocusErrorMessage,
   type FocusStartMessage,
   type PlayerState,
@@ -34,6 +37,13 @@ export interface DeskSource {
   isAt(desk: DeskSpot, pos: Vec2): boolean;
 }
 
+/** Group tables whose seats share one Pomodoro countdown (town only). */
+export interface GroupTables {
+  /** Table a desk belongs to, or null for a solo desk. */
+  tableOf(deskId: string): string | null;
+  timers(): MapSchema<TableTimerState>;
+}
+
 const authOf = (client: Client) => client.auth as AuthedUser;
 
 /**
@@ -50,6 +60,7 @@ export class FocusController {
     private readonly room: Room,
     private readonly players: () => MapSchema<PlayerState>,
     private readonly desks: DeskSource,
+    private readonly tables?: GroupTables,
   ) {}
 
   register(): void {
@@ -86,6 +97,42 @@ export class FocusController {
     }
   }
 
+  /**
+   * Called every second: refresh how many sit at each table, drop empty tables, and close a
+   * table's sessions once its countdown (plus grace for the last heartbeat) is over.
+   */
+  tickTables(now: number): void {
+    if (!this.tables) return;
+    const seatedAt = this.countTables();
+    for (const [tableId, timer] of [...this.tables.timers().entries()]) {
+      const sessions = seatedAt.get(tableId) ?? [];
+      if (sessions.length === 0) {
+        this.tables.timers().delete(tableId);
+      } else if (now >= timer.endsAt + TABLE_GRACE_MS) {
+        this.tables.timers().delete(tableId);
+        for (const sessionId of sessions) {
+          const client = this.room.clients.get(sessionId);
+          if (client) void this.ownedSession(client)?.end('table_finished');
+        }
+      }
+    }
+  }
+
+  /** Update each table's seated count; returns table -> seated client ids. */
+  private countTables(): Map<string, string[]> {
+    const byTable = new Map<string, string[]>();
+    if (!this.tables) return byTable;
+    for (const [sessionId, deskId] of this.seated) {
+      const tableId = this.tables.tableOf(deskId);
+      if (tableId) byTable.set(tableId, [...(byTable.get(tableId) ?? []), sessionId]);
+    }
+    for (const [tableId, timer] of this.tables.timers()) {
+      const n = byTable.get(tableId)?.length ?? 0;
+      if (timer.seated !== n) timer.seated = n;
+    }
+    return byTable;
+  }
+
   /** The focus session owned by this client (not another tab of the same user). */
   ownedSession(client: Client): FocusSession | undefined {
     const session = focusRegistry.get(authOf(client).userId);
@@ -112,6 +159,15 @@ export class FocusController {
       }
     }
 
+    // At a group table the first person picks the block; later arrivals join the same
+    // countdown (and only get the completion bonus if they still verify the whole block).
+    const now = Date.now();
+    const tableId = this.tables?.tableOf(desk.id) ?? null;
+    const timer = tableId && this.tables ? this.tables.timers().get(tableId) : undefined;
+    const joiningTable = timer !== undefined && timer.endsAt > now;
+    let plannedMin: FocusBlock | null = msg.plannedMin;
+    if (tableId) plannedMin = joiningTable ? (timer.plannedMin as FocusBlock) : (plannedMin ?? 25);
+
     this.starting.add(client.sessionId);
     try {
       // One session per user: starting here ends the one in any other tab or room.
@@ -121,7 +177,7 @@ export class FocusController {
         db: db(),
         userId: auth.userId,
         deskId: desk.id,
-        plannedMin: msg.plannedMin,
+        plannedMin,
         audioOnly: msg.audioOnly,
         sink: this.sinkFor(client.sessionId),
         now: Date.now,
@@ -139,13 +195,23 @@ export class FocusController {
       player.status = 'focusing';
       player.focusMin = 0;
       correct(client, player);
+      if (tableId && this.tables && !joiningTable && plannedMin) {
+        const t = new TableTimerState();
+        t.tableId = tableId;
+        t.plannedMin = plannedMin;
+        t.startedAt = now;
+        t.endsAt = now + plannedMin * 60_000;
+        this.tables.timers().set(tableId, t);
+      }
+      this.countTables();
       log.info('focus session started', {
         roomId: this.room.roomId,
         userId: auth.userId,
         sessionId: session.sessionId,
         desk: desk.id,
-        plannedMin: msg.plannedMin,
+        plannedMin,
         audioOnly: msg.audioOnly,
+        table: tableId,
       });
     } catch (err) {
       log.error('focus start failed', { userId: auth.userId, error: String(err) });

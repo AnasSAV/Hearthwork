@@ -68,6 +68,9 @@ export function HUD() {
         <button type="button" className="link" onClick={() => uiStore.set({ friendsOpen: true })}>
           Friends
         </button>
+        <button type="button" className="link" onClick={() => uiStore.set({ statsOpen: true })}>
+          Stats
+        </button>
         {!editing && (
           <button
             type="button"
@@ -103,7 +106,8 @@ export function HUD() {
       )}
       {!editing && (
         <div className="controls panel">
-          WASD / arrows: walk · E: use · I: inventory{house ? ' · walk out the door to leave' : ''}
+          WASD / arrows: walk · E: use · I: inventory · Enter: chat
+          {house ? ' · walk out the door to leave' : ''}
         </div>
       )}
     </>

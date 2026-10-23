@@ -16,6 +16,8 @@ export const ClientMsg = {
   FocusEnd: 'focus:end',
   /** Owner saved a layout, upgraded or changed settings: reload the house from the database. */
   HouseReload: 'house:reload',
+  Chat: 'chat',
+  ChatReport: 'chat:report',
 } as const;
 
 /** Server → client message type names. */
@@ -32,7 +34,19 @@ export const ServerMsg = {
   FocusError: 'focus:error',
   /** Something the player should know about the house (e.g. it was made private). */
   HouseNotice: 'house:notice',
+  /** One chat message (ChatMessage). */
+  Chat: 'chat',
+  /** Recent messages for someone who just joined (ChatMessage[]). */
+  ChatHistory: 'chat:history',
+  /** Feedback about chat (rate limit, report received). */
+  ChatNotice: 'chat:notice',
+  /** Server time in ms, for synced clocks (radio, table timers). */
+  Clock: 'clock',
 } as const;
+
+export interface ClockMessage {
+  now: number;
+}
 
 // ---------------------------------------------------------------------------------------------
 // Client → server payloads
@@ -104,7 +118,8 @@ export interface FocusStateMessage {
   lastMiss: string | null;
 }
 
-export type FocusEndReason = 'completed' | 'ended' | 'replaced' | 'missed_beats' | 'left' | 'error';
+export type FocusEndReason =
+  'completed' | 'ended' | 'replaced' | 'missed_beats' | 'left' | 'table_finished' | 'error';
 
 export interface FocusEndedMessage {
   reason: FocusEndReason;

@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react';
 import type { FocusBlock, FocusEndReason } from '@focus-town/shared';
+import { serverNow } from '../net/clock';
 import { roomActions } from '../net/roomBridge';
-import { uiStore, useUi, type ActiveFocus } from '../store';
+import { uiStore, useUi, type ActiveFocus, type TableTimer } from '../store';
 
 const MISS_TEXT: Record<string, string> = {
   late: 'a heartbeat arrived late',
@@ -16,7 +17,8 @@ const END_TEXT: Record<FocusEndReason, string> = {
   ended: 'Session ended.',
   replaced: 'You started a session somewhere else, so this one ended.',
   missed_beats: 'Lost contact with your timer, so the session ended.',
-  left: 'You left the town, so the session ended.',
+  left: 'You left, so the session ended.',
+  table_finished: "Your table's Pomodoro is over.",
   error: 'The session was interrupted.',
 };
 
@@ -40,8 +42,16 @@ function shownSeconds(focus: ActiveFocus, now: number): number {
   return focus.verifiedMin * 60 + inProgress;
 }
 
-function Chooser({ deskId }: { deskId: string }) {
+/** The running group-table timer at `tableId`, if any. */
+function useTableTimer(tableId: string | null): TableTimer | null {
+  const timer = useUi((s) => (tableId ? s.tables[tableId] : undefined));
+  return timer && timer.endsAt > serverNow() ? timer : null;
+}
+
+function Chooser({ deskId, tableId }: { deskId: string; tableId: string | null }) {
   const [plan, setPlan] = useState<FocusBlock | null>(25);
+  const table = useTableTimer(tableId);
+  useNow();
   const [audioOnly, setAudioOnly] = useState(false);
   const [requested, setStarting] = useState(false);
   const error = useUi((s) => s.focusError);
@@ -57,25 +67,41 @@ function Chooser({ deskId }: { deskId: string }) {
   const options: { value: FocusBlock | null; label: string; hint: string }[] = [
     { value: 25, label: '25 min', hint: '+5 bonus' },
     { value: 50, label: '50 min', hint: '+12 bonus' },
-    { value: null, label: 'Open', hint: 'no limit' },
+    // Group tables share one block, so open-ended sessions are for solo desks.
+    ...(tableId ? [] : [{ value: null, label: 'Open', hint: 'no limit' }]),
   ];
 
   return (
     <div className="panel focus-card">
-      <div className="focus-title">Focus session</div>
-      <div className="segmented">
-        {options.map((o) => (
-          <button
-            key={o.label}
-            type="button"
-            className={plan === o.value ? 'selected' : ''}
-            onClick={() => setPlan(o.value)}
-          >
-            <strong>{o.label}</strong>
-            <small>{o.hint}</small>
-          </button>
-        ))}
-      </div>
+      <div className="focus-title">{tableId ? 'Group table' : 'Focus session'}</div>
+      {table ? (
+        <p className="subtitle">
+          This table&apos;s {table.plannedMin}-minute Pomodoro is running with {table.seated}{' '}
+          {table.seated === 1 ? 'person' : 'people'}:{' '}
+          <strong>{fmt((table.endsAt - serverNow()) / 1000)}</strong> left. Sit down to join it.
+        </p>
+      ) : (
+        <>
+          {tableId && (
+            <p className="fine-print">
+              You pick the block; everyone who sits at this table joins your countdown.
+            </p>
+          )}
+          <div className="segmented">
+            {options.map((o) => (
+              <button
+                key={o.label}
+                type="button"
+                className={plan === o.value ? 'selected' : ''}
+                onClick={() => setPlan(o.value)}
+              >
+                <strong>{o.label}</strong>
+                <small>{o.hint}</small>
+              </button>
+            ))}
+          </div>
+        </>
+      )}
       <label className="check">
         <input
           type="checkbox"
@@ -91,7 +117,7 @@ function Chooser({ deskId }: { deskId: string }) {
       {error && <div className="form-error">{error}</div>}
       <div className="row">
         <button type="button" className="btn" onClick={start} disabled={starting}>
-          {starting ? 'Starting…' : 'Start'}
+          {starting ? 'Starting…' : table ? 'Join the table' : 'Start'}
         </button>
         <button
           type="button"
@@ -105,15 +131,25 @@ function Chooser({ deskId }: { deskId: string }) {
   );
 }
 
-function Running({ focus }: { focus: ActiveFocus }) {
+function Running({ focus, tableId }: { focus: ActiveFocus; tableId: string | null }) {
   const now = useNow();
+  const table = useTableTimer(tableId);
   const elapsed = shownSeconds(focus, now);
-  const clock = focus.plannedMin ? fmt(focus.plannedMin * 60 - elapsed) : fmt(elapsed);
+  // At a group table everyone sees the table's shared countdown.
+  const clock = table
+    ? fmt((table.endsAt - serverNow()) / 1000)
+    : focus.plannedMin
+      ? fmt(focus.plannedMin * 60 - elapsed)
+      : fmt(elapsed);
 
   return (
     <div className="panel focus-card running">
       <div className="focus-title">
-        {focus.plannedMin ? `${focus.plannedMin}-minute block` : 'Open session'}
+        {table
+          ? `Table Pomodoro · ${table.seated} at the table`
+          : focus.plannedMin
+            ? `${focus.plannedMin}-minute block`
+            : 'Open session'}
         {focus.audioOnly && <span className="tag">audio-only</span>}
       </div>
       <div className="clock">{clock}</div>
@@ -180,12 +216,12 @@ export function FocusPanel() {
   if (focus) {
     return (
       <>
-        <Running focus={focus} />
+        <Running focus={focus} tableId={nearDesk?.table ?? null} />
         {focus.awaitingPresence && <PresencePrompt />}
       </>
     );
   }
   if (summary) return <Summary />;
-  if (timerOpen && nearDesk) return <Chooser deskId={nearDesk.id} />;
+  if (timerOpen && nearDesk) return <Chooser deskId={nearDesk.id} tableId={nearDesk.table} />;
   return null;
 }

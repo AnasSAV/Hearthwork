@@ -43,6 +43,13 @@ export interface NearLot {
   isMine: boolean;
 }
 
+/** A running group-table Pomodoro (server times in ms). */
+export interface TableTimer {
+  plannedMin: number;
+  endsAt: number;
+  seated: number;
+}
+
 export interface UiState {
   connection: ConnectionStatus;
   playerName: string;
@@ -64,6 +71,9 @@ export interface UiState {
   friendsOpen: boolean;
   /** Short message shown as a toast. */
   notice: string | null;
+  /** Group-table Pomodoros in the current town room, by table id. */
+  tables: Record<string, TableTimer>;
+  statsOpen: boolean;
   /** The focus timer panel is open (choosing a block, or running). */
   timerOpen: boolean;
   focus: ActiveFocus | null;
@@ -87,6 +97,8 @@ const initial: UiState = {
   houseSettingsOpen: false,
   friendsOpen: false,
   notice: null,
+  tables: {},
+  statsOpen: false,
   timerOpen: false,
   focus: null,
   focusSummary: null,

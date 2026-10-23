@@ -27,6 +27,7 @@ import { FocusController, type DeskSpot } from '../focus/FocusController.js';
 import { focusRegistry } from '../focus/registry.js';
 import { houseEvents } from '../houseEvents.js';
 import { log } from '../log.js';
+import { ChatController, clockNow } from './ChatController.js';
 import { correct, MovementGuard } from './MovementGuard.js';
 import { onValidated, rejectUnknownMessages } from './validated.js';
 
@@ -55,6 +56,7 @@ export class HouseRoom extends Room<{ state: HouseState }> {
     () => this.grid,
     () => this.clock.currentTime,
   );
+  private chat = new ChatController(this, () => `house:${this.state.ownerId}`);
   private focus = new FocusController(this, () => this.state.players, {
     get: (id) => this.seats.get(id),
     isAt: (desk, pos) =>
@@ -77,7 +79,9 @@ export class HouseRoom extends Room<{ state: HouseState }> {
       void this.reload().then(() => houseEvents.emit('changed', this.state.ownerId));
     });
     this.focus.register();
+    this.chat.register();
     rejectUnknownMessages(this);
+    this.clock.setInterval(() => this.broadcast(ServerMsg.Clock, clockNow()), 30_000);
     this.clock.setInterval(() => {
       this.state.focusingNow = focusRegistry.count();
     }, 2_000);
@@ -115,6 +119,8 @@ export class HouseRoom extends Room<{ state: HouseState }> {
     this.state.players.set(client.sessionId, player);
     this.moves.join(client.sessionId);
     client.send(ServerMsg.Wallet, auth.wallet);
+    client.send(ServerMsg.Clock, clockNow());
+    this.chat.join(client);
     log.info('house visitor joined', {
       roomId: this.roomId,
       ownerId: this.state.ownerId,
@@ -142,6 +148,7 @@ export class HouseRoom extends Room<{ state: HouseState }> {
   override async onLeave(client: Client): Promise<void> {
     this.state.players.delete(client.sessionId);
     this.moves.leave(client.sessionId);
+    this.chat.leave(client);
     await this.focus.leave(client);
   }
 

@@ -12,6 +12,7 @@ import {
   collisionGridFromTiled,
   ServerMsg,
   TownState,
+  type ChatMessage,
   type MoveCorrectMessage,
   type MoveMessage,
   type PlayerState,
@@ -109,6 +110,23 @@ walker.send(ClientMsg.Move, { x: 'nope', y: Infinity });
 walker.send('not-a-real-message', { hi: 1 });
 await sleep(300);
 check(walker.connection.isOpen, 'connection survives invalid payloads');
+
+// 5. Chat: delivered to the room, profanity masked, one message per second.
+const heard: ChatMessage[] = [];
+watcher.onMessage(ServerMsg.Chat, (m: ChatMessage) => heard.push(m));
+const notices: string[] = [];
+walker.onMessage(ServerMsg.ChatNotice, (n: { message: string }) => notices.push(n.message));
+walker.send(ClientMsg.Chat, { text: 'what the fuck is this' });
+walker.send(ClientMsg.Chat, { text: 'second message too soon' });
+await sleep(500);
+check(
+  heard.length === 1 && heard[0]!.text === 'what the **** is this',
+  `chat filtered: "${heard[0]?.text}"`,
+);
+check(
+  notices.some((n) => /slow down/i.test(n)),
+  'second message within a second is refused',
+);
 
 await walker.leave();
 await watcher.leave();

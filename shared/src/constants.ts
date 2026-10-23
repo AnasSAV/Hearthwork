@@ -65,3 +65,8 @@ export const FOCUS_PRESENCE_EVERY_MIN = 25;
 export const FOCUS_MISSED_BEATS_LIMIT = 3;
 /** Verified minutes are saved to the database in chunks of this size. */
 export const FOCUS_AWARD_EVERY_MIN = 5;
+/**
+ * A group table's shared Pomodoro closes this long after its countdown ends, so the last
+ * heartbeat (up to FOCUS_BEAT_LATE_MS late) can still complete the block.
+ */
+export const TABLE_GRACE_MS = 90_000;

@@ -11,6 +11,8 @@ export class PlayerSprite extends Phaser.GameObjects.Container {
   private dir: Direction = 'down';
   private moving = false;
   private moveTween: Phaser.Tweens.Tween | null = null;
+  private bubble: Phaser.GameObjects.Text | null = null;
+  private bubbleTimer: Phaser.Time.TimerEvent | null = null;
   private statusKey = '';
 
   constructor(
@@ -47,6 +49,31 @@ export class PlayerSprite extends Phaser.GameObjects.Container {
   setTextResolution(resolution: number): void {
     this.label.setResolution(resolution);
     this.badge.setResolution(resolution);
+    this.bubble?.setResolution(resolution);
+  }
+
+  /** Show a chat message in a speech bubble for a few seconds. */
+  say(text: string, resolution: number): void {
+    this.bubbleTimer?.remove();
+    this.bubble?.destroy();
+    const short = text.length > 60 ? `${text.slice(0, 57)}...` : text;
+    this.bubble = this.scene.add
+      .text(0, this.badge.visible ? -31 : -24, short, {
+        fontFamily: 'system-ui, -apple-system, "Segoe UI", sans-serif',
+        fontSize: '6px',
+        color: '#1d1b2a',
+        backgroundColor: '#fdf6e3',
+        padding: { x: 3, y: 2 },
+        wordWrap: { width: 90 },
+        align: 'center',
+        resolution,
+      })
+      .setOrigin(0.5, 1);
+    this.add(this.bubble);
+    this.bubbleTimer = this.scene.time.delayedCall(5000 + short.length * 40, () => {
+      this.bubble?.destroy();
+      this.bubble = null;
+    });
   }
 
   private nameColor(): string {
@@ -116,6 +143,7 @@ export class PlayerSprite extends Phaser.GameObjects.Container {
 
   override destroy(fromScene?: boolean): void {
     this.moveTween?.stop();
+    this.bubbleTimer?.remove();
     super.destroy(fromScene);
   }
 }

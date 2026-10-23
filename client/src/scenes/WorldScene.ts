@@ -14,11 +14,16 @@ import {
   type FocusErrorMessage,
   type FocusStateMessage,
   type MoveMessage,
+  type ChatMessage,
+  type ChatNotice,
+  type ClockMessage,
   type PlayerState,
   type TownState,
   type WalletMessage,
 } from '@focus-town/shared';
 import { PlayerSprite } from '../game/PlayerSprite';
+import { chat } from '../net/chat';
+import { syncClock } from '../net/clock';
 import { startHeartbeat, stopHeartbeat } from '../net/heartbeat';
 import { attachRoomSender } from '../net/roomBridge';
 import { uiStore } from '../store';
@@ -67,7 +72,9 @@ export abstract class WorldScene<S extends object> extends Phaser.Scene {
   /** Should the local player stand still this frame? */
   protected movementLocked(): boolean {
     const ui = uiStore.get();
-    return Boolean(ui.focus || ui.shopOpen || ui.houseSettingsOpen || ui.friendsOpen);
+    return Boolean(
+      ui.focus || ui.shopOpen || ui.houseSettingsOpen || ui.friendsOpen || ui.statsOpen,
+    );
   }
 
   create(): void {
@@ -104,12 +111,13 @@ export abstract class WorldScene<S extends object> extends Phaser.Scene {
   /** Esc closes the topmost panel. */
   protected escape(): void {
     const ui = uiStore.get();
-    if (ui.shopOpen || ui.inventoryOpen || ui.houseSettingsOpen || ui.friendsOpen) {
+    if (ui.shopOpen || ui.inventoryOpen || ui.houseSettingsOpen || ui.friendsOpen || ui.statsOpen) {
       uiStore.set({
         shopOpen: false,
         inventoryOpen: false,
         houseSettingsOpen: false,
         friendsOpen: false,
+        statsOpen: false,
       });
     } else if (!ui.focus) uiStore.set({ timerOpen: false, focusError: null });
   }
@@ -221,6 +229,14 @@ export abstract class WorldScene<S extends object> extends Phaser.Scene {
       this.teleport(parsed.data.x, parsed.data.y);
     });
     room.onMessage(ServerMsg.Wallet, (wallet: WalletMessage) => uiStore.set({ wallet }));
+    room.onMessage(ServerMsg.Clock, (m: ClockMessage) => syncClock(m.now));
+    room.onMessage(ServerMsg.ChatHistory, (history: ChatMessage[]) => chat.reset(history));
+    room.onMessage(ServerMsg.ChatNotice, (n: ChatNotice) => chat.notice(n.message));
+    room.onMessage(ServerMsg.Chat, (m: ChatMessage) => {
+      chat.add(m);
+      if (!chat.isMuted(m.userId))
+        this.sprites.get(m.sessionId)?.say(m.text, this.textResolution());
+    });
     room.onMessage(ServerMsg.FocusState, (msg: FocusStateMessage) => {
       if (!uiStore.get().focus) startHeartbeat();
       uiStore.set({
@@ -342,6 +358,7 @@ export abstract class WorldScene<S extends object> extends Phaser.Scene {
       });
     }
     uiStore.set({ nearDesk: null, timerOpen: false });
+    chat.reset();
     for (const s of this.sprites.values()) s.destroy();
     this.sprites.clear();
     this.local = null;

@@ -6,6 +6,7 @@ import {
   getProperty,
   MapObjectType,
   type LotState,
+  type TableTimerState,
   type TiledMap,
   type TiledObject,
   type TownState,
@@ -14,7 +15,7 @@ import { LotView } from '../game/exteriors';
 import { goToHouse, type TownSceneData } from '../game/navigation';
 import { joinTown } from '../net/colyseus';
 import { supabase } from '../net/supabase';
-import { uiStore, type NearDesk, type NearLot } from '../store';
+import { uiStore, type NearDesk, type NearLot, type TableTimer } from '../store';
 import { TOWN_MAP_KEY } from './BootScene';
 import { WorldScene } from './WorldScene';
 
@@ -119,6 +120,20 @@ export class TownScene extends WorldScene<TownState> {
       this.lots.delete(lot.plotIndex);
       this.plots.get(lot.plotIndex)?.view.show(null);
     });
+
+    // Group-table Pomodoros for the focus panel.
+    const syncTables = () => {
+      const tables: Record<string, TableTimer> = {};
+      room.state.tables.forEach((t: TableTimerState, id: string) => {
+        tables[id] = { plannedMin: t.plannedMin, endsAt: t.endsAt, seated: t.seated };
+      });
+      uiStore.set({ tables });
+    };
+    callbacks.onAdd('tables', (t: TableTimerState) => {
+      syncTables();
+      callbacks.onChange(t, syncTables);
+    });
+    callbacks.onRemove('tables', syncTables);
   }
 
   protected use(): boolean {
@@ -176,7 +191,7 @@ export class TownScene extends WorldScene<TownState> {
   }
 
   protected override onTeardown(): void {
-    uiStore.set({ nearShop: false, nearLot: null, shopOpen: false });
+    uiStore.set({ nearShop: false, nearLot: null, shopOpen: false, tables: {} });
   }
 }
 

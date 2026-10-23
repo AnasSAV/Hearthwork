@@ -36,11 +36,27 @@ export const LotState = schema(
 );
 export type LotState = SchemaType<typeof LotState>;
 
+/** A group table's shared Pomodoro: everyone seated there counts down to the same end. */
+export const TableTimerState = schema(
+  {
+    tableId: t.string(),
+    plannedMin: t.uint8(),
+    /** Server time (ms). */
+    startedAt: t.number(),
+    endsAt: t.number(),
+    seated: t.uint8(),
+  },
+  'TableTimerState',
+);
+export type TableTimerState = SchemaType<typeof TableTimerState>;
+
 export const TownState = schema(
   {
     players: t.map(PlayerState),
     /** Keyed by plot index. Empty lots are absent. */
     lots: t.map(LotState),
+    /** Running group-table Pomodoros, keyed by table id. */
+    tables: t.map(TableTimerState),
     /** People in a focus session right now, across the whole server (for the HUD). */
     focusingNow: t.uint16(),
   },

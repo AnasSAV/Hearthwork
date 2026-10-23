@@ -19,6 +19,7 @@ import { focusRegistry } from '../focus/registry.js';
 import { houseEvents } from '../houseEvents.js';
 import { log } from '../log.js';
 import { isAtDesk, townMap } from '../maps.js';
+import { ChatController, clockNow } from './ChatController.js';
 import { MovementGuard } from './MovementGuard.js';
 import { onValidated, rejectUnknownMessages } from './validated.js';
 
@@ -32,13 +33,22 @@ export class TownRoom extends Room<{ state: TownState }> {
     () => townMap.grid,
     () => this.clock.currentTime,
   );
-  private focus = new FocusController(this, () => this.state.players, {
-    get: (id) => townMap.desks.get(id),
-    isAt: (desk, pos) => {
-      const full = townMap.desks.get(desk.id);
-      return !!full && isAtDesk(full, pos);
+  private focus = new FocusController(
+    this,
+    () => this.state.players,
+    {
+      get: (id) => townMap.desks.get(id),
+      isAt: (desk, pos) => {
+        const full = townMap.desks.get(desk.id);
+        return !!full && isAtDesk(full, pos);
+      },
     },
-  });
+    {
+      tableOf: (deskId) => townMap.desks.get(deskId)?.table ?? null,
+      timers: () => this.state.tables,
+    },
+  );
+  private chat = new ChatController(this, () => `town:${this.roomId}`);
   private readonly onHouseChanged = (ownerId: string) => {
     const shown = [...this.state.lots.values()].some((l) => l.ownerId === ownerId);
     if (shown) void this.refreshLots();
@@ -50,7 +60,11 @@ export class TownRoom extends Room<{ state: TownState }> {
       if (player) this.moves.handle(client, player, msg, this.focus.isSeated(client.sessionId));
     });
     this.focus.register();
+    this.chat.register();
     rejectUnknownMessages(this);
+    this.clock.setInterval(() => this.focus.tickTables(Date.now()), 1_000);
+    // Server time for synced clocks (radio, table timers); also sent to each joiner.
+    this.clock.setInterval(() => this.broadcast(ServerMsg.Clock, clockNow()), 30_000);
 
     this.clock.setInterval(() => {
       this.state.focusingNow = focusRegistry.count();
@@ -83,6 +97,8 @@ export class TownRoom extends Room<{ state: TownState }> {
     this.state.players.set(client.sessionId, player);
     this.moves.join(client.sessionId);
     client.send(ServerMsg.Wallet, auth.wallet);
+    client.send(ServerMsg.Clock, clockNow());
+    this.chat.join(client);
     log.info('player joined', {
       roomId: this.roomId,
       sessionId: client.sessionId,
@@ -117,6 +133,7 @@ export class TownRoom extends Room<{ state: TownState }> {
     this.state.players.delete(client.sessionId);
     this.moves.leave(client.sessionId);
     log.info('player left', { roomId: this.roomId, sessionId: client.sessionId });
+    this.chat.leave(client);
     await this.focus.leave(client);
   }
 
