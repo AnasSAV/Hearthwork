@@ -4,6 +4,7 @@
  * client/.env). Only meant for local or staging projects.
  */
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
+import { randomAvatar } from '@focus-town/shared';
 
 export interface TestPlayer {
   userId: string;
@@ -25,7 +26,7 @@ export const serviceClient = (): SupabaseClient =>
     auth: { persistSession: false, autoRefreshToken: false },
   });
 
-export async function createTestPlayer(prefix: string, body: number): Promise<TestPlayer> {
+export async function createTestPlayer(prefix: string): Promise<TestPlayer> {
   const suffix = Math.random().toString(36).slice(2, 8);
   const username = `${prefix}_${suffix}`.slice(0, 16);
   const email = `${username.toLowerCase()}@bots.focus.town`;
@@ -42,7 +43,10 @@ export async function createTestPlayer(prefix: string, body: number): Promise<Te
   if (signedIn.error || !signedIn.data.session)
     throw new Error(`signIn: ${signedIn.error?.message}`);
 
-  const profile = await client.rpc('update_profile', { p_username: username, p_avatar: { body } });
+  const profile = await client.rpc('update_profile', {
+    p_username: username,
+    p_avatar: randomAvatar(),
+  });
   if (profile.error) throw new Error(`update_profile: ${profile.error.message}`);
 
   return {

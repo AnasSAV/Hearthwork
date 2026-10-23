@@ -48,7 +48,7 @@ function next<T>(room: Room<unknown, TownState>, type: string, timeoutMs = 5_000
   });
 }
 
-const player = await createTestPlayer('focusbot', 4);
+const player = await createTestPlayer('focusbot');
 const client = new Client(url);
 client.auth.token = player.token;
 const room: Room<unknown, TownState> = await client.joinOrCreate('town', {}, TownState);

@@ -74,6 +74,8 @@ export interface UiState {
   /** Group-table Pomodoros in the current town room, by table id. */
   tables: Record<string, TableTimer>;
   statsOpen: boolean;
+  /** The character editor is open. */
+  characterOpen: boolean;
   /** The focus timer panel is open (choosing a block, or running). */
   timerOpen: boolean;
   focus: ActiveFocus | null;
@@ -99,6 +101,7 @@ const initial: UiState = {
   notice: null,
   tables: {},
   statsOpen: false,
+  characterOpen: false,
   timerOpen: false,
   focus: null,
   focusSummary: null,

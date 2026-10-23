@@ -8,7 +8,8 @@ export const PlayerState = schema(
   {
     id: t.string(),
     name: t.string(),
-    avatar: t.uint8(),
+    /** encodeAvatar() of the player's avatar. */
+    avatar: t.string(),
     x: t.number(),
     y: t.number(),
     /** One of DIRECTIONS. */

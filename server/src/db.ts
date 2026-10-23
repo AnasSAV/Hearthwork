@@ -9,6 +9,8 @@ import {
   DAILY_REWARD_CAP_MIN,
   STREAK_MAX_DAYS,
   STREAK_STEP,
+  parseAvatar,
+  type Avatar,
   type FocusBlock,
 } from '@focus-town/shared';
 import { config } from './config.js';
@@ -16,12 +18,11 @@ import { config } from './config.js';
 export interface Profile {
   id: string;
   username: string;
-  avatar: { body?: number };
+  /** Null until the player has made a (v2) character. */
+  avatar: Avatar | null;
   coins: number;
   totalFocusMin: number;
   streakDays: number;
-  /** True once the player has picked a username and avatar. */
-  ready: boolean;
 }
 
 export interface AwardResult {
@@ -93,7 +94,7 @@ export interface GameDb {
 interface ProfileRow {
   id: string;
   username: string;
-  avatar: { body?: number } | null;
+  avatar: unknown;
   coins: number;
   total_focus_min: number;
   streak_days: number;
@@ -156,15 +157,13 @@ export class SupabaseGameDb implements GameDb {
       .maybeSingle<ProfileRow>();
     if (error) throw new Error(`getProfile: ${error.message}`);
     if (!data) return null;
-    const avatar = data.avatar ?? {};
     return {
       id: data.id,
       username: data.username,
-      avatar,
+      avatar: parseAvatar(data.avatar),
       coins: data.coins,
       totalFocusMin: data.total_focus_min,
       streakDays: effectiveStreak(data.streak_days, data.last_focus_date),
-      ready: typeof avatar.body === 'number',
     };
   }
 

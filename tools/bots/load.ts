@@ -23,6 +23,7 @@ import {
   TownState,
   type MoveMessage,
   type TiledMap,
+  randomAvatar,
 } from '@focus-town/shared';
 import townJson from '../../client/public/assets/maps/town.json' with { type: 'json' };
 import { serviceClient } from './testPlayers.js';
@@ -73,7 +74,10 @@ async function signIn(acc: BotAccount, index: number): Promise<string> {
   const { data, error } = await sb.auth.signInWithPassword(acc);
   if (error || !data.session) throw new Error(`signIn: ${error?.message}`);
   // Profiles must be set up before joining; idempotent.
-  await sb.rpc('update_profile', { p_username: `loadbot_${index}`, p_avatar: { body: index % 6 } });
+  await sb.rpc('update_profile', {
+    p_username: `loadbot_${index}`,
+    p_avatar: randomAvatar(),
+  });
   return data.session.access_token;
 }
 

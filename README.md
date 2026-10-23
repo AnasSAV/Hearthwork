@@ -13,7 +13,7 @@ supabase start       # local Supabase in Docker; see docs/SETUP.md for keys / ho
 npm run dev          # game server on :2567, client on http://localhost:5173
 ```
 
-Sign up, pick a username and avatar, walk to a desk in the plaza and press **E** to focus.
+Sign up, pick a username and make a character, walk to a desk in the plaza and press **E** to focus.
 Spend coins at the Furniture Shop (red roof, north-west): stand at its door and press **E**.
 **I** opens your inventory. **Home** takes you to your house: press **Decorate** to place
 furniture, **Settings** for visibility, exterior and upgrades. Add friends from **Friends**

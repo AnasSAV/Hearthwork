@@ -21,6 +21,7 @@ import { log } from '../log.js';
 import { isAtDesk, townMap } from '../maps.js';
 import { ChatController, clockNow } from './ChatController.js';
 import { MovementGuard } from './MovementGuard.js';
+import { registerProfileReload } from './profileReload.js';
 import { onValidated, rejectUnknownMessages } from './validated.js';
 
 const authOf = (client: Client) => client.auth as AuthedUser;
@@ -65,6 +66,7 @@ export class TownRoom extends Room<{ state: TownState }> {
     });
     this.focus.register();
     this.chat.register();
+    registerProfileReload(this, () => this.state.players);
     rejectUnknownMessages(this);
     this.clock.setInterval(() => this.focus.tickTables(Date.now()), 1_000);
     // Server time for synced clocks (radio, table timers); also sent to each joiner.
@@ -91,7 +93,7 @@ export class TownRoom extends Room<{ state: TownState }> {
     const player = new PlayerState();
     player.id = client.sessionId;
     player.name = auth.username;
-    player.avatar = auth.avatarBody;
+    player.avatar = auth.avatar;
     player.x = spawn.x;
     player.y = spawn.y;
     player.dir = 'down';

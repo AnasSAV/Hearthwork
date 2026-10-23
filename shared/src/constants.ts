@@ -30,7 +30,6 @@ export const HOUSE_MAX_CLIENTS = 16;
 export const RECONNECT_GRACE_SEC = 20;
 
 export const NAME_MAX_LEN = 16;
-export const AVATAR_COUNT = 6;
 
 // ---------------------------------------------------------------------------------------------
 // Focus economy. The server passes the reward constants to the `award_focus` SQL function, so

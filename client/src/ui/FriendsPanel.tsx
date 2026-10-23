@@ -103,7 +103,7 @@ export function FriendsPanel() {
         {incoming.length > 0 && <h3 className="drawer-group">Requests</h3>}
         {incoming.map((f) => (
           <div key={f.user_id} className="friend-row">
-            <AvatarSprite body={f.avatar?.body ?? 0} scale={2} />
+            <AvatarSprite avatar={f.avatar} scale={2} head />
             <span className="friend-name">{f.username}</span>
             <button
               type="button"
@@ -134,7 +134,7 @@ export function FriendsPanel() {
         )}
         {accepted.map((f) => (
           <div key={f.user_id} className="friend-row">
-            <AvatarSprite body={f.avatar?.body ?? 0} scale={2} />
+            <AvatarSprite avatar={f.avatar} scale={2} head />
             <span className="friend-name">
               {f.username}
               {f.house_level ? <small> · house Lv {f.house_level}</small> : null}
@@ -166,7 +166,7 @@ export function FriendsPanel() {
         {outgoing.length > 0 && <h3 className="drawer-group">Sent</h3>}
         {outgoing.map((f) => (
           <div key={f.user_id} className="friend-row muted">
-            <AvatarSprite body={f.avatar?.body ?? 0} scale={2} />
+            <AvatarSprite avatar={f.avatar} scale={2} head />
             <span className="friend-name">{f.username}</span>
             <small>waiting…</small>
             <button

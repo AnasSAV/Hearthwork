@@ -9,6 +9,7 @@ import { ambient } from './audio/ambient';
 import { radio } from './audio/radio';
 import { useEditor } from './house/editor';
 import { AudioPanel } from './ui/AudioPanel';
+import { CharacterPanel } from './ui/CharacterPanel';
 import { ChatPanel } from './ui/ChatPanel';
 import { EditDrawer } from './ui/EditDrawer';
 import { FriendsPanel } from './ui/FriendsPanel';
@@ -48,6 +49,7 @@ function Game() {
         <HouseSettings />
         <FriendsPanel />
         <StatsPanel />
+        <CharacterPanel />
         <Toast />
         <ConnectionOverlay />
       </div>

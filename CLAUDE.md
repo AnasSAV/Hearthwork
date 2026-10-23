@@ -8,7 +8,7 @@ Full brief: `docs/SPEC.md`. Judgement calls and API deviations: `docs/DECISIONS.
 - Client: Phaser 4 (game) + React 19 overlays + Vite. Colyseus SDK `@colyseus/sdk` 0.18.
 - Server: Colyseus 0.18 (`colyseus`, `@colyseus/schema` v5, `schema()` builder, no decorators), Node 24, run with `tsx`.
 - Shared: Zod 4 message schemas, Colyseus state schema, movement/collision, constants.
-- DB/Auth: Supabase (Postgres + RLS + SQL functions). Maps: Tiled JSON. Art: Kenney CC0, 16×16.
+- DB/Auth: Supabase (Postgres + RLS + SQL functions). Maps: Tiled JSON. Art: LimeZu Modern Interiors/Exteriors (licensed, credit; derived atlases only, built by `tools/art/`) replacing Kenney CC0; 16×16 tiles.
 - TypeScript 6.0.x (not 7: typescript-eslint doesn't support 7 yet).
 - Vite 7.x (not 8: Windows Smart App Control blocks rolldown's native binary on the dev machine).
 

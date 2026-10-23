@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { AVATAR_COUNT, FOCUS_BLOCKS, type FocusBlock } from './constants.js';
+import { FOCUS_BLOCKS, type FocusBlock } from './constants.js';
 
 export const DIRECTIONS = ['down', 'up', 'left', 'right'] as const;
 export type Direction = (typeof DIRECTIONS)[number];
@@ -16,6 +16,8 @@ export const ClientMsg = {
   FocusEnd: 'focus:end',
   /** Owner saved a layout, upgraded or changed settings: reload the house from the database. */
   HouseReload: 'house:reload',
+  /** The player changed their name or character: reload it from the database. */
+  ProfileReload: 'profile:reload',
   Chat: 'chat',
   ChatReport: 'chat:report',
   /** Private message to a nearby player. */
@@ -151,12 +153,3 @@ export const usernameSchema = z
   .string()
   .trim()
   .regex(/^[A-Za-z0-9_]{3,16}$/, '3–16 letters, digits or underscores');
-
-export const avatarSchema = z.object({
-  body: z
-    .number()
-    .int()
-    .min(0)
-    .max(AVATAR_COUNT - 1),
-});
-export type Avatar = z.infer<typeof avatarSchema>;

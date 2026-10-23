@@ -202,6 +202,8 @@ export abstract class WorldScene<S extends object> extends Phaser.Scene {
         this.onLocalPlayer(sprite);
         uiStore.set({ playerName: player.name });
         callbacks.onChange(player, () => {
+          sprite.setLook(player.avatar, player.name);
+          uiStore.set({ playerName: player.name });
           sprite.setStatus(player.status, player.focusMin);
           // Seated by the server: face the desk.
           if (player.status === 'focusing') {
@@ -221,6 +223,7 @@ export abstract class WorldScene<S extends object> extends Phaser.Scene {
       callbacks.onChange(player, () => {
         sprite.glideTo(player.x, player.y, REMOTE_TWEEN_MS);
         sprite.setMotion(asDirection(player.dir), player.moving);
+        sprite.setLook(player.avatar, player.name);
         sprite.setStatus(player.status, player.focusMin);
       });
     });

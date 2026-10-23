@@ -20,7 +20,7 @@ export interface HouseLevel {
 export interface Friend {
   user_id: string;
   username: string;
-  avatar: { body?: number } | null;
+  avatar: unknown;
   status: 'pending' | 'accepted';
   incoming: boolean;
   house_level: number | null;

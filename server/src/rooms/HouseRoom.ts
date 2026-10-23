@@ -29,6 +29,7 @@ import { houseEvents } from '../houseEvents.js';
 import { log } from '../log.js';
 import { ChatController, clockNow } from './ChatController.js';
 import { correct, MovementGuard } from './MovementGuard.js';
+import { registerProfileReload } from './profileReload.js';
 import { onValidated, rejectUnknownMessages } from './validated.js';
 
 const authOf = (client: Client) => client.auth as AuthedUser;
@@ -84,6 +85,7 @@ export class HouseRoom extends Room<{ state: HouseState }> {
     });
     this.focus.register();
     this.chat.register();
+    registerProfileReload(this, () => this.state.players);
     rejectUnknownMessages(this);
     this.clock.setInterval(() => this.broadcast(ServerMsg.Clock, clockNow()), 30_000);
     this.clock.setInterval(() => {
@@ -113,7 +115,7 @@ export class HouseRoom extends Room<{ state: HouseState }> {
     const player = new PlayerState();
     player.id = client.sessionId;
     player.name = auth.username;
-    player.avatar = auth.avatarBody;
+    player.avatar = auth.avatar;
     player.x = spawn.x;
     player.y = spawn.y;
     player.dir = 'up';

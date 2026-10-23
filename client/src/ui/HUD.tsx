@@ -71,6 +71,9 @@ export function HUD() {
         <button type="button" className="link" onClick={() => uiStore.set({ statsOpen: true })}>
           Stats
         </button>
+        <button type="button" className="link" onClick={() => uiStore.set({ characterOpen: true })}>
+          Character
+        </button>
         {!editing && (
           <button
             type="button"

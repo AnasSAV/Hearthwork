@@ -10,3 +10,4 @@ build/
 coverage/
 .vite/
 tools/bots/.load-bots.json
+art-review/

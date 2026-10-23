@@ -3,6 +3,7 @@
  */
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { DEFAULT_AVATAR } from '../../shared/src/avatar.js';
 import { CATALOG } from '../../shared/src/catalog.js';
 import { validateLayout, type Placement } from '../../shared/src/house.js';
 import {
@@ -52,8 +53,8 @@ describe.skipIf(!dbConfigured)('houses (local Supabase)', () => {
   beforeAll(async () => {
     ({ client: owner, userId: ownerId } = await signUpPlayer());
     ({ client: visitor, userId: visitorId } = await signUpPlayer());
-    await owner.rpc('update_profile', { p_username: ownerName, p_avatar: { body: 1 } });
-    await visitor.rpc('update_profile', { p_username: visitorName, p_avatar: { body: 2 } });
+    await owner.rpc('update_profile', { p_username: ownerName, p_avatar: DEFAULT_AVATAR });
+    await visitor.rpc('update_profile', { p_username: visitorName, p_avatar: DEFAULT_AVATAR });
   });
   afterAll(() => {
     if (ownerId) deleteUser(ownerId);

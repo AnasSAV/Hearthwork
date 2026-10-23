@@ -1,5 +1,5 @@
 import { ErrorCode, ServerError, type AuthContext } from 'colyseus';
-import { DAILY_REWARD_CAP_MIN, type WalletMessage } from '@focus-town/shared';
+import { DAILY_REWARD_CAP_MIN, encodeAvatar, type WalletMessage } from '@focus-town/shared';
 import { db } from './db.js';
 import { log } from './log.js';
 
@@ -7,7 +7,8 @@ import { log } from './log.js';
 export interface AuthedUser {
   userId: string;
   username: string;
-  avatarBody: number;
+  /** encodeAvatar() form, as synced in PlayerState. */
+  avatar: string;
   wallet: WalletMessage;
 }
 
@@ -26,14 +27,14 @@ export async function authenticate(context: AuthContext): Promise<AuthedUser> {
 
   const profile = await db().getProfile(userId);
   if (!profile) throw new ServerError(ErrorCode.AUTH_FAILED, 'No profile found for this account.');
-  if (!profile.ready || profile.avatar.body === undefined) {
+  if (!profile.avatar) {
     throw new ServerError(ErrorCode.AUTH_FAILED, 'Finish setting up your profile first.');
   }
 
   return {
     userId,
     username: profile.username,
-    avatarBody: profile.avatar.body,
+    avatar: encodeAvatar(profile.avatar),
     wallet: {
       coins: profile.coins,
       streakDays: profile.streakDays,

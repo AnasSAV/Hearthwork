@@ -18,6 +18,7 @@ import {
   type MoveMessage,
   type PlayerState,
   type TiledMap,
+  encodeAvatar,
 } from '@focus-town/shared';
 import townJson from '../../client/public/assets/maps/town.json' with { type: 'json' };
 import { createTestPlayer, deleteTestPlayer } from './testPlayers.js';
@@ -40,8 +41,8 @@ try {
 }
 check(anonymousRejected, 'joining without signing in is rejected');
 
-const walkerPlayer = await createTestPlayer('walker', 1);
-const watcherPlayer = await createTestPlayer('watcher', 2);
+const walkerPlayer = await createTestPlayer('walker');
+const watcherPlayer = await createTestPlayer('watcher');
 async function join(token: string): Promise<Room<unknown, TownState>> {
   const client = new Client(url);
   client.auth.token = token;
@@ -64,7 +65,7 @@ Callbacks.get(watcher).onAdd('players', (p: PlayerState, id: string) => {
 });
 
 // 0. Whispers: private to the two players, and only while they stand close together.
-const bystanderPlayer = await createTestPlayer('bystander', 4);
+const bystanderPlayer = await createTestPlayer('bystander');
 const bystander = await join(bystanderPlayer.token);
 await sleep(300);
 const whispersTo = {
@@ -87,6 +88,23 @@ check(whispersTo.bystander.length === 0, 'a bystander does not see the whisper')
 await bystander.leave();
 await deleteTestPlayer(bystanderPlayer);
 await sleep(1100); // chat rate limit
+
+// 0b. A new character is read back from the database, not taken from the client.
+const look = { v: 2, body: 4, eyes: 2, outfit: 20, hair: 33, acc: 5 } as const;
+await walkerPlayer.client.rpc('update_profile', {
+  p_username: walkerPlayer.username,
+  p_avatar: look,
+});
+walker.send(ClientMsg.ProfileReload, { avatar: 'forged' });
+await sleep(300);
+const walkerSeen = () => watcher.state.players.get(walker.sessionId)!;
+check(walkerSeen().avatar !== encodeAvatar(look), 'profile:reload with a payload is rejected');
+walker.send(ClientMsg.ProfileReload);
+await sleep(500);
+check(
+  walkerSeen().avatar === encodeAvatar(look),
+  `watcher sees the new character (${walkerSeen().avatar})`,
+);
 
 // 1. Walk along the open road at legal speed.
 const me = walker.state.players.get(walker.sessionId)!;

@@ -1,22 +1,28 @@
 import { useState, type FormEvent } from 'react';
-import { AVATAR_COUNT, usernameSchema } from '@focus-town/shared';
+import { parseAvatar, randomAvatar, usernameSchema, type Avatar } from '@focus-town/shared';
 import { supabase } from '../net/supabase';
-import { AvatarSprite } from './AvatarSprite';
+import { CharacterCreator } from './CharacterCreator';
 
 interface Props {
   initialUsername: string;
-  initialBody: number | null;
+  /** The stored avatar; old-format or missing avatars start from a random character. */
+  initialAvatar: unknown;
   onDone: () => void;
+  /** Present when editing from inside the game. */
+  onCancel?: () => void;
 }
 
-/** First-run (and later: edit) screen for picking a username and an avatar. */
-export function ProfileSetup({ initialUsername, initialBody, onDone }: Props) {
+/** First-run screen (and in-game editor) for the username and the character. */
+export function ProfileSetup({ initialUsername, initialAvatar, onDone, onCancel }: Props) {
   const [username, setUsername] = useState(
     initialUsername.startsWith('player_') ? '' : initialUsername,
   );
-  const [body, setBody] = useState(initialBody ?? 0);
+  const [avatar, setAvatar] = useState<Avatar>(() => parseAvatar(initialAvatar) ?? randomAvatar());
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  /** Set up before the new characters: has a name, but an old-format avatar. */
+  const returning =
+    !onCancel && !initialUsername.startsWith('player_') && parseAvatar(initialAvatar) === null;
 
   async function submit(e: FormEvent) {
     e.preventDefault();
@@ -29,7 +35,7 @@ export function ProfileSetup({ initialUsername, initialBody, onDone }: Props) {
     setError(null);
     const { error } = await supabase.rpc('update_profile', {
       p_username: parsed.data,
-      p_avatar: { body },
+      p_avatar: avatar,
     });
     setBusy(false);
     if (error) setError(error.message);
@@ -37,43 +43,38 @@ export function ProfileSetup({ initialUsername, initialBody, onDone }: Props) {
   }
 
   return (
-    <div className="screen">
-      <form className="panel card" onSubmit={submit}>
-        <h1 className="title">Make yourself at home</h1>
-        <label className="field">
-          <span>Username</span>
-          <input
-            autoFocus
-            maxLength={16}
-            value={username}
-            onChange={(e) => {
-              setUsername(e.target.value);
-              setError(null);
-            }}
-            placeholder="e.g. sleepy_owl"
-          />
-        </label>
-        <div className="field">
-          <span>Avatar</span>
-          <div className="avatar-grid">
-            {Array.from({ length: AVATAR_COUNT }, (_, i) => (
-              <button
-                key={i}
-                type="button"
-                className={`avatar-choice${i === body ? ' selected' : ''}`}
-                onClick={() => setBody(i)}
-                aria-label={`Avatar ${i + 1}`}
-              >
-                <AvatarSprite body={i} scale={3} />
-              </button>
-            ))}
-          </div>
-        </div>
-        {error && <div className="form-error">{error}</div>}
+    <form className="panel card profile-setup" onSubmit={submit}>
+      <h1 className="title">
+        {onCancel ? 'Your character' : returning ? 'Meet the new you' : 'Make yourself at home'}
+      </h1>
+      {returning && (
+        <p className="subtitle">The town got a new look. Make a character to go with it.</p>
+      )}
+      <label className="field">
+        <span>Username</span>
+        <input
+          autoFocus={!onCancel}
+          maxLength={16}
+          value={username}
+          onChange={(e) => {
+            setUsername(e.target.value);
+            setError(null);
+          }}
+          placeholder="e.g. sleepy_owl"
+        />
+      </label>
+      <CharacterCreator value={avatar} onChange={setAvatar} />
+      {error && <div className="form-error">{error}</div>}
+      <div className="profile-actions">
+        {onCancel && (
+          <button type="button" className="btn btn-secondary" onClick={onCancel}>
+            Cancel
+          </button>
+        )}
         <button type="submit" className="btn" disabled={busy}>
-          {busy ? 'Saving…' : 'Enter town'}
+          {busy ? 'Saving…' : onCancel ? 'Save' : 'Enter town'}
         </button>
-      </form>
-    </div>
+      </div>
+    </form>
   );
 }

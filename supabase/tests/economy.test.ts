@@ -83,18 +83,23 @@ describe.skipIf(!dbConfigured)('focus economy (local Supabase)', () => {
 
   it('update_profile sets username and avatar, and validates them', async () => {
     const name = `t${Date.now().toString(36).slice(-8)}`;
-    const ok = await player.rpc('update_profile', { p_username: name, p_avatar: { body: 3 } });
+    const avatar = { v: 2, body: 8, eyes: 6, outfit: 131, hair: 199, acc: 83 };
+    const ok = await player.rpc('update_profile', { p_username: name, p_avatar: avatar });
     expect(ok.error).toBeNull();
-    const bad = await player.rpc('update_profile', {
-      p_username: 'no spaces!',
-      p_avatar: { body: 3 },
-    });
+    expect(ok.data).toMatchObject({ username: name, avatar });
+    const bad = await player.rpc('update_profile', { p_username: 'no spaces!', p_avatar: avatar });
     expect(bad.error).not.toBeNull();
-    const badAvatar = await player.rpc('update_profile', {
-      p_username: name,
-      p_avatar: { body: 9 },
-    });
-    expect(badAvatar.error).not.toBeNull();
+    for (const badAvatar of [
+      { body: 3 }, // old format
+      { v: 2, body: 0, eyes: 0, outfit: 0, hair: 0 }, // missing part
+      { ...avatar, hair: 200 },
+      { ...avatar, acc: -2 },
+      { ...avatar, outfit: 1.5 },
+      { ...avatar, eyes: '1' },
+    ]) {
+      const res = await player.rpc('update_profile', { p_username: name, p_avatar: badAvatar });
+      expect(res.error, JSON.stringify(badAvatar)).not.toBeNull();
+    }
   });
 
   it('RLS: players cannot change coins, write the ledger or award themselves', async () => {

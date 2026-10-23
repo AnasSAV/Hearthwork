@@ -1,6 +1,6 @@
 import Phaser from 'phaser';
 import type { Direction } from '@focus-town/shared';
-import { CHARACTERS_KEY, characterFrame, walkAnimKey } from './characters';
+import { ensureAvatarTexture, idleAnimKey, walkAnimKey } from './characters';
 
 /** A player avatar with a name tag. The container's (x, y) is the point between the feet. */
 export class PlayerSprite extends Phaser.GameObjects.Container {
@@ -14,19 +14,24 @@ export class PlayerSprite extends Phaser.GameObjects.Container {
   private bubble: Phaser.GameObjects.Text | null = null;
   private bubbleTimer: Phaser.Time.TimerEvent | null = null;
   private statusKey = '';
+  private status = 'walking';
+  private focusMin = 0;
 
   constructor(
     scene: Phaser.Scene,
     x: number,
     y: number,
-    private readonly avatar: number,
-    private readonly name_: string,
+    /** encodeAvatar() form. */
+    private avatar: string,
+    private name_: string,
     private readonly isLocal: boolean,
     textResolution: number,
   ) {
     super(scene, x, y);
-    this.body_ = scene.add.sprite(0, 1, CHARACTERS_KEY, characterFrame(avatar, 0, 'down'));
+    // 16x32 LimeZu frame; the feet touch the bottom edge and the head starts ~7px from the top.
+    this.body_ = scene.add.sprite(0, 1, ensureAvatarTexture(scene, avatar));
     this.body_.setOrigin(0.5, 1);
+    this.body_.play(idleAnimKey(avatar, 'down'));
     const style = {
       fontFamily: 'system-ui, -apple-system, "Segoe UI", sans-serif',
       fontStyle: 'bold',
@@ -35,10 +40,10 @@ export class PlayerSprite extends Phaser.GameObjects.Container {
       resolution: textResolution,
     };
     this.label = scene.add
-      .text(0, -17, name_, { ...style, fontSize: '6px', color: this.nameColor() })
+      .text(0, -25, name_, { ...style, fontSize: '6px', color: this.nameColor() })
       .setOrigin(0.5, 1);
     this.badge = scene.add
-      .text(0, -24, '', { ...style, fontSize: '5px', color: '#b8f2c2' })
+      .text(0, -32, '', { ...style, fontSize: '5px', color: '#b8f2c2' })
       .setOrigin(0.5, 1)
       .setVisible(false);
     this.add([this.body_, this.label, this.badge]);
@@ -48,6 +53,19 @@ export class PlayerSprite extends Phaser.GameObjects.Container {
 
   get playerName(): string {
     return this.name_;
+  }
+
+  /** The player saved a new character or name. */
+  setLook(avatar: string, name: string): void {
+    if (avatar !== this.avatar) {
+      this.avatar = avatar;
+      this.body_.setTexture(ensureAvatarTexture(this.scene, avatar));
+      this.body_.play((this.moving ? walkAnimKey : idleAnimKey)(avatar, this.dir));
+    }
+    if (name !== this.name_) {
+      this.name_ = name;
+      this.setStatus(this.status, this.focusMin);
+    }
   }
 
   /** Make the avatar clickable (remote players: click to whisper). */
@@ -70,7 +88,7 @@ export class PlayerSprite extends Phaser.GameObjects.Container {
     this.bubble?.destroy();
     const short = text.length > 60 ? `${text.slice(0, 57)}...` : text;
     this.bubble = this.scene.add
-      .text(0, this.badge.visible ? -31 : -24, short, {
+      .text(0, this.badge.visible ? -39 : -32, short, {
         fontFamily: 'system-ui, -apple-system, "Segoe UI", sans-serif',
         fontSize: '6px',
         color: '#1d1b2a',
@@ -98,9 +116,11 @@ export class PlayerSprite extends Phaser.GameObjects.Container {
    * server holds their seat.
    */
   setStatus(status: string, focusMin: number): void {
-    const key = `${status}:${focusMin}`;
+    const key = `${status}:${focusMin}:${this.name_}`;
     if (key === this.statusKey) return;
     this.statusKey = key;
+    this.status = status;
+    this.focusMin = focusMin;
     this.setAlpha(status === 'away' ? 0.45 : 1);
     if (status === 'focusing') {
       const short = this.name_.length > 9 ? `${this.name_.slice(0, 8)}…` : this.name_;
@@ -114,17 +134,12 @@ export class PlayerSprite extends Phaser.GameObjects.Container {
     }
   }
 
-  /** Update facing + walk animation. */
+  /** Update facing + idle/walk animation. */
   setMotion(dir: Direction, moving: boolean): void {
     if (dir === this.dir && moving === this.moving) return;
     this.dir = dir;
     this.moving = moving;
-    if (moving) {
-      this.body_.play(walkAnimKey(this.avatar, dir), true);
-    } else {
-      this.body_.stop();
-      this.body_.setFrame(characterFrame(this.avatar, 0, dir));
-    }
+    this.body_.play((moving ? walkAnimKey : idleAnimKey)(this.avatar, dir), true);
   }
 
   /** Jump straight to a position (local player, corrections). */

@@ -1,12 +1,13 @@
 import { useCallback, useEffect, useState, type ReactNode } from 'react';
 import type { Session } from '@supabase/supabase-js';
+import { parseAvatar } from '@focus-town/shared';
 import { supabase, supabaseConfigured } from '../net/supabase';
 import { Login } from './Login';
 import { ProfileSetup } from './ProfileSetup';
 
 interface ProfileRow {
   username: string;
-  avatar: { body?: number } | null;
+  avatar: unknown;
 }
 
 type ProfileGate =
@@ -20,7 +21,8 @@ async function fetchProfileGate(userId: string): Promise<ProfileGate> {
     .maybeSingle<ProfileRow>();
   if (error) return { kind: 'error', message: error.message };
   if (!data) return { kind: 'error', message: 'Your profile is missing.' };
-  if (typeof data.avatar?.body !== 'number') return { kind: 'setup', profile: data };
+  // Old-format avatars (before the LimeZu characters) also need a new character.
+  if (!parseAvatar(data.avatar)) return { kind: 'setup', profile: data };
   return { kind: 'ready' };
 }
 
@@ -88,11 +90,13 @@ export function AuthGate({ children }: { children: ReactNode }) {
   switch (gate.kind) {
     case 'setup':
       return (
-        <ProfileSetup
-          initialUsername={gate.profile.username}
-          initialBody={gate.profile.avatar?.body ?? null}
-          onDone={() => void refreshProfile()}
-        />
+        <Centered>
+          <ProfileSetup
+            initialUsername={gate.profile.username}
+            initialAvatar={gate.profile.avatar}
+            onDone={() => void refreshProfile()}
+          />
+        </Centered>
       );
     case 'error':
       return (

@@ -1,5 +1,5 @@
 import Phaser from 'phaser';
-import { CHARACTERS_KEY, createCharacterAnims } from '../game/characters';
+import { loadCharacterAtlases } from '../game/characters';
 import { uiStore } from '../store';
 
 export const TOWN_MAP_KEY = 'town';
@@ -17,14 +17,10 @@ export class BootScene extends Phaser.Scene {
     this.load.image('tinytown', 'tilesets/tinytown.png');
     this.load.image('indoor', 'tilesets/indoor.png');
     this.load.image('house', 'tilesets/house.png');
-    this.load.spritesheet(CHARACTERS_KEY, 'sprites/characters.png', {
-      frameWidth: 16,
-      frameHeight: 16,
-    });
+    loadCharacterAtlases(this.load);
   }
 
   create(): void {
-    createCharacterAnims(this.anims);
     this.scene.start('Town');
   }
 }

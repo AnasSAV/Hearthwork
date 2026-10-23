@@ -65,8 +65,8 @@ async function joinHouse(p: TestPlayer, ownerId: string): Promise<Room<unknown, 
   return client.joinOrCreate('house', { ownerId }, HouseState);
 }
 
-const owner = await createTestPlayer('owner', 1);
-const friend = await createTestPlayer('friend', 3);
+const owner = await createTestPlayer('owner');
+const friend = await createTestPlayer('friend');
 
 // --- Owner buys a desk, a rug and a painting, and lays out the house ------------------------
 grant(owner, 1000);

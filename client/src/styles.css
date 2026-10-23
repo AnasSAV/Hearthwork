@@ -252,31 +252,136 @@ body,
 }
 
 .avatar-sprite {
+  position: relative;
   display: inline-block;
-  background-image: url('/assets/sprites/characters.png');
+  flex: none;
+}
+
+.avatar-sprite > span {
+  position: absolute;
+  inset: 0;
   background-repeat: no-repeat;
   image-rendering: pixelated;
 }
 
-.avatar-grid {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 8px;
+/* ---------- Character creator ---------- */
+
+.profile-setup {
+  width: min(640px, calc(100vw - 32px));
+  max-height: calc(100vh - 32px);
+  overflow-y: auto;
 }
 
-.avatar-choice {
+.creator {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 20px;
+  align-items: start;
+}
+
+.creator-preview {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+}
+
+.creator-stage {
   display: grid;
   place-items: center;
-  padding: 6px;
-  background: rgba(253, 246, 227, 0.06);
-  border: 2px solid transparent;
-  border-radius: 10px;
+  width: 150px;
+  height: 200px;
+  border-radius: 12px;
+  background:
+    radial-gradient(ellipse 40px 8px at 50% 172px, rgba(0, 0, 0, 0.35), transparent 70%),
+    rgba(253, 246, 227, 0.06);
+}
+
+.creator-tools {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.creator-tools .icon-btn {
+  font-size: 20px;
+}
+
+.creator-parts {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.creator-row {
+  display: grid;
+  grid-template-columns: 56px 1fr;
+  align-items: center;
+  gap: 6px 10px;
+}
+
+.creator-row > .swatches {
+  grid-column: 2;
+}
+
+.creator-label {
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.stepper {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.stepper .icon-btn {
+  font-size: 22px;
+  line-height: 1;
+  padding: 0 6px;
+}
+
+.stepper-value {
+  flex: 1;
+  text-align: center;
+  font-weight: 700;
+}
+
+.stepper-value small {
+  font-weight: 400;
+  color: var(--muted);
+}
+
+.swatches {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.swatch {
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  border: 2px solid rgba(29, 27, 42, 0.9);
+  border-radius: 50%;
+  box-shadow: 0 0 0 1px var(--panel-border);
   cursor: pointer;
 }
 
-.avatar-choice.selected {
-  border-color: var(--accent);
-  background: rgba(244, 184, 96, 0.15);
+.swatch.selected {
+  box-shadow: 0 0 0 2px var(--accent);
+}
+
+.profile-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+@media (max-width: 560px) {
+  .creator {
+    grid-template-columns: 1fr;
+  }
 }
 
 /* ---------- HUD additions ---------- */

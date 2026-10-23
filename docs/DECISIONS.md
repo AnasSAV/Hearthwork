@@ -96,7 +96,7 @@ Judgement calls and places where the brief and the real libraries didn't match. 
   `VITE_SUPABASE_ANON_KEY` / `SUPABASE_SERVICE_ROLE_KEY` to match the brief.
 - Signup creates the profile with a placeholder username (`player_<id>`) and empty avatar,
   because Google sign-ins have no username yet. The client shows the username/avatar picker
-  until `avatar.body` is set. `update_profile()` is the only way players change their profile
+  until a valid avatar is set (v2 since the LimeZu characters, see below). `update_profile()` is the only way players change their profile
   (no direct UPDATE privilege), and joins are refused until the profile is complete.
 - Usernames: `^[A-Za-z0-9_]{3,16}$`, unique case-insensitively.
 - One account can be in town from several tabs (useful for testing), but only one focus
@@ -358,3 +358,24 @@ playlistLength` (`shared/src/radio.ts`, unit-tested) and plays that track from t
 - Whispers share the chat rate limit and profanity filter. Mute hides a player's whispers too.
   Whispers can be reported by their recipient only; reports are stored from the server's copy.
 - Conversations are per room (session ids change between rooms) and clear when you leave.
+
+### LimeZu art, stage 1: characters
+
+- Art style: LimeZu **Modern Interiors + Modern Exteriors** (paid, credit required, no
+  redistribution of the packs). The source packs stay outside the repo; `tools/art/` scripts
+  read them and write only small derived atlases into `client/public/assets/`.
+- Characters come from the Modern Interiors character generator (16×32 frames): body (skin),
+  eyes, outfit, hair and an optional accessory. `tools/art/build_characters.py` keeps the idle,
+  walk and sit rows, packs one atlas per part (`assets/characters/*.png`) and generates
+  `shared/src/avatarParts.ts` (ids + swatch colours). Kids' bodies and premade characters are
+  not used.
+- An avatar is `{ v: 2, body, eyes, outfit, hair, acc }` part indices (acc −1 = none).
+  `update_profile` range-checks each index (a unit test keeps the SQL ranges in step with the
+  manifest), so the manifest must only ever be appended to. Old `{ body }` avatars stay in the
+  database; those players see "Meet the new you" and make a character before joining.
+- `PlayerState.avatar` is a compact string (`"1.0.12.40.-1"`). The client composites each
+  distinct avatar once into a canvas sprite sheet with idle (breathing) and walk animations;
+  the UI draws the same parts as stacked CSS backgrounds.
+- Players can change their name and character in game ("Character" in the HUD). The client
+  saves through `update_profile`, then sends `profile:reload`; the server re-reads the profile
+  from the database (2 s cooldown) and updates the synced name and avatar.
