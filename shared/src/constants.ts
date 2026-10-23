@@ -23,6 +23,8 @@ export const MOVE_SLACK_PX = 4;
 
 /** Players per town instance; Colyseus spins up another instance when full. */
 export const TOWN_MAX_CLIENTS = 50;
+/** Owner plus visitors in one house. */
+export const HOUSE_MAX_CLIENTS = 16;
 
 /** Seconds the server keeps a dropped player's seat for automatic reconnection. */
 export const RECONNECT_GRACE_SEC = 20;

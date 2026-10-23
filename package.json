@@ -22,7 +22,8 @@
     "map:town": "tsx tools/maps/build-town.ts",
     "test:db": "node --env-file=server/.env --env-file=client/.env node_modules/vitest/vitest.mjs run --config vitest.db.config.ts",
     "e2e:focus": "tsx --env-file=server/.env --env-file=client/.env tools/bots/focus-e2e.ts",
-    "seed:items": "tsx tools/db/generate-seed.ts"
+    "seed:items": "tsx tools/db/generate-seed.ts",
+    "e2e:house": "tsx --env-file=server/.env --env-file=client/.env tools/bots/house-e2e.ts"
   },
   "devDependencies": {
     "@colyseus/sdk": "^0.18.6",

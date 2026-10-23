@@ -3,6 +3,7 @@ import { config } from './config.js';
 import { db } from './db.js';
 import { startFocusTicker } from './focus/registry.js';
 import { log } from './log.js';
+import { HouseRoom } from './rooms/HouseRoom.js';
 import { TownRoom } from './rooms/TownRoom.js';
 
 const startedAt = Date.now();
@@ -10,6 +11,8 @@ const startedAt = Date.now();
 export const server = defineServer({
   rooms: {
     town: defineRoom(TownRoom),
+    // One instance per house owner, created on the first visit and disposed when empty.
+    house: defineRoom(HouseRoom).filterBy(['ownerId']),
   },
   express: (app) => {
     // Cheap endpoint the client pings to wake a sleeping Render instance.

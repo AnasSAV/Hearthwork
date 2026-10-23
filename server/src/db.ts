@@ -35,6 +35,29 @@ export interface AwardResult {
   todayCoinMinutes: number;
 }
 
+export interface HouseRecord {
+  ownerId: string;
+  ownerName: string;
+  level: number;
+  width: number;
+  height: number;
+  rooms: number;
+  wallpaper: string | null;
+  floor: string | null;
+  visibility: 'public' | 'friends' | 'private';
+  exteriorStyle: string;
+  plotIndex: number | null;
+  items: { id: string; itemId: string; room: number; x: number; y: number }[];
+}
+
+export interface LotRecord {
+  plotIndex: number;
+  ownerId: string;
+  ownerName: string;
+  level: number;
+  style: string;
+}
+
 /** Everything the game server needs from Postgres. Implemented by Supabase and by test fakes. */
 export interface GameDb {
   /** Verify a Supabase access token; returns the user id or null. */
@@ -50,6 +73,10 @@ export interface GameDb {
     completionBonus: number,
   ): Promise<AwardResult>;
   abandonActiveSessions(): Promise<number>;
+  getHouse(ownerId: string): Promise<HouseRecord | null>;
+  canVisit(visitorId: string, ownerId: string): Promise<boolean>;
+  /** Houses on plots [0, plotCount), for drawing them in town. */
+  getLots(plotCount: number): Promise<LotRecord[]>;
 }
 
 interface ProfileRow {
@@ -62,7 +89,23 @@ interface ProfileRow {
 }
 
 export class SupabaseGameDb implements GameDb {
-  constructor(private readonly sb: SupabaseClient) {}
+  private readonly houses: SupabaseHouseQueries;
+
+  constructor(private readonly sb: SupabaseClient) {
+    this.houses = new SupabaseHouseQueries(sb);
+  }
+
+  getHouse(ownerId: string): Promise<HouseRecord | null> {
+    return this.houses.getHouse(ownerId);
+  }
+
+  canVisit(visitorId: string, ownerId: string): Promise<boolean> {
+    return this.houses.canVisit(visitorId, ownerId);
+  }
+
+  getLots(plotCount: number): Promise<LotRecord[]> {
+    return this.houses.getLots(plotCount);
+  }
 
   async verifyAccessToken(token: string): Promise<string | null> {
     // Verifies locally against the project's JWKS when asymmetric signing keys are enabled,
@@ -145,6 +188,86 @@ export class SupabaseGameDb implements GameDb {
     const { data, error } = await this.sb.rpc('abandon_active_sessions');
     if (error) throw new Error(`abandon_active_sessions: ${error.message}`);
     return data as number;
+  }
+}
+
+interface HouseRow {
+  owner_id: string;
+  level: number;
+  wallpaper: string | null;
+  floor: string | null;
+  visibility: HouseRecord['visibility'];
+  exterior_style: string;
+  plot_index: number | null;
+  profiles: { username: string } | null;
+  house_levels: { width: number; height: number; rooms: number } | null;
+}
+
+export class SupabaseHouseQueries {
+  constructor(private readonly sb: SupabaseClient) {}
+
+  async getHouse(ownerId: string): Promise<HouseRecord | null> {
+    const { data, error } = await this.sb
+      .from('houses')
+      .select(
+        'owner_id, level, wallpaper, floor, visibility, exterior_style, plot_index, ' +
+          'profiles(username), house_levels(width, height, rooms)',
+      )
+      .eq('owner_id', ownerId)
+      .maybeSingle<HouseRow>();
+    if (error) throw new Error(`getHouse: ${error.message}`);
+    if (!data || !data.house_levels) return null;
+    const items = await this.sb
+      .from('placed_items')
+      .select('id, item_id, room, x, y')
+      .eq('owner_id', ownerId)
+      .order('id');
+    if (items.error) throw new Error(`getHouse items: ${items.error.message}`);
+    return {
+      ownerId: data.owner_id,
+      ownerName: data.profiles?.username ?? 'someone',
+      level: data.level,
+      width: data.house_levels.width,
+      height: data.house_levels.height,
+      rooms: data.house_levels.rooms,
+      wallpaper: data.wallpaper,
+      floor: data.floor,
+      visibility: data.visibility,
+      exteriorStyle: data.exterior_style,
+      plotIndex: data.plot_index,
+      items: (
+        items.data as { id: string; item_id: string; room: number; x: number; y: number }[]
+      ).map((r) => ({ id: r.id, itemId: r.item_id, room: r.room, x: r.x, y: r.y })),
+    };
+  }
+
+  async canVisit(visitorId: string, ownerId: string): Promise<boolean> {
+    const { data, error } = await this.sb.rpc('can_visit', {
+      p_visitor: visitorId,
+      p_owner: ownerId,
+    });
+    if (error) throw new Error(`can_visit: ${error.message}`);
+    return data === true;
+  }
+
+  async getLots(plotCount: number): Promise<LotRecord[]> {
+    const { data, error } = await this.sb
+      .from('houses')
+      .select('owner_id, level, exterior_style, plot_index, profiles(username)')
+      .lt('plot_index', plotCount)
+      .returns<
+        Pick<HouseRow, 'owner_id' | 'level' | 'exterior_style' | 'plot_index' | 'profiles'>[]
+      >();
+    if (error) throw new Error(`getLots: ${error.message}`);
+    return data
+      .filter((r) => r.plot_index !== null)
+      .map((r) => ({
+        plotIndex: r.plot_index!,
+        ownerId: r.owner_id,
+        ownerName: r.profiles?.username ?? 'someone',
+        level: r.level,
+        style: r.exterior_style,
+      }));
   }
 }
 

@@ -5,3 +5,4 @@ export * from './tiled.js';
 export * from './movement.js';
 export * from './focus.js';
 export * from './catalog.js';
+export * from './house.js';

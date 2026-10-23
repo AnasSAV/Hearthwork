@@ -22,10 +22,17 @@ export interface Desk {
   rect: { x: number; y: number; width: number; height: number };
 }
 
+export interface Plot {
+  plotIndex: number;
+  /** Feet position on the doorstep, just below the door. */
+  doorstep: Vec2;
+}
+
 export interface LoadedMap {
   grid: CollisionGrid;
   spawn: Vec2;
   desks: Map<string, Desk>;
+  plots: Map<number, Plot>;
 }
 
 function load(map: TiledMap): LoadedMap {
@@ -46,7 +53,15 @@ function load(map: TiledMap): LoadedMap {
       rect: { x: o.x, y: o.y, width: o.width, height: o.height },
     });
   }
-  return { grid, spawn: { x: spawnObj.x, y: spawnObj.y }, desks };
+  const plots = new Map<number, Plot>();
+  for (const o of findObjects(map, MapObjectType.Plot)) {
+    const plotIndex = getProperty<number>(o, 'plotIndex');
+    const doorX = getProperty<number>(o, 'doorX');
+    const doorY = getProperty<number>(o, 'doorY');
+    if (plotIndex === undefined || doorX === undefined || doorY === undefined) continue;
+    plots.set(plotIndex, { plotIndex, doorstep: { x: doorX, y: doorY + 10 } });
+  }
+  return { grid, spawn: { x: spawnObj.x, y: spawnObj.y }, desks, plots };
 }
 
 export const townMap: LoadedMap = load(townJson as TiledMap);

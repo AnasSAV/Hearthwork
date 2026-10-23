@@ -46,6 +46,8 @@ export interface CatalogItem {
   minHouseLevel: number;
   /** Surface items (lamps, candles…) can be placed on top of this item. */
   surfaceHost?: boolean;
+  /** Players can sit below this desk/table in a house and start a focus session. */
+  studySpot?: boolean;
 }
 
 /** `sheet:x,y,w,h`, as stored in `items.sprite_key`. */
@@ -85,6 +87,7 @@ const DEFS: Def[] = [
     layer: 'floor',
     sprite: at('indoor', 0, 0, 3, 2),
     surfaceHost: true,
+    studySpot: true,
     minHouseLevel: 2,
   },
   {
@@ -95,6 +98,7 @@ const DEFS: Def[] = [
     layer: 'floor',
     sprite: at('indoor', 3, 0, 2, 2),
     surfaceHost: true,
+    studySpot: true,
   },
   {
     id: 'table_round',
@@ -104,6 +108,7 @@ const DEFS: Def[] = [
     layer: 'floor',
     sprite: at('indoor', 6, 0, 1, 2),
     surfaceHost: true,
+    studySpot: true,
   },
   {
     id: 'table_side',
@@ -113,6 +118,7 @@ const DEFS: Def[] = [
     layer: 'floor',
     sprite: at('indoor', 7, 0),
     surfaceHost: true,
+    studySpot: true,
   },
   {
     id: 'table_low',
@@ -122,6 +128,7 @@ const DEFS: Def[] = [
     layer: 'floor',
     sprite: at('indoor', 4, 4, 2, 1),
     surfaceHost: true,
+    studySpot: true,
   },
   {
     id: 'desk_study',
@@ -131,6 +138,7 @@ const DEFS: Def[] = [
     layer: 'floor',
     sprite: at('indoor', 0, 15, 2, 1),
     surfaceHost: true,
+    studySpot: true,
   },
   {
     id: 'chair_wood',

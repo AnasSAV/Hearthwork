@@ -240,9 +240,11 @@ for (const [x, y] of [
 
 // 5. House lots (Phase 4 puts house exteriors here). Dirt patch + sign, door faces the street.
 const LOT_XS = [3, 9, 15, 28, 34, 40];
+// The whole lot is solid: the client draws the owner's house (or a "for sale" sign) on top.
 LOT_XS.forEach((x, i) => {
   dirt(x, 28, x + 4, 30);
-  put(buildings, x + 4, 30, tiny(83), true);
+  for (let ty = 28; ty <= 30; ty++)
+    for (let tx = x; tx <= x + 4; tx++) collision[idx(tx, ty)] = COLL;
   reserve(x - 1, 27, x + 5, 30);
   addObject({
     name: `plot-${i}`,
@@ -251,7 +253,8 @@ LOT_XS.forEach((x, i) => {
     y: 28 * T,
     width: 5 * T,
     height: 3 * T,
-    properties: [prop('plotIndex', i)],
+    // The door is the bottom-centre tile; doorY is the top edge of the doorstep below it.
+    properties: [prop('plotIndex', i), prop('doorX', (x + 2) * T + T / 2), prop('doorY', 31 * T)],
   });
 });
 

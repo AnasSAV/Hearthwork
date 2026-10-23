@@ -22,12 +22,63 @@ export const PlayerState = schema(
 );
 export type PlayerState = SchemaType<typeof PlayerState>;
 
+/** A house shown on one of the town's lots. */
+export const LotState = schema(
+  {
+    plotIndex: t.uint8(),
+    ownerId: t.string(),
+    ownerName: t.string(),
+    level: t.uint8(),
+    /** 'cottage' | 'brick' */
+    style: t.string(),
+  },
+  'LotState',
+);
+export type LotState = SchemaType<typeof LotState>;
+
 export const TownState = schema(
   {
     players: t.map(PlayerState),
+    /** Keyed by plot index. Empty lots are absent. */
+    lots: t.map(LotState),
     /** People in a focus session right now, across the whole server (for the HUD). */
     focusingNow: t.uint16(),
   },
   'TownState',
 );
 export type TownState = SchemaType<typeof TownState>;
+
+export const PlacedItemState = schema(
+  {
+    /** placed_items.id */
+    id: t.string(),
+    itemId: t.string(),
+    room: t.uint8(),
+    x: t.uint8(),
+    y: t.uint8(),
+  },
+  'PlacedItemState',
+);
+export type PlacedItemState = SchemaType<typeof PlacedItemState>;
+
+export const HouseState = schema(
+  {
+    ownerId: t.string(),
+    ownerName: t.string(),
+    level: t.uint8(),
+    width: t.uint8(),
+    height: t.uint8(),
+    rooms: t.uint8(),
+    /** Item ids; '' = default look. */
+    wallpaper: t.string(),
+    floor: t.string(),
+    /** 'public' | 'friends' | 'private' */
+    visibility: t.string(),
+    exteriorStyle: t.string(),
+    items: t.array(PlacedItemState),
+    players: t.map(PlayerState),
+    focusingNow: t.uint16(),
+  },
+  'HouseState',
+);
+export type HouseState = SchemaType<typeof HouseState>;

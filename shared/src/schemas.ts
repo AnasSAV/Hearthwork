@@ -14,6 +14,8 @@ export const ClientMsg = {
   FocusBeat: 'focus:beat',
   FocusConfirm: 'focus:confirm',
   FocusEnd: 'focus:end',
+  /** Owner saved a layout, upgraded or changed settings: reload the house from the database. */
+  HouseReload: 'house:reload',
 } as const;
 
 /** Server → client message type names. */
@@ -28,6 +30,8 @@ export const ServerMsg = {
   FocusEnded: 'focus:ended',
   /** A focus request was refused (e.g. not at a desk). */
   FocusError: 'focus:error',
+  /** Something the player should know about the house (e.g. it was made private). */
+  HouseNotice: 'house:notice',
 } as const;
 
 // ---------------------------------------------------------------------------------------------
@@ -61,6 +65,17 @@ export const focusBeatSchema = z.strictObject({
   lastInputAgoSec: z.number().finite().min(0).max(86_400),
 });
 export type FocusBeatMessage = z.infer<typeof focusBeatSchema>;
+
+export const townJoinSchema = z.object({
+  /** Coming out of the house on this plot: spawn on its doorstep. */
+  fromPlot: z.number().int().min(0).max(255).optional(),
+});
+export type TownJoinOptions = z.infer<typeof townJoinSchema>;
+
+export const houseJoinSchema = z.object({
+  ownerId: z.uuid(),
+});
+export type HouseJoinOptions = z.infer<typeof houseJoinSchema>;
 
 // ---------------------------------------------------------------------------------------------
 // Server → client payloads
@@ -100,6 +115,12 @@ export interface FocusEndedMessage {
 
 export interface FocusErrorMessage {
   message: string;
+}
+
+export interface HouseNoticeMessage {
+  message: string;
+  /** The player must leave (e.g. the owner made the house private). */
+  leave: boolean;
 }
 
 // ---------------------------------------------------------------------------------------------
