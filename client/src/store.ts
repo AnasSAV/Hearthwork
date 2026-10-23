@@ -20,6 +20,29 @@ export interface ActiveFocus extends FocusStateMessage {
   receivedAt: number;
 }
 
+/** The house the player is in, mirrored from the house room for React panels. */
+export interface HouseInfo {
+  ownerId: string;
+  ownerName: string;
+  isOwner: boolean;
+  level: number;
+  width: number;
+  height: number;
+  rooms: number;
+  visibility: string;
+  exteriorStyle: string;
+  wallpaper: string;
+  floor: string;
+}
+
+/** A town lot doorstep the player is standing on. */
+export interface NearLot {
+  plotIndex: number;
+  ownerId: string;
+  ownerName: string;
+  isMine: boolean;
+}
+
 export interface UiState {
   connection: ConnectionStatus;
   playerName: string;
@@ -34,6 +57,13 @@ export interface UiState {
   inventoryOpen: boolean;
   /** Bumped after purchases so the inventory drawer refetches. */
   inventoryVersion: number;
+  /** null in town. */
+  house: HouseInfo | null;
+  nearLot: NearLot | null;
+  houseSettingsOpen: boolean;
+  friendsOpen: boolean;
+  /** Short message shown as a toast. */
+  notice: string | null;
   /** The focus timer panel is open (choosing a block, or running). */
   timerOpen: boolean;
   focus: ActiveFocus | null;
@@ -52,6 +82,11 @@ const initial: UiState = {
   shopOpen: false,
   inventoryOpen: false,
   inventoryVersion: 0,
+  house: null,
+  nearLot: null,
+  houseSettingsOpen: false,
+  friendsOpen: false,
+  notice: null,
   timerOpen: false,
   focus: null,
   focusSummary: null,
@@ -79,4 +114,13 @@ export const uiStore = {
 
 export function useUi<T>(select: (s: UiState) => T): T {
   return useSyncExternalStore(uiStore.subscribe, () => select(uiStore.get()));
+}
+
+let noticeTimer: ReturnType<typeof setTimeout> | undefined;
+
+/** Show a toast for a few seconds. */
+export function showNotice(message: string): void {
+  clearTimeout(noticeTimer);
+  uiStore.set({ notice: message });
+  noticeTimer = setTimeout(() => uiStore.set({ notice: null }), 5000);
 }

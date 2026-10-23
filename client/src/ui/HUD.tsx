@@ -1,5 +1,26 @@
+import { goToHouse } from '../game/navigation';
+import { useEditor } from '../house/editor';
+import { fetchMyHouse } from '../net/houses';
 import { supabase } from '../net/supabase';
-import { uiStore, useUi } from '../store';
+import { showNotice, uiStore, useUi } from '../store';
+
+/** The town shows houses on its first six lots; others are reached through Home/Friends. */
+const TOWN_LOTS = 6;
+
+async function goHome() {
+  try {
+    const house = await fetchMyHouse();
+    if (!house) return showNotice('You have no house yet.');
+    goToHouse({
+      ownerId: house.ownerId,
+      ...(house.plotIndex !== null && house.plotIndex < TOWN_LOTS
+        ? { fromPlot: house.plotIndex }
+        : {}),
+    });
+  } catch (e) {
+    showNotice(e instanceof Error ? e.message : String(e));
+  }
+}
 
 export function HUD() {
   const name = useUi((s) => s.playerName);
@@ -11,6 +32,9 @@ export function HUD() {
   const nearShop = useUi((s) => s.nearShop);
   const shopOpen = useUi((s) => s.shopOpen);
   const focusing = useUi((s) => s.focus !== null);
+  const nearLot = useUi((s) => s.nearLot);
+  const house = useUi((s) => s.house);
+  const editing = useEditor((s) => s.active);
   const timerOpen = useUi((s) => s.timerOpen);
 
   if (!connected) return null;
@@ -36,13 +60,23 @@ export function HUD() {
         <span title={`${online} in this town`}>
           {focusingNow} {focusingNow === 1 ? 'person' : 'people'} focusing now
         </span>
-        <button
-          type="button"
-          className="link"
-          onClick={() => uiStore.set({ inventoryOpen: !uiStore.get().inventoryOpen })}
-        >
-          Inventory
+        {!house?.isOwner && !focusing && (
+          <button type="button" className="link" onClick={() => void goHome()}>
+            Home
+          </button>
+        )}
+        <button type="button" className="link" onClick={() => uiStore.set({ friendsOpen: true })}>
+          Friends
         </button>
+        {!editing && (
+          <button
+            type="button"
+            className="link"
+            onClick={() => uiStore.set({ inventoryOpen: !uiStore.get().inventoryOpen })}
+          >
+            Inventory
+          </button>
+        )}
         <button type="button" className="link" onClick={() => void supabase.auth.signOut()}>
           Sign out
         </button>
@@ -57,12 +91,21 @@ export function HUD() {
           Press <kbd>E</kbd> to start focusing
         </div>
       )}
+      {nearLot && (
+        <div className="hint panel">
+          Press <kbd>E</kbd> to {nearLot.isMine ? 'go home' : `visit ${nearLot.ownerName}'s house`}
+        </div>
+      )}
       {nearShop && !shopOpen && (
         <div className="hint panel">
           Press <kbd>E</kbd> to enter the Furniture Shop
         </div>
       )}
-      <div className="controls panel">WASD / arrows: walk · E: use · I: inventory</div>
+      {!editing && (
+        <div className="controls panel">
+          WASD / arrows: walk · E: use · I: inventory{house ? ' · walk out the door to leave' : ''}
+        </div>
+      )}
     </>
   );
 }

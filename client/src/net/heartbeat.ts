@@ -1,6 +1,6 @@
 import { FOCUS_BEAT_INTERVAL_MS } from '@focus-town/shared';
 import { uiStore } from '../store';
-import { townActions } from './townBridge';
+import { roomActions } from './roomBridge';
 
 /**
  * Sends `focus:beat` every minute while a focus session runs. The beat only reports facts the
@@ -31,7 +31,7 @@ function tick(): void {
   const now = Date.now();
   if (now - lastBeatAt < FOCUS_BEAT_INTERVAL_MS) return;
   lastBeatAt = now;
-  townActions.beat({
+  roomActions.beat({
     visible: document.visibilityState === 'visible',
     lastInputAgoSec: Math.max(0, Math.round((now - lastInputAt) / 1000)),
   });

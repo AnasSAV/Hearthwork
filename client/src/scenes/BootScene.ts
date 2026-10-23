@@ -16,6 +16,7 @@ export class BootScene extends Phaser.Scene {
     // Keys match the tileset names inside the Tiled map.
     this.load.image('tinytown', 'tilesets/tinytown.png');
     this.load.image('indoor', 'tilesets/indoor.png');
+    this.load.image('house', 'tilesets/house.png');
     this.load.spritesheet(CHARACTERS_KEY, 'sprites/characters.png', {
       frameWidth: 16,
       frameHeight: 16,

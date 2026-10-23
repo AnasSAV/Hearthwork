@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import type { FocusBlock, FocusEndReason } from '@focus-town/shared';
-import { townActions } from '../net/townBridge';
+import { roomActions } from '../net/roomBridge';
 import { uiStore, useUi, type ActiveFocus } from '../store';
 
 const MISS_TEXT: Record<string, string> = {
@@ -51,7 +51,7 @@ function Chooser({ deskId }: { deskId: string }) {
   const start = () => {
     setStarting(true);
     uiStore.set({ focusError: null });
-    townActions.startFocus(deskId, plan, audioOnly);
+    roomActions.startFocus(deskId, plan, audioOnly);
   };
 
   const options: { value: FocusBlock | null; label: string; hint: string }[] = [
@@ -126,7 +126,7 @@ function Running({ focus }: { focus: ActiveFocus }) {
           Last minute didn&apos;t count: {MISS_TEXT[focus.lastMiss]}.
         </div>
       )}
-      <button type="button" className="btn btn-secondary" onClick={() => townActions.endFocus()}>
+      <button type="button" className="btn btn-secondary" onClick={() => roomActions.endFocus()}>
         End session
       </button>
     </div>
@@ -143,7 +143,7 @@ function PresencePrompt() {
           type="button"
           className="btn"
           autoFocus
-          onClick={() => townActions.confirmPresence()}
+          onClick={() => roomActions.confirmPresence()}
         >
           I&apos;m here
         </button>

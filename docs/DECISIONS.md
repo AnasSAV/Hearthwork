@@ -200,3 +200,82 @@ Judgement calls and places where the brief and the real libraries didn't match. 
 - `client/vite.config.ts` adds `shared/src` to Vite's file watcher: it's outside the Vite root,
   so without this, edits to `shared/` were served stale until Vite restarted.
 - Dev builds expose `window.__supabase` so RLS can be poked from the browser console.
+
+## Phase 4 (2026-10-23)
+
+### Geometry
+
+- Each room is the `house_levels` grid (L1 8×6, L2 12×8, L3 12×8 × 2 rooms). Row 0 is the wall
+  row; `wall`-layer items only go there and must be 1 tile tall. Rows 1..h-1 are floor.
+- The front door is under floor tile (width/2, height-1) of room 0. Two-room houses connect at
+  row height/2. Floor items may not cover those doorway tiles (so nobody gets boxed in), but
+  rugs may.
+- Upgrades keep coordinates, so furniture stays put and new space appears right/bottom, as the
+  brief asks.
+- The interior world adds a 1-tile outer wall all round, a wall column between rooms and an
+  exit mat in the bottom wall. Walking onto the mat leaves the house (no key press needed).
+- **Rotation is stored but must be 0.** The pixel-art sprites have no rotated versions;
+  `save_layout` and `canPlace` reject anything else for now.
+
+### Placement rules (`canPlace` in `shared/src/house.ts`, re-checked by `save_layout` in SQL)
+
+- In bounds and on the right row for the layer. No overlap within a layer: rugs under
+  furniture are fine, two rugs are not. `surface` items need a `surface_host` table/desk under
+  every tile.
+- No wallpapers/floors as placed items, no rooms the house doesn't have, and level-gated items
+  need the level.
+- Ownership: you can place at most as many copies as `inventory.qty`. Placing doesn't consume
+  inventory; it's "owned total". Picking up just removes the placement, so nothing is
+  destroyed. Lifting a table also returns anything standing on it.
+- A DB test feeds 25 random layouts through both `validateLayout()` (TypeScript) and
+  `save_layout` (SQL) and requires identical accept/reject results.
+
+### Editing
+
+- The owner presses **Decorate**. The layout is edited locally (React drawer plus Phaser
+  ghost); nothing hits the database until **Save layout**, which calls `save_layout` (one
+  transaction, replaces all `placed_items`). The house room is then told to reload, and
+  everyone inside sees the new layout. Cancel throws the draft away.
+- The ghost shows the item sprite over a green or red footprint (a multiply tint alone was
+  unreadable on green items). Drag from the drawer, or click an item then click a spot.
+  Click placed furniture to pick it up; right-click/Esc returns the carried item.
+
+### Rooms
+
+- `house` rooms are `filterBy(['ownerId'])`: one per owner, created by the first visitor
+  (owner included), disposed when empty, rebuilt from Postgres every time.
+- `onAuth` checks `can_visit(visitor, owner)` (public / friends / private). If the owner
+  tightens visibility while friends are inside, they get a notice and are sent back to town.
+- Studying in a house: the floor tile below each desk/table (`items.study_spot`) is a seat;
+  focus sessions there are identical to town desks (same `FocusController`, same `award_focus`),
+  so visitors earn coins at a friend's desk.
+- Players are pushed to the doorway if a layout change leaves them inside furniture; sessions
+  at a removed desk end.
+
+### Town lots
+
+- The town map has 6 lots; houses with `plot_index` 0–5 appear there with level- and
+  style-based exteriors (L1 3 tiles wide, L2 4, L3 5 with a chimney; cottage = blue roof and
+  timber, brick = red roof and stone). Lots are solid in the collision layer; the door tile's
+  doorstep is the interaction point. Empty lots show "For sale".
+- **Players beyond plot 5 have no lot yet.** They reach their house with the HUD's **Home**
+  button and friends' houses from the Friends panel. More lots or neighbourhood streets can
+  come later.
+- Town rooms reload lots every minute and immediately when a shown house changes (an
+  in-process event from the house room, single-process deployment).
+
+### Friends
+
+- One `friendships` row per pair (enforced by a unique index on the unordered pair): `pending`
+  means `user_id` asked `friend_id`; accepting flips it to `accepted`. Asking someone who
+  already asked you accepts. `my_friends()` (security definer) returns usernames/avatars, since
+  profiles are otherwise private to their owner.
+
+### Client structure
+
+- `WorldScene` is the shared base (players, prediction, focus messages, reconnects, zoom);
+  `TownScene` and `HouseScene` extend it. Switching worlds stops one scene (leaving its room)
+  and starts the other. Leaving a room ends a running focus session, with verified minutes
+  paid as usual.
+- The brief's `HouseEdit` scene became an edit mode inside `HouseScene` (same scene, same
+  room), driven by `client/src/house/editor.ts`.

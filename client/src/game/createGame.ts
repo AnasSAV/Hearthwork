@@ -1,6 +1,8 @@
 import Phaser from 'phaser';
 import { BootScene } from '../scenes/BootScene';
+import { HouseScene } from '../scenes/HouseScene';
 import { TownScene } from '../scenes/TownScene';
+import { attachGame } from './navigation';
 
 export function createGame(parent: HTMLElement): Phaser.Game {
   const game = new Phaser.Game({
@@ -15,8 +17,10 @@ export function createGame(parent: HTMLElement): Phaser.Game {
       width: '100%',
       height: '100%',
     },
-    scene: [BootScene, TownScene],
+    scene: [BootScene, TownScene, HouseScene],
   });
+  attachGame(game);
+  game.events.once(Phaser.Core.Events.DESTROY, () => attachGame(null));
   // Dev-only handle for debugging and browser tests; stripped from production builds.
   if (import.meta.env.DEV) (window as unknown as { __game: Phaser.Game }).__game = game;
   return game;

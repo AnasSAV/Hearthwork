@@ -9,6 +9,7 @@ it's deserved. Support Kenney at https://kenney.nl/support.
 | `tilesets/indoor.png`           | Roguelike Indoors | https://kenney.nl/assets/roguelike-indoors | `Tilesheets/roguelikeIndoor_transparent.png` repacked without the 1px spacing (27×18 tiles, 16×16)                                                                                 |
 | `sprites/characters.png`        | RPG Urban Pack    | https://kenney.nl/assets/rpg-urban-pack    | The 6 character columns (tiles 23–26 of each row in `Tilemap/tilemap_packed.png`) cut into a 4×18 sheet: columns = down, up, left, right; 3 rows per avatar = idle, walk A, walk B |
 | `tilesets/collision.png`        | (ours)            |                                            | 16×16 translucent red marker tile for the hidden `collision` layer in Tiled                                                                                                        |
+| `tilesets/house.png`            | (ours)            |                                            | 4 hand-drawn 16×16 tiles: default plank floor, plaster wall, outer wall, door mat                                                                                                  |
 
 ## Maps
 
