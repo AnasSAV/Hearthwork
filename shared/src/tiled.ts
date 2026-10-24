@@ -56,6 +56,10 @@ export const MapObjectType = {
   Desk: 'desk',
   /** Animated piece (flag, fish…); properties `frames` and `fps`. */
   Anim: 'anim',
+  /** A tree sprite (frame = object name in the trees atlas); property `trunk` rows. */
+  Tree: 'tree',
+  /** A flower bed (butterflies hover around these). */
+  Flowers: 'flowers',
   Building: 'building',
 } as const;
 

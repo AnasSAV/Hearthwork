@@ -61,8 +61,8 @@ export function InventoryDrawer() {
       {!owned && !error && <div className="spinner" aria-label="Loading" />}
       {owned?.length === 0 && (
         <p className="subtitle">
-          Nothing here yet. Earn coins at a desk, then visit the Furniture Shop (the red-roofed
-          house in the north-west).
+          Nothing here yet. Earn coins focusing in town, then visit the Furniture Shop (the hardware
+          store in the north-west).
         </p>
       )}
       {owned && owned.length > 0 && (

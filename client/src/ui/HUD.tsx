@@ -1,8 +1,13 @@
+import { useEffect, useRef, useState } from 'react';
+import { decodeAvatar } from '@focus-town/shared';
+import { sfx } from '../audio/sfx';
 import { goToHouse } from '../game/navigation';
 import { useEditor } from '../house/editor';
 import { fetchMyHome } from '../net/houses';
 import { supabase } from '../net/supabase';
-import { showNotice, uiStore, useUi } from '../store';
+import { showNotice, uiStore, useUi, type UiState } from '../store';
+import { AvatarSprite } from './AvatarSprite';
+import { Icon, type IconName } from './Icon';
 
 /** Go to the home you live in (yours, or a friend's you moved into). */
 export async function goHome(): Promise<void> {
@@ -14,8 +19,71 @@ export async function goHome(): Promise<void> {
   }
 }
 
+/** Counts up to `value` so coin changes are visible, and reports how much it just went up. */
+function useCountUp(value: number): { shown: number; gained: number | null } {
+  const [shown, setShown] = useState(value);
+  const [gained, setGained] = useState<number | null>(null);
+  const from = useRef(value);
+  useEffect(() => {
+    const start = from.current;
+    from.current = value;
+    if (value === start) return;
+    if (value > start) {
+      setGained(value - start);
+      sfx.play('coin');
+    }
+    const t0 = performance.now();
+    let raf = 0;
+    const step = (t: number) => {
+      const k = Math.min(1, (t - t0) / 700);
+      setShown(Math.round(start + (value - start) * (1 - Math.pow(1 - k, 3))));
+      if (k < 1) raf = requestAnimationFrame(step);
+    };
+    raf = requestAnimationFrame(step);
+    const clear = setTimeout(() => setGained(null), 1400);
+    return () => {
+      cancelAnimationFrame(raf);
+      clearTimeout(clear);
+    };
+  }, [value]);
+  return { shown, gained };
+}
+
+function Tool({
+  icon,
+  label,
+  onClick,
+  active = false,
+  dot,
+}: {
+  icon: IconName;
+  label: string;
+  onClick: () => void;
+  active?: boolean;
+  dot?: number;
+}) {
+  return (
+    <button
+      type="button"
+      className={`tool${active ? ' active' : ''}`}
+      data-tip={label}
+      aria-label={label}
+      onClick={() => {
+        sfx.play('click');
+        onClick();
+      }}
+    >
+      <Icon name={icon} size={20} />
+      {dot ? <span className="dot">{dot}</span> : null}
+    </button>
+  );
+}
+
+const toggle = (key: keyof UiState) => () => uiStore.set({ [key]: !uiStore.get()[key] });
+
 export function HUD() {
   const name = useUi((s) => s.playerName);
+  const avatar = useUi((s) => s.playerAvatar);
   const online = useUi((s) => s.playersOnline);
   const focusingNow = useUi((s) => s.focusingNow);
   const wallet = useUi((s) => s.wallet);
@@ -25,69 +93,83 @@ export function HUD() {
   const shopOpen = useUi((s) => s.shopOpen);
   const focusing = useUi((s) => s.focus !== null);
   const house = useUi((s) => s.house);
+  const mapOpen = useUi((s) => s.mapOpen);
+  const friendsOpen = useUi((s) => s.friendsOpen);
+  const statsOpen = useUi((s) => s.statsOpen);
+  const inventoryOpen = useUi((s) => s.inventoryOpen);
+  const characterOpen = useUi((s) => s.characterOpen);
+  const widgetsOpen = useUi((s) => s.widgetPickerOpen);
   const editing = useEditor((s) => s.active);
   const timerOpen = useUi((s) => s.timerOpen);
+  const coins = useCountUp(wallet?.coins ?? 0);
 
   if (!connected) return null;
   const capReached = wallet && wallet.todayCoinMinutes >= wallet.dailyCapMin;
   return (
     <>
       <div className="hud panel">
-        <span className="hud-name">{name}</span>
-        <span className="hud-sep" />
-        {wallet && (
-          <>
-            <span className="hud-coins" title="Coins">
-              ● {wallet.coins.toLocaleString()}
+        <div className="hud-avatar">
+          {avatar && <AvatarSprite avatar={decodeAvatar(avatar)} scale={2} head />}
+        </div>
+        <div className="hud-who">
+          <span className="hud-name">{name}</span>
+          <span className="hud-stats">
+            {wallet && (
+              <>
+                <span className="pill coins" key={wallet.coins} title="Coins">
+                  <Icon name="coin" size={13} />
+                  {coins.shown.toLocaleString()}
+                </span>
+                <span
+                  className="pill streak"
+                  title={`${wallet.streakDays}-day focus streak (UTC days). Streaks add up to +50% coins.`}
+                >
+                  <Icon name="flame" size={13} />
+                  {wallet.streakDays}
+                </span>
+              </>
+            )}
+            <span className="pill people" title={`${online} here · ${focusingNow} focusing now`}>
+              <Icon name="timer" size={13} />
+              {focusingNow}
             </span>
-            <span
-              title={`${wallet.streakDays}-day focus streak (UTC days). Streaks add up to +50% coins.`}
-            >
-              🔥 {wallet.streakDays}
-            </span>
-            <span className="hud-sep" />
-          </>
-        )}
-        <span title={`${online} in this town`}>
-          {focusingNow} {focusingNow === 1 ? 'person' : 'people'} focusing now
-        </span>
+          </span>
+        </div>
+        {coins.gained && <span className="coin-float">+{coins.gained}</span>}
+      </div>
+
+      <nav className="toolbar" aria-label="Menu">
         {!house?.isMember && !focusing && (
-          <button type="button" className="link" onClick={() => void goHome()}>
-            Home
-          </button>
+          <Tool icon="home" label="Home" onClick={() => void goHome()} />
         )}
         {!focusing && (
-          <button
-            type="button"
-            className="link"
-            title="World map (M)"
-            onClick={() => uiStore.set({ mapOpen: true })}
-          >
-            Map
-          </button>
+          <Tool icon="map" label="Map (M)" onClick={toggle('mapOpen')} active={mapOpen} />
         )}
-        <button type="button" className="link" onClick={() => uiStore.set({ friendsOpen: true })}>
-          Friends
-        </button>
-        <button type="button" className="link" onClick={() => uiStore.set({ statsOpen: true })}>
-          Stats
-        </button>
-        <button type="button" className="link" onClick={() => uiStore.set({ characterOpen: true })}>
-          Character
-        </button>
+        <Tool icon="friends" label="Friends" onClick={toggle('friendsOpen')} active={friendsOpen} />
+        <Tool
+          icon="widgets"
+          label="Widgets"
+          onClick={toggle('widgetPickerOpen')}
+          active={widgetsOpen}
+        />
+        <Tool icon="stats" label="Stats" onClick={toggle('statsOpen')} active={statsOpen} />
         {!editing && (
-          <button
-            type="button"
-            className="link"
-            onClick={() => uiStore.set({ inventoryOpen: !uiStore.get().inventoryOpen })}
-          >
-            Inventory
-          </button>
+          <Tool
+            icon="bag"
+            label="Inventory (I)"
+            onClick={toggle('inventoryOpen')}
+            active={inventoryOpen}
+          />
         )}
-        <button type="button" className="link" onClick={() => void supabase.auth.signOut()}>
-          Sign out
-        </button>
-      </div>
+        <Tool
+          icon="user"
+          label="Character"
+          onClick={toggle('characterOpen')}
+          active={characterOpen}
+        />
+        <Tool icon="door" label="Sign out" onClick={() => void supabase.auth.signOut()} />
+      </nav>
+
       {capReached && (
         <div className="cap panel">
           Daily coin cap reached ({wallet.dailyCapMin} min). Minutes still count for your streak.
@@ -95,18 +177,32 @@ export function HUD() {
       )}
       {nearDesk && !focusing && !timerOpen && (
         <div className="hint panel">
-          Press <kbd>E</kbd> to start focusing
+          <kbd>E</kbd> Sit down and focus
         </div>
       )}
       {nearShop && !shopOpen && (
         <div className="hint panel">
-          Press <kbd>E</kbd> to enter the Furniture Shop
+          <kbd>E</kbd> Enter the Furniture Shop
         </div>
       )}
       {!editing && (
-        <div className="controls panel">
-          WASD / arrows: walk · E: use · I: inventory · M: map · Enter: chat
-          {house ? ' · the gate leads to town' : ''}
+        <div className="controls">
+          <span>
+            <kbd>WASD</kbd>walk
+          </span>
+          <span>
+            <kbd>E</kbd>use
+          </span>
+          <span>
+            <kbd>M</kbd>map
+          </span>
+          <span>
+            <kbd>↵</kbd>chat
+          </span>
+          <span>
+            <kbd>1-0</kbd>emotes
+          </span>
+          {house && <span>gate → town</span>}
         </div>
       )}
     </>

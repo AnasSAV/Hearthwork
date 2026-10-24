@@ -1,5 +1,6 @@
 import {
   ClientMsg,
+  type Emote,
   type FocusBeatMessage,
   type FocusBlock,
   type FocusStartMessage,
@@ -39,5 +40,11 @@ export const roomActions = {
   /** Ask the house room to re-read the house (owner only; after save/upgrade/settings). */
   reloadHouse(): void {
     send?.(ClientMsg.HouseReload);
+  },
+  emote(emote: Emote): void {
+    send?.(ClientMsg.Emote, { emote });
+  },
+  typing(typing: boolean): void {
+    send?.(ClientMsg.Typing, { typing });
   },
 };

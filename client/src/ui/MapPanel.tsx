@@ -142,6 +142,7 @@ export function MapPanel() {
                       goToHouse({
                         ownerId: h.owner_id,
                         at: h.relation === 'home' ? 'door' : 'gate',
+                        label: h.relation === 'home' ? 'Home' : `${h.owner_name}'s home`,
                       }),
                     )
                   }
@@ -172,7 +173,11 @@ export function MapPanel() {
                   type="button"
                   className="btn"
                   disabled={focusing}
-                  onClick={() => travel(() => goToHouse({ ownerId: h.owner_id }))}
+                  onClick={() =>
+                    travel(() =>
+                      goToHouse({ ownerId: h.owner_id, label: `${h.owner_name}'s home` }),
+                    )
+                  }
                 >
                   Visit
                 </button>

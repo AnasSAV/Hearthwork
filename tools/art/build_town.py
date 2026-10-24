@@ -151,10 +151,27 @@ def trunk_cells(w, h, rows=2):
     return [(c, h - 1 - r) for r in range(rows) for c in cols]
 
 
+tree_images = {}  # name -> image, for the trees atlas
+
+
 def plant_tree(name, tx, ty):
+    """
+    Trees are objects, not tiles: the town scene draws each one as a sprite sorted with the
+    players (so you can walk behind them) and sways its canopy in the wind. Only the trunk is
+    solid.
+    """
     image = img(name)
     w, h = image.width // T, image.height // T
-    return place(image, tx, ty, trunk_cells(w, h), above=h - 2)
+    tree_images[name] = image
+    for c, r in trunk_cells(w, h):
+        if inside(tx + c, ty + r):
+            solid[at(tx + c, ty + r)] = True
+    for r in range(h):
+        for c in range(w):
+            if inside(tx + c, ty + r):
+                occupied[at(tx + c, ty + r)] = True
+    add_object(name, "tree", tx * T, ty * T, w * T, h * T, trunk=2)
+    return w, h
 
 
 def fits(tx, ty, w, h, margin=0, ignore_occupied=False):
@@ -322,8 +339,10 @@ ANIMATED = os.path.join(SRC, "Exterior", "Modern_Exteriors_16x16", "Animated_16x
 anim_strips = {}  # name -> (strip image, frame width, frame height in tiles, frames, fps)
 
 
-def animated(name, file, fw, fh, fps):
+def animated(name, file, fw, fh, fps, crop=None):
     strip = Image.open(os.path.join(ANIMATED, file)).convert("RGBA")
+    if crop:  # (x, y, w, h) in px: part of a bigger sheet
+        strip = strip.crop((crop[0], crop[1], crop[0] + crop[2], crop[1] + crop[3]))
     anim_strips[name] = (strip, fw, fh, strip.width // (fw * T), fps)
 
 
@@ -343,6 +362,9 @@ animated("flag", "School_Flag_1_16x16.png", 3, 9, 8)
 animated("fish1", "Fishes_1_16x16.png", 1, 1, 6)
 animated("fish2", "Fishes_2_16x16.png", 1, 1, 6)
 animated("garden-fountain", "Garden_Fountain_1_16x16.png", 2, 3, 8)
+# Seagulls pottering by the pond (idle row of the sheet: 6 frames facing right, 6 left).
+animated("gull-right", "Beach_Seagull_Complete_16x16.png", 2, 2, 5, crop=(0, 32, 192, 32))
+animated("gull-left", "Beach_Seagull_Complete_16x16.png", 2, 2, 5, crop=(384, 32, 192, 32))
 
 # Flags either side of the library steps.
 for fx in (21, 44):
@@ -351,6 +373,7 @@ for fx in (21, 44):
 # Flower beds and benches on the lawns between the buildings.
 for fx, fy, flowers in ((16, 10, 4), (16, 13, 5), (46, 12, 6), (49, 14, 4)):
     place(img(f"Villa_Yard_Flowers_{flowers}"), fx, fy, None)
+    add_object("flowers", "flowers", fx * T, fy * T, 2 * T, 2 * T)
     reserve(fx, fy, fx + 1, fy + 1, margin=1)
 place(img("City_Props_16x16_Bench_1"), 19, 15, [(0, 1), (1, 1)])
 place(img("City_Props_16x16_Bench_1"), 49, 10, [(0, 1), (1, 1)])
@@ -392,6 +415,8 @@ pond(44, 43, 12, 4)
 for name, fx, fy in (("fish1", 46, 44), ("fish2", 50, 45), ("fish1", 53, 44)):
     place_anim(name, fx, fy)
 place(img("City_Props_16x16_Bench_1"), 40, 43, [(0, 1), (1, 1)])
+place_anim("gull-right", 42, 45)
+place_anim("gull-left", 57, 44)
 
 # Lamps along the promenade.
 for lx in (10, 28, 39, 58):
@@ -400,6 +425,7 @@ for lx in (10, 28, 39, 58):
 # A flower meadow and a quiet bench south-west of the promenade.
 for fx, fy, flowers in ((8, 43, 4), (11, 44, 5), (14, 43, 6), (17, 44, 4)):
     place(img(f"Villa_Yard_Flowers_{flowers}"), fx, fy, None)
+    add_object("flowers", "flowers", fx * T, fy * T, 2 * T, 2 * T)
     reserve(fx, fy, fx + 1, fy + 1)
 place(img("City_Props_16x16_Bench_1"), 22, 43, [(0, 1), (1, 1)])
 reserve(6, 42, 25, 46)
@@ -561,8 +587,28 @@ for name in LAYERS:
             if o["type"] == "anim":
                 strip, fw, fh, *_ = anim_strips[o["name"]]
                 picture.alpha_composite(strip.crop((0, 0, fw * T, fh * T)), (o["x"], o["y"]))
+        for o in sorted((o for o in objects if o["type"] == "tree"), key=lambda o: o["y"] + o["height"]):
+            picture.alpha_composite(tree_images[o["name"]], (o["x"], o["y"])) if o["x"] >= 0 and o["y"] >= 0 else picture.paste(
+                tree_images[o["name"]], (o["x"], o["y"]), tree_images[o["name"]])
 picture.convert("RGB").resize((W * 4, H * 4), Image.LANCZOS).save(
     os.path.join(ASSETS, "sprites", "town-map.png"), optimize=True)
+
+# Trees: one frame per tree image ("<name>"), packed in a row.
+tree_frames = {}
+tw = sum(im.width for im in tree_images.values())
+th = max(im.height for im in tree_images.values())
+tree_sheet = Image.new("RGBA", (tw, th))
+x = 0
+for name, im in tree_images.items():
+    tree_sheet.paste(im, (x, 0))
+    tree_frames[name] = {"frame": {"x": x, "y": 0, "w": im.width, "h": im.height}, "rotated": False,
+                         "trimmed": False, "spriteSourceSize": {"x": 0, "y": 0, "w": im.width, "h": im.height},
+                         "sourceSize": {"w": im.width, "h": im.height}}
+    x += im.width
+tree_sheet.save(os.path.join(ASSETS, "sprites", "town-trees.png"), optimize=True)
+with open(os.path.join(ASSETS, "sprites", "town-trees.json"), "w", encoding="utf-8", newline="\n") as fh:
+    json.dump({"frames": tree_frames, "meta": {"image": "town-trees.png", "size": {"w": tw, "h": th},
+               "scale": "1"}}, fh, indent=1)
 
 # Houses: level 1-3 per style (all have their door in column 2).
 HOUSES = {"cottage": 1, "brick": 2}

@@ -24,6 +24,7 @@ import {
 import { itemFrame } from '../game/frames';
 import { InteriorView } from '../game/interior';
 import { goToTown, type HouseSceneData } from '../game/navigation';
+import { WorldLife } from '../game/life';
 import { YardView } from '../game/yard';
 import type { PlayerSprite } from '../game/PlayerSprite';
 import { editor, type EditItem } from '../house/editor';
@@ -49,6 +50,7 @@ export class HouseScene extends WorldScene<HouseState> {
   private seats: StudySeat[] = [];
   private view!: InteriorView;
   private yard!: YardView;
+  private life: WorldLife | null = null;
   private inside = false;
   private doorSentAt = 0;
   private ghost: Phaser.GameObjects.Image | null = null;
@@ -81,6 +83,16 @@ export class HouseScene extends WorldScene<HouseState> {
     });
     this.view = new InteriorView(this);
     this.yard = new YardView(this);
+    const yard = houseWorld.yardBounds();
+    this.life = new WorldLife(this, {
+      bounds: {
+        x: TILE_SIZE,
+        y: TILE_SIZE,
+        width: (yard.w - 2) * TILE_SIZE,
+        height: (yard.h - 2) * TILE_SIZE,
+      },
+      butterflies: 4,
+    });
     this.grid = houseCollisionGrid(this.dims, []);
     this.input.mouse?.disableContextMenu();
     this.input.on(Phaser.Input.Events.POINTER_MOVE, this.onPointerMove, this);
@@ -210,7 +222,12 @@ export class HouseScene extends WorldScene<HouseState> {
     const inside = houseWorld.isInside(this.pos.x);
     if (inside === this.inside) return;
     this.inside = inside;
+    this.life?.setActive(!inside);
     this.applyZoom();
+  }
+
+  protected override onFrame(time: number, delta: number): void {
+    this.life?.update(time, delta);
   }
 
   protected override applyZoom(): void {
@@ -417,6 +434,8 @@ export class HouseScene extends WorldScene<HouseState> {
     this.input.off(Phaser.Input.Events.POINTER_UP, this.onPointerUp, this);
     this.view.clear();
     this.yard.clear();
+    this.life?.destroy();
+    this.life = null;
     this.ghost?.destroy();
     this.ghost = null;
     this.ghostRect?.destroy();

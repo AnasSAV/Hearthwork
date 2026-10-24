@@ -20,6 +20,24 @@ LimeZu to regenerate or extend the art.
 | `tilesets/room.png`                          | Modern Interiors, `Room_Builder_subfiles` (walls, floors, borders)                                                                                                          | `tools/art/build_interiors.py`: 3×2 wall and floor blocks per style, room border                                   |
 | `tilesets/yard.png`                          | Modern Exteriors: terrain grass, `Sidewalk_1_25`, Additional Houses `Fence_1_*`, Camping `Sign_6`                                                                           | `tools/art/build_interiors.py`: yard ground, path, fence ring and the Town signpost                                |
 
+## More LimeZu pieces
+
+- `ui/ui.png` (+ `.json`): emote bubbles, the focusing timer bubble and typing dots, cut from
+  Modern Interiors `4_User_Interface_Elements/UI_16x16.png` by `tools/art/build_ui.py`.
+- `sprites/town-anims.png` also holds Modern Exteriors' seagulls (`Beach_Seagull_Complete`),
+  and `sprites/town-trees.png` the town's trees, both from `tools/art/build_town.py`.
+
+## Fonts
+
+- [Nunito](https://fonts.google.com/specimen/Nunito) and
+  [Pixelify Sans](https://fonts.google.com/specimen/Pixelify+Sans), SIL Open Font License,
+  loaded from Google Fonts.
+
+## Music streams
+
+- The radio's live stations embed public YouTube live streams (Lofi Girl, Chillhop and others)
+  with YouTube's own player, under YouTube's terms; nothing is downloaded or re-hosted.
+
 ## Ours
 
 | File in `client/public/assets/` | How it was made                                                             |

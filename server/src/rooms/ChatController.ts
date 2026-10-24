@@ -9,13 +9,17 @@ import {
   chatReportSchema,
   chatSendSchema,
   cleanChatText,
+  EMOTE_MIN_INTERVAL_MS,
+  emoteSendSchema,
   filterProfanity,
   ServerMsg,
+  typingSchema,
   WHISPER_RANGE_PX,
   whisperSendSchema,
   type ChatMessage,
   type ChatNotice,
   type ClockMessage,
+  type EmoteMessage,
   type PlayerState,
   type WhisperMessage,
 } from '@focus-town/shared';
@@ -33,7 +37,7 @@ export const clockNow = (): ClockMessage => ({ now: Date.now() });
 const WHISPER_SLACK_PX = 16;
 
 /**
- * Room chat and whispers: rate-limited, cleaned and profanity-filtered on the server, with
+ * Room chat, whispers, emotes and typing dots. Chat is rate-limited, cleaned and profanity-filtered on the server, with
  * recent history for late joiners. Whispers go only to the two players, and only while they
  * stand close together. Reports are stored from the server's own copy of a message, so a
  * client can't report words that were never said.
@@ -43,6 +47,7 @@ export class ChatController {
   /** Recent whispers, kept only so recipients can report them. */
   private whispers: WhisperMessage[] = [];
   private lastSent = new Map<string, number>();
+  private lastEmote = new Map<string, number>();
 
   constructor(
     private readonly room: Room,
@@ -60,6 +65,17 @@ export class ChatController {
     onValidated(this.room, ClientMsg.ChatReport, chatReportSchema, (client, msg) => {
       void this.report(client, msg.messageId, msg.reason ?? null);
     });
+    onValidated(this.room, ClientMsg.Emote, emoteSendSchema, (client, msg) => {
+      const now = Date.now();
+      if (now - (this.lastEmote.get(client.sessionId) ?? 0) < EMOTE_MIN_INTERVAL_MS) return;
+      this.lastEmote.set(client.sessionId, now);
+      const out: EmoteMessage = { sessionId: client.sessionId, emote: msg.emote };
+      this.room.broadcast(ServerMsg.Emote, out);
+    });
+    onValidated(this.room, ClientMsg.Typing, typingSchema, (client, msg) => {
+      const player = this.players().get(client.sessionId);
+      if (player) player.typing = msg.typing;
+    });
   }
 
   join(client: Client): void {
@@ -68,6 +84,7 @@ export class ChatController {
 
   leave(client: Client): void {
     this.lastSent.delete(client.sessionId);
+    this.lastEmote.delete(client.sessionId);
   }
 
   private notice(client: Client, message: string) {

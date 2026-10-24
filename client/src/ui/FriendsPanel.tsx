@@ -199,7 +199,7 @@ export function FriendsPanel() {
               title={f.can_visit ? 'Visit their home' : 'Their home is private'}
               onClick={() => {
                 close();
-                goToHouse({ ownerId: f.home_owner ?? f.user_id });
+                goToHouse({ ownerId: f.home_owner ?? f.user_id, label: `${f.username}'s home` });
               }}
             >
               Visit

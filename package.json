@@ -21,6 +21,7 @@
     "smoke": "tsx --env-file=server/.env --env-file=client/.env tools/bots/smoke.ts",
     "art:characters": "python tools/art/build_characters.py",
     "art:interiors": "python tools/art/build_interiors.py",
+    "art:ui": "python tools/art/build_ui.py",
     "map:town": "python tools/art/build_town.py",
     "test:db": "node --env-file=server/.env --env-file=client/.env node_modules/vitest/vitest.mjs run --config vitest.db.config.ts",
     "e2e:focus": "tsx --env-file=server/.env --env-file=client/.env tools/bots/focus-e2e.ts",

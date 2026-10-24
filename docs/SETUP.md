@@ -113,6 +113,7 @@ The repository already contains everything the game needs. Only to change the ar
 npm run art:characters -- "D:/path/to/FocusTown-art"   # character part atlases + avatarParts.ts
 npm run art:interiors -- "D:/path/to/FocusTown-art"    # furniture.png, room.png + interiorSprites.ts
 npm run map:town -- "D:/path/to/FocusTown-art"         # town.png, town.json/.tmx, houses atlas
+npm run art:ui -- "D:/path/to/FocusTown-art"           # emote / timer / typing bubbles
 npm run seed:items                                     # if catalog footprints or names changed
 ```
 

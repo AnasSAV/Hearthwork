@@ -48,6 +48,8 @@ export interface TableTimer {
 export interface UiState {
   connection: ConnectionStatus;
   playerName: string;
+  /** encodeAvatar() form of the local player's look. */
+  playerAvatar: string;
   playersOnline: number;
   focusingNow: number;
   wallet: WalletMessage | null;
@@ -63,6 +65,13 @@ export interface UiState {
   house: HouseInfo | null;
   /** The world map (town, your home, friends' and public homes) is open. */
   mapOpen: boolean;
+  /** The widget picker (clock, Pomodoro, radio, todo, notes) is open. */
+  widgetPickerOpen: boolean;
+  /** Travel transition between worlds (see game/navigation). */
+  transition: { phase: 'idle' | 'closing' | 'covered' | 'opening'; label: string };
+  /** Your zoom adjustment in steps on top of the automatic zoom (saved per browser). */
+  zoom: number;
+  minimapOpen: boolean;
   houseSettingsOpen: boolean;
   friendsOpen: boolean;
   /** Short message shown as a toast. */
@@ -79,9 +88,32 @@ export interface UiState {
   focusError: string | null;
 }
 
+const ZOOM_KEY = 'focus-town:zoom';
+export const ZOOM_RANGE = { min: -2, max: 3 } as const;
+
+function loadZoom(): number {
+  try {
+    const z = Number(localStorage.getItem(ZOOM_KEY));
+    return Number.isInteger(z) ? Math.max(ZOOM_RANGE.min, Math.min(ZOOM_RANGE.max, z)) : 0;
+  } catch {
+    return 0;
+  }
+}
+
+export function setZoom(z: number): void {
+  const zoom = Math.max(ZOOM_RANGE.min, Math.min(ZOOM_RANGE.max, Math.round(z)));
+  try {
+    localStorage.setItem(ZOOM_KEY, String(zoom));
+  } catch {
+    // Not persisted; fine.
+  }
+  uiStore.set({ zoom });
+}
+
 const initial: UiState = {
   connection: { kind: 'loading' },
   playerName: '',
+  playerAvatar: '',
   playersOnline: 0,
   focusingNow: 0,
   wallet: null,
@@ -92,6 +124,10 @@ const initial: UiState = {
   inventoryVersion: 0,
   house: null,
   mapOpen: false,
+  widgetPickerOpen: false,
+  transition: { phase: 'idle', label: '' },
+  zoom: loadZoom(),
+  minimapOpen: false,
   houseSettingsOpen: false,
   friendsOpen: false,
   notice: null,
@@ -114,7 +150,7 @@ export const uiStore = {
     listeners.forEach((l) => l());
   },
   reset(): void {
-    state = initial;
+    state = { ...initial, zoom: state.zoom };
     listeners.forEach((l) => l());
   },
   subscribe(listener: () => void): () => void {
@@ -135,3 +171,6 @@ export function showNotice(message: string): void {
   uiStore.set({ notice: message });
   noticeTimer = setTimeout(() => uiStore.set({ notice: null }), 5000);
 }
+
+// Dev-only console/test handle, e.g. `__ui.set({ shopOpen: true })`.
+if (import.meta.env.DEV) (window as unknown as { __ui: typeof uiStore }).__ui = uiStore;

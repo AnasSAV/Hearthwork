@@ -23,17 +23,17 @@ interface Day {
 
 const WEEKS = 26;
 /**
- * Sequential blue ramp (reference palette), stepped for a dark surface: no focus recedes into
- * the panel, more minutes get brighter.
+ * Sequential blue ramp (reference palette), stepped for the light paper panel: no focus
+ * recedes into the panel, more minutes get darker.
  */
 const HEAT = [
-  { min: 0, color: 'rgba(253, 246, 227, 0.07)', label: 'none' },
-  { min: 1, color: '#184f95', label: '1–24 min' },
-  { min: 25, color: '#2a78d6', label: '25–59 min' },
-  { min: 60, color: '#6da7ec', label: '1–2 h' },
-  { min: 120, color: '#b7d3f6', label: '2 h+' },
+  { min: 0, color: 'rgba(75, 53, 39, 0.08)', label: 'none' },
+  { min: 1, color: '#b7d3f6', label: '1–24 min' },
+  { min: 25, color: '#6da7ec', label: '25–59 min' },
+  { min: 60, color: '#2a78d6', label: '1–2 h' },
+  { min: 120, color: '#184f95', label: '2 h+' },
 ];
-const BAR = '#3987e5';
+const BAR = '#2a78d6';
 
 const heatColor = (minutes: number) => [...HEAT].reverse().find((h) => minutes >= h.min)!.color;
 const hm = (min: number) =>

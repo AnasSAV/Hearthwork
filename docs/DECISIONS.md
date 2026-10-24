@@ -468,3 +468,56 @@ playlistLength` (`shared/src/radio.ts`, unit-tested) and plays that track from t
 - The world map (HUD "Map" or **M**) shows the town, your home, friends' homes you may visit
   and public homes (`world_map()`, at most 60), as a ring around a picture of the town; homes
   whose owner moved in elsewhere are left off. Pick one to travel there.
+
+## Interface redesign, widgets and a living world (2026-10-24)
+
+### Look and feel
+
+- A cozy paper-and-wood interface: cream panels with a wooden lift, chunky pressable buttons,
+  rounded **Nunito** for text and numbers and **Pixelify Sans** for titles (Google Fonts, SIL
+  OFL). Icons are hand-drawn 12×12 pixel masks (`client/src/ui/Icon.tsx`) rather than an icon
+  font, so they match the pixel art. Panels pop in, drawers slide, hints bob.
+- HUD: a player card (avatar, coins that count up with a "+N" float, streak, people focusing)
+  and an icon toolbar with tooltips. The old "Sounds" button became a music player bar.
+- Little synthesized UI sounds (click, open, coin, pop, whoosh, chime), with their own volume.
+- Name tags and speech bubbles are drawn as rounded pills; players have a soft shadow.
+
+### Chat and emotes
+
+- Chat collapses to a launcher with the last messages peeking as bubbles; open, it shows
+  message bubbles with coloured initials, whisper tabs and a Nearby row.
+- Emotes: number keys 1–0 (or the smile button) pop one of 10 LimeZu emote bubbles over your
+  head for everyone (`emote` message, server rate-limited to one per 1.2 s). Typing shows a
+  "…" bubble (`typing` message sets `PlayerState.typing`). Focusing players show an animated
+  timer bubble.
+
+### Travel, camera and minimap
+
+- Moving between worlds closes an iris on you (honey rim), shows "Heading to …" with your
+  character walking among clouds, and opens once you've arrived (at least 0.8 s, at most 9 s
+  covered). The first load uses the same opening.
+- Zoom: +/− buttons or the mouse wheel adjust the automatic zoom by up to −2/+3 steps (kept per
+  browser). In town, a minimap shows everyone (you pulse; focusing players are green) and can
+  zoom in around you.
+- In homes, the interior now sits 40 tiles from the yard so it never peeks into view.
+
+### Focus mode and widgets
+
+- While focusing: the verified timer is a ring (bottom right), the screen edges dim and the
+  menus fade back. The first time you focus with no widgets, a clock and a todo list appear.
+- Widgets (HUD → Widgets): clocks (digital, big digital with date, analog, railway), a
+  Pomodoro timer (classic 25/5/15 or deep work 50/10/20, 4-step cycle, chime), radio, todo
+  and notes. Drag them anywhere; layout, todos and notes are saved in the browser
+  (localStorage) since they're personal conveniences, not game state. The Pomodoro widget is
+  only a pacing timer; coins still come from verified focus at a seat.
+- Music: the synced Town Radio plus live YouTube lofi streams (Lofi Girl, Lofi Sleep,
+  Synthwave, Chillhop). YouTube's API terms require a visible player of at least 200×200, so
+  those stations play in the Radio widget's embedded player (240×200), driven by our controls.
+
+### A living world
+
+- Trees are now sprites (`tree` objects and `sprites/town-trees.png`), sorted with players,
+  with the canopy swaying over a still trunk; garden trees in yards sway too.
+- Ambient life (`client/src/game/life.ts`): flocks of flapping birds, butterflies around flower
+  beds (`flowers` objects), drifting leaves, cloud shadows, seagulls by the pond, fireflies
+  after dark and a gentle time-of-day tint (local time). Purely decorative and client-side.

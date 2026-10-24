@@ -188,9 +188,12 @@ export function validateLayout(
 // The home as a walkable world (shared by the client renderer and server movement checks)
 // ---------------------------------------------------------------------------------------------
 
-/** Yard (with its fence ring) on the left, a gap, then the interior with its outer wall. */
+/**
+ * Yard (with its fence ring) on the left, then the interior with its outer wall, far enough
+ * apart that the camera never shows one from the other.
+ */
 const YARD_WORLD_W = YARD.width + 2;
-const INTERIOR_X = YARD_WORLD_W + 3;
+const INTERIOR_X = YARD_WORLD_W + 40;
 
 const feetAt = (t: Tile) => ({
   x: t.x * TILE_SIZE + TILE_SIZE / 2,

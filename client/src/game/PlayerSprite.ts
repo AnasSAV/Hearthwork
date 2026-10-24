@@ -1,25 +1,97 @@
 import Phaser from 'phaser';
-import type { Direction } from '@focus-town/shared';
+import type { Direction, Emote } from '@focus-town/shared';
 import { ensureAvatarTexture, idleAnimKey, sitAnimKey, walkAnimKey } from './characters';
+import { UI_KEY, ensureUiAnims } from './uiAtlas';
 
 /** Sprite y while standing / sitting (LimeZu sit frames line up with a chair's bottom edge). */
 const STAND_Y = 1;
 const SIT_Y = 2;
+/** Name tag centre, and where things above the head start. */
+const TAG_Y = -27;
+const ABOVE_Y = -39;
+
+const FONT = 'Nunito, system-ui, sans-serif';
+const INK = '#4b3527';
+
+/**
+ * A rounded "pill" with text: name tags and speech bubbles. Drawn with Graphics so it stays
+ * crisp and matches the paper-and-wood interface.
+ */
+class Pill extends Phaser.GameObjects.Container {
+  private readonly bg: Phaser.GameObjects.Graphics;
+  readonly text: Phaser.GameObjects.Text;
+
+  constructor(
+    scene: Phaser.Scene,
+    y: number,
+    private fill: number,
+    private stroke: number,
+    color: string,
+    fontSize: number,
+    resolution: number,
+    private readonly tail = false,
+    wrap = 0,
+  ) {
+    super(scene, 0, y);
+    this.bg = scene.add.graphics();
+    this.text = scene.add
+      .text(0, 0, '', {
+        fontFamily: FONT,
+        fontStyle: '800',
+        fontSize: `${fontSize}px`,
+        color,
+        align: 'center',
+        resolution,
+        ...(wrap ? { wordWrap: { width: wrap } } : {}),
+      })
+      .setOrigin(0.5, 1);
+    this.add([this.bg, this.text]);
+  }
+
+  set(text: string, fill = this.fill, stroke = this.stroke, color?: string): this {
+    this.fill = fill;
+    this.stroke = stroke;
+    this.text.setText(text);
+    if (color) this.text.setColor(color);
+    const w = Math.ceil(this.text.width) + 6;
+    const h = Math.ceil(this.text.height) + 2;
+    const g = this.bg.clear();
+    g.fillStyle(this.fill, 1).lineStyle(1, this.stroke, 1);
+    g.fillRoundedRect(-w / 2, -h, w, h, Math.min(4, h / 2));
+    g.strokeRoundedRect(-w / 2, -h, w, h, Math.min(4, h / 2));
+    if (this.tail) {
+      g.fillTriangle(-3, -0.5, 3, -0.5, 0, 3.5);
+      g.lineBetween(-3, 0, 0, 3.5).lineBetween(3, 0, 0, 3.5);
+    }
+    this.text.setY(-1);
+    return this;
+  }
+
+  setResolution(r: number): void {
+    this.text.setResolution(r);
+  }
+}
 
 /** A player avatar with a name tag. The container's (x, y) is the point between the feet. */
 export class PlayerSprite extends Phaser.GameObjects.Container {
   private readonly body_: Phaser.GameObjects.Sprite;
-  private readonly label: Phaser.GameObjects.Text;
-  /** Small line above the name, e.g. focus minutes. */
-  private readonly badge: Phaser.GameObjects.Text;
+  private readonly tag: Pill;
+  /** Focus minutes, under the timer bubble while focusing. */
+  private readonly badge: Pill;
+  /** Animated bubble over the head: focusing timer or typing dots. */
+  private readonly status_: Phaser.GameObjects.Sprite;
+  private emoteIcon: Phaser.GameObjects.Image | null = null;
+  private emoteTimer: Phaser.Time.TimerEvent | null = null;
   private dir: Direction = 'down';
   private moving = false;
+  private typing = false;
   private moveTween: Phaser.Tweens.Tween | null = null;
-  private bubble: Phaser.GameObjects.Text | null = null;
+  private bubble: Pill | null = null;
   private bubbleTimer: Phaser.Time.TimerEvent | null = null;
   private statusKey = '';
   private status = 'walking';
   private focusMin = 0;
+  private resolution: number;
 
   constructor(
     scene: Phaser.Scene,
@@ -32,31 +104,32 @@ export class PlayerSprite extends Phaser.GameObjects.Container {
     textResolution: number,
   ) {
     super(scene, x, y);
+    this.resolution = textResolution;
+    ensureUiAnims(scene);
+    const shadow = scene.add.ellipse(0, 0, 11, 4, 0x2b1d12, 0.28);
     // 16x32 LimeZu frame; the feet touch the bottom edge and the head starts ~7px from the top.
     this.body_ = scene.add.sprite(0, STAND_Y, ensureAvatarTexture(scene, avatar));
     this.body_.setOrigin(0.5, 1);
     this.body_.play(idleAnimKey(avatar, 'down'));
-    const style = {
-      fontFamily: 'system-ui, -apple-system, "Segoe UI", sans-serif',
-      fontStyle: 'bold',
-      stroke: '#1d1b2a',
-      strokeThickness: 2,
-      resolution: textResolution,
-    };
-    this.label = scene.add
-      .text(0, -25, name_, { ...style, fontSize: '6px', color: this.nameColor() })
-      .setOrigin(0.5, 1);
-    this.badge = scene.add
-      .text(0, -32, '', { ...style, fontSize: '5px', color: '#b8f2c2' })
+    this.tag = new Pill(scene, TAG_Y, 0, 0, INK, 6, textResolution);
+    this.badge = new Pill(scene, ABOVE_Y, 0xdff1e4, 0x4f8d66, '#2f6b45', 5, textResolution);
+    this.badge.setVisible(false);
+    this.status_ = scene.add
+      .sprite(0, ABOVE_Y, UI_KEY, 'timer:0')
       .setOrigin(0.5, 1)
       .setVisible(false);
-    this.add([this.body_, this.label, this.badge]);
+    this.add([shadow, this.body_, this.tag, this.badge, this.status_]);
+    this.paintTag(name_);
     scene.add.existing(this);
     this.setDepth(y);
   }
 
   get playerName(): string {
     return this.name_;
+  }
+
+  get isFocusing(): boolean {
+    return this.status === 'focusing';
   }
 
   /** The player saved a new character or name. */
@@ -68,6 +141,7 @@ export class PlayerSprite extends Phaser.GameObjects.Container {
     }
     if (name !== this.name_) {
       this.name_ = name;
+      this.statusKey = '';
       this.setStatus(this.status, this.focusMin);
     }
   }
@@ -81,7 +155,8 @@ export class PlayerSprite extends Phaser.GameObjects.Container {
   }
 
   setTextResolution(resolution: number): void {
-    this.label.setResolution(resolution);
+    this.resolution = resolution;
+    this.tag.setResolution(resolution);
     this.badge.setResolution(resolution);
     this.bubble?.setResolution(resolution);
   }
@@ -90,34 +165,77 @@ export class PlayerSprite extends Phaser.GameObjects.Container {
   say(text: string, resolution: number): void {
     this.bubbleTimer?.remove();
     this.bubble?.destroy();
-    const short = text.length > 60 ? `${text.slice(0, 57)}...` : text;
-    this.bubble = this.scene.add
-      .text(0, this.badge.visible ? -39 : -32, short, {
-        fontFamily: 'system-ui, -apple-system, "Segoe UI", sans-serif',
-        fontSize: '6px',
-        color: '#1d1b2a',
-        backgroundColor: '#fdf6e3',
-        padding: { x: 3, y: 2 },
-        wordWrap: { width: 90 },
-        align: 'center',
-        resolution,
-      })
-      .setOrigin(0.5, 1);
+    const short = text.length > 60 ? `${text.slice(0, 57)}…` : text;
+    this.bubble = new Pill(
+      this.scene,
+      this.topY() - 2,
+      0xfff8ea,
+      0xc9a576,
+      INK,
+      6,
+      resolution,
+      true,
+      90,
+    );
+    this.bubble.set(short);
     this.add(this.bubble);
+    this.pop(this.bubble);
     this.bubbleTimer = this.scene.time.delayedCall(5000 + short.length * 40, () => {
-      this.bubble?.destroy();
+      const b = this.bubble;
       this.bubble = null;
+      if (b)
+        this.scene.tweens.add({
+          targets: b,
+          alpha: 0,
+          y: b.y - 4,
+          duration: 250,
+          onComplete: () => b.destroy(),
+        });
     });
   }
 
-  private nameColor(): string {
-    return this.isLocal ? '#fff3b0' : '#ffffff';
+  /** Pop an emote bubble over the head for a couple of seconds. */
+  emote(emote: Emote): void {
+    this.emoteTimer?.remove();
+    this.emoteIcon?.destroy();
+    const icon = this.scene.add.image(0, this.topY(), UI_KEY, `emote:${emote}`).setOrigin(0.5, 1);
+    this.emoteIcon = icon;
+    this.add(icon);
+    this.status_.setVisible(false);
+    this.pop(icon);
+    this.scene.tweens.add({
+      targets: icon,
+      y: icon.y - 2,
+      yoyo: true,
+      repeat: -1,
+      duration: 500,
+      ease: 'Sine.easeInOut',
+    });
+    this.emoteTimer = this.scene.time.delayedCall(2600, () => {
+      this.scene.tweens.add({
+        targets: icon,
+        alpha: 0,
+        scale: 0.6,
+        duration: 200,
+        onComplete: () => {
+          icon.destroy();
+          if (this.emoteIcon === icon) this.emoteIcon = null;
+          this.refreshStatusBubble();
+        },
+      });
+    });
+  }
+
+  setTyping(typing: boolean): void {
+    if (typing === this.typing) return;
+    this.typing = typing;
+    this.refreshStatusBubble();
   }
 
   /**
-   * Show what the player is doing: focusing players get their verified minutes on a small line
-   * above a shortened name (desks sit close together), dropped players are dimmed while the
-   * server holds their seat.
+   * Show what the player is doing: focusing players get a timer bubble and their verified
+   * minutes over a shortened name (desks sit close together); dropped players are dimmed while
+   * the server holds their seat.
    */
   setStatus(status: string, focusMin: number): void {
     const key = `${status}:${focusMin}:${this.name_}`;
@@ -129,14 +247,13 @@ export class PlayerSprite extends Phaser.GameObjects.Container {
     this.playAnim();
     if (status === 'focusing') {
       const short = this.name_.length > 9 ? `${this.name_.slice(0, 8)}…` : this.name_;
-      this.label.setText(short).setColor('#b8f2c2');
-      this.badge.setText(`focusing ${focusMin}m`).setVisible(true);
+      this.tag.set(short, 0xdff1e4, 0x4f8d66, '#2f6b45');
+      this.badge.set(`${focusMin} min`).setVisible(true);
     } else {
-      this.label
-        .setText(status === 'away' ? `${this.name_} (away)` : this.name_)
-        .setColor(this.nameColor());
+      this.paintTag(status === 'away' ? `${this.name_} · away` : this.name_);
       this.badge.setVisible(false);
     }
+    this.refreshStatusBubble();
   }
 
   /** Update facing + idle/walk animation. */
@@ -145,6 +262,38 @@ export class PlayerSprite extends Phaser.GameObjects.Container {
     this.dir = dir;
     this.moving = moving;
     this.playAnim();
+  }
+
+  private paintTag(text: string): void {
+    if (this.isLocal) this.tag.set(text, 0xf5b84e, 0xd28f2a, INK);
+    else this.tag.set(text, 0xfff8ea, 0xc9a576, INK);
+  }
+
+  /** Top of the stack over the head (name tag, minutes badge). */
+  private topY(): number {
+    return this.badge.visible ? ABOVE_Y - 9 : ABOVE_Y;
+  }
+
+  /** Timer bubble while focusing, "…" while typing; hidden while an emote shows. */
+  private refreshStatusBubble(): void {
+    const s = this.status_;
+    s.setY(this.topY());
+    if (this.emoteIcon) {
+      s.setVisible(false);
+    } else if (this.typing) {
+      s.setVisible(true).play('ui:typing', true);
+    } else if (this.status === 'focusing') {
+      s.setVisible(true).play('ui:timer', true);
+    } else {
+      s.setVisible(false).stop();
+    }
+  }
+
+  private pop(
+    target: Phaser.GameObjects.Components.Transform & Phaser.GameObjects.GameObject,
+  ): void {
+    target.setScale(0.2);
+    this.scene.tweens.add({ targets: target, scale: 1, duration: 260, ease: 'Back.easeOut' });
   }
 
   /** Walk, stand, or sit (focusing in a side-facing chair; LimeZu only has side sit frames). */
@@ -189,6 +338,7 @@ export class PlayerSprite extends Phaser.GameObjects.Container {
   override destroy(fromScene?: boolean): void {
     this.moveTween?.stop();
     this.bubbleTimer?.remove();
+    this.emoteTimer?.remove();
     super.destroy(fromScene);
   }
 }

@@ -136,33 +136,59 @@ function Running({ focus, tableId }: { focus: ActiveFocus; tableId: string | nul
   const table = useTableTimer(tableId);
   const elapsed = shownSeconds(focus, now);
   // At a group table everyone sees the table's shared countdown.
-  const clock = table
-    ? fmt((table.endsAt - serverNow()) / 1000)
+  const total = table ? table.plannedMin * 60 : focus.plannedMin ? focus.plannedMin * 60 : null;
+  const left = table
+    ? (table.endsAt - serverNow()) / 1000
     : focus.plannedMin
-      ? fmt(focus.plannedMin * 60 - elapsed)
-      : fmt(elapsed);
+      ? focus.plannedMin * 60 - elapsed
+      : null;
+  const clock = left !== null ? fmt(left) : fmt(elapsed);
+  // Open sessions fill the ring once per 25 minutes.
+  const progress = total && left !== null ? 1 - left / total : (elapsed % 1500) / 1500;
+  const R = 62;
+  const C = 2 * Math.PI * R;
 
   return (
-    <div className="panel focus-card running">
-      <div className="focus-title">
-        {table
-          ? `Table Pomodoro · ${table.seated} at the table`
-          : focus.plannedMin
-            ? `${focus.plannedMin}-minute block`
-            : 'Open session'}
+    <div className="panel focus-ring">
+      <div className="ring">
+        <svg viewBox="0 0 150 150">
+          <circle className="track" cx="75" cy="75" r={R} />
+          <circle
+            className="fill"
+            cx="75"
+            cy="75"
+            r={R}
+            strokeDasharray={C}
+            strokeDashoffset={C * (1 - Math.min(1, Math.max(0, progress)))}
+          />
+        </svg>
+        <div className="ring-center">
+          <span className="ring-time">{clock}</span>
+          <span className="ring-sub">
+            {table
+              ? `Table · ${table.seated} seated`
+              : focus.plannedMin
+                ? `${focus.plannedMin} min block`
+                : 'Open session'}
+          </span>
+        </div>
+      </div>
+      <div className="ring-stats">
+        <span className="pill people">{focus.verifiedMin} min</span>
+        <span className="pill coins">+{focus.coinsEarned}</span>
         {focus.audioOnly && <span className="tag">audio-only</span>}
       </div>
-      <div className="clock">{clock}</div>
-      <div className="focus-stats">
-        <span>{focus.verifiedMin} min verified</span>
-        <span>+{focus.coinsEarned} coins</span>
-      </div>
       {focus.lastMiss && MISS_TEXT[focus.lastMiss] && (
-        <div className="form-notice">
+        <div className="fine-print" style={{ maxWidth: 200, textAlign: 'center' }}>
           Last minute didn&apos;t count: {MISS_TEXT[focus.lastMiss]}.
         </div>
       )}
-      <button type="button" className="btn btn-secondary" onClick={() => roomActions.endFocus()}>
+      <button
+        type="button"
+        className="btn btn-secondary"
+        style={{ fontSize: 12, padding: '4px 12px' }}
+        onClick={() => roomActions.endFocus()}
+      >
         End session
       </button>
     </div>
@@ -216,6 +242,7 @@ export function FocusPanel() {
   if (focus) {
     return (
       <>
+        <div className="focus-vignette" />
         <Running focus={focus} tableId={nearDesk?.table ?? null} />
         {focus.awaitingPresence && <PresencePrompt />}
       </>

@@ -18,7 +18,9 @@ friend. You start in your yard: walk up into the front door to go inside, and ou
 gate (or open the **Map**, **M**) to go to town. In town, sit in a chair at a plaza, café or
 park table and press **E** to focus. Spend coins at the Furniture Shop (the hardware store,
 north-west): stand at its door and press **E**.
-**I** opens your inventory. At home, **Decorate** places furniture inside and garden items in
+**Widgets** pins a clock, Pomodoro, radio (town radio or live lofi streams), todo list or
+notes to your screen; number keys **1–0** pop emotes over your head; zoom with **+/−** or the
+mouse wheel, and open the minimap in town. **I** opens your inventory. At home, **Decorate** places furniture inside and garden items in
 the yard; **Settings** covers who lives there (invite friends, accept move-in requests),
 visitors, the exterior and upgrades. Add friends from **Friends** and visit their homes from
 there or the map (you can study at their desks and garden tables too). **Enter** opens chat, **Sounds**

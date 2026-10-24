@@ -17,6 +17,7 @@ import {
   type MoveCorrectMessage,
   type MoveMessage,
   type PlayerState,
+  type EmoteMessage,
   type TiledMap,
   encodeAvatar,
 } from '@focus-town/shared';
@@ -106,6 +107,22 @@ check(
   walkerSeen().avatar === encodeAvatar(look),
   `watcher sees the new character (${walkerSeen().avatar})`,
 );
+
+// 0c. Emotes reach everyone in the room; spamming them is dropped.
+const emotes: EmoteMessage[] = [];
+watcher.onMessage(ServerMsg.Emote, (m: EmoteMessage) => emotes.push(m));
+walker.send(ClientMsg.Emote, { emote: 'heart' });
+walker.send(ClientMsg.Emote, { emote: 'music' });
+walker.send(ClientMsg.Emote, { emote: 'not-an-emote' });
+await sleep(400);
+check(
+  emotes.length === 1 && emotes[0]!.emote === 'heart' && emotes[0]!.sessionId === walker.sessionId,
+  'emote delivered once (rate limit and validation)',
+);
+walker.send(ClientMsg.Typing, { typing: true });
+await sleep(300);
+check(watcher.state.players.get(walker.sessionId)?.typing === true, 'typing dots are synced');
+walker.send(ClientMsg.Typing, { typing: false });
 
 // 1. Walk along the open road at legal speed.
 const me = walker.state.players.get(walker.sessionId)!;

@@ -10,6 +10,8 @@ import {
   type TownState,
 } from '@focus-town/shared';
 import { ABOVE_DEPTH, GROUND_DEPTH } from '../game/depths';
+import { addTree, TREES_KEY, WorldLife } from '../game/life';
+import { minimap } from '../game/minimap';
 import { joinTown } from '../net/colyseus';
 import { uiStore, type NearDesk, type TableTimer } from '../store';
 import { TOWN_ANIMS_KEY, TOWN_MAP_KEY, TOWN_TILESET_KEY } from './BootScene';
@@ -27,6 +29,9 @@ const onDoorstep = (door: Door, p: { x: number; y: number }) =>
 export class TownScene extends WorldScene<TownState> {
   private desks: TiledObject[] = [];
   private shopDoor: Door | null = null;
+  private mapWidth = 0;
+  private life: WorldLife | null = null;
+  private mapHeight = 0;
 
   constructor() {
     super('Town');
@@ -43,6 +48,8 @@ export class TownScene extends WorldScene<TownState> {
     // Tree tops and lamp heads: drawn over players walking behind them.
     for (const name of ['above', 'above2']) map.createLayer(name, tileset)?.setDepth(ABOVE_DEPTH);
     this.cameras.main.setBounds(0, 0, map.widthInPixels, map.heightInPixels);
+    this.mapWidth = map.widthInPixels;
+    this.mapHeight = map.heightInPixels;
 
     const mapData = this.cache.tilemap.get(TOWN_MAP_KEY) as { data: TiledMap };
     this.grid = collisionGridFromTiled(mapData.data);
@@ -69,6 +76,28 @@ export class TownScene extends WorldScene<TownState> {
     }
     const shop = buildings.find((b) => b.name === 'shop');
     this.shopDoor = shop ? doorOf(shop) : null;
+
+    // Trees sway; birds, butterflies, leaves and cloud shadows drift about.
+    for (const t of findObjects(mapData.data, MapObjectType.Tree)) {
+      addTree(
+        this,
+        TREES_KEY,
+        t.name,
+        t.x,
+        t.y,
+        t.width,
+        t.height,
+        getProperty<number>(t, 'trunk') ?? 2,
+      );
+    }
+    this.life = new WorldLife(this, {
+      bounds: { x: 0, y: 0, width: map.widthInPixels, height: map.heightInPixels },
+      flowers: findObjects(mapData.data, MapObjectType.Flowers).map((f) => ({
+        x: f.x + f.width / 2,
+        y: f.y + f.height / 2,
+      })),
+      butterflies: 8,
+    });
 
     // Animated pieces (flags, fish, a fountain): `anim` objects, frames "<name>:<i>".
     for (const o of findObjects(mapData.data, MapObjectType.Anim)) {
@@ -146,7 +175,18 @@ export class TownScene extends WorldScene<TownState> {
     uiStore.set({ nearDesk: near, ...(near ? {} : { timerOpen: false, focusError: null }) });
   }
 
+  protected override onFrame(time: number, delta: number): void {
+    this.life?.update(time, delta);
+  }
+
+  protected override minimapSize(): { width: number; height: number } {
+    return { width: this.mapWidth, height: this.mapHeight };
+  }
+
   protected override onTeardown(): void {
+    minimap.clear();
+    this.life?.destroy();
+    this.life = null;
     uiStore.set({ nearShop: false, shopOpen: false, tables: {} });
   }
 }

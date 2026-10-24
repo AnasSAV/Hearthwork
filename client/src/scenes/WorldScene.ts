@@ -20,6 +20,7 @@ import {
   type PlayerState,
   type TownState,
   type WalletMessage,
+  type EmoteMessage,
   type WhisperMessage,
   WHISPER_RANGE_PX,
 } from '@focus-town/shared';
@@ -28,7 +29,10 @@ import { chat, type Partner } from '../net/chat';
 import { syncClock } from '../net/clock';
 import { startHeartbeat, stopHeartbeat } from '../net/heartbeat';
 import { attachRoomSender } from '../net/roomBridge';
-import { uiStore } from '../store';
+import { sfx } from '../audio/sfx';
+import { minimap } from '../game/minimap';
+import { revealWorld } from '../game/navigation';
+import { setZoom, uiStore } from '../store';
 
 /** Remote players glide slightly longer than the send interval so motion stays continuous. */
 const REMOTE_TWEEN_MS = MOVE_SEND_INTERVAL_MS + 30;
@@ -109,6 +113,15 @@ export abstract class WorldScene<S extends object> extends Phaser.Scene {
       uiStore.set({ mapOpen: !uiStore.get().mapOpen });
     });
     keyboard.addKey('ESC').on('down', () => this.escape());
+    this.zoomTarget = this.targetZoom();
+    const unsubscribe = uiStore.subscribe(this.onStoreChange);
+    this.events.once(Phaser.Scenes.Events.SHUTDOWN, unsubscribe);
+    this.input.on(
+      Phaser.Input.Events.POINTER_WHEEL,
+      (_p: unknown, _o: unknown, _dx: number, dy: number) => {
+        if (dy !== 0) setZoom(uiStore.get().zoom + (dy < 0 ? 1 : -1));
+      },
+    );
 
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => this.teardown());
     window.addEventListener('pagehide', this.leaveOnPageHide);
@@ -143,12 +156,33 @@ export abstract class WorldScene<S extends object> extends Phaser.Scene {
     return Math.max(2, Math.floor(Math.min(width / 384, height / 256)));
   }
 
-  protected applyZoom(): void {
+  /** Automatic zoom plus your own adjustment (zoom buttons / mouse wheel), 1–6. */
+  protected targetZoom(): number {
     const { width, height } = this.scale.gameSize;
-    this.cameras.main.setZoom(this.zoomFor(width, height));
+    return Math.max(1, Math.min(6, this.zoomFor(width, height) + uiStore.get().zoom));
+  }
+
+  protected applyZoom(): void {
+    this.cameras.main.setZoom(this.targetZoom());
+    this.refreshTextResolution();
+  }
+
+  private refreshTextResolution(): void {
     for (const s of this.sprites.values()) s.setTextResolution(this.textResolution());
     for (const t of this.labels) t.setResolution(this.textResolution());
   }
+
+  /** Your zoom setting changed: glide to it. */
+  private readonly onStoreChange = (): void => {
+    const z = this.targetZoom();
+    const cam = this.cameras.main;
+    if (z === this.zoomTarget) return;
+    this.zoomTarget = z;
+    cam.zoomTo(z, 220, 'Sine.easeInOut', true, (_c: unknown, progress: number) => {
+      if (progress === 1) this.applyZoom();
+    });
+  };
+  private zoomTarget = 0;
 
   protected textResolution(): number {
     return this.cameras.main.zoom * (window.devicePixelRatio || 1);
@@ -160,6 +194,7 @@ export abstract class WorldScene<S extends object> extends Phaser.Scene {
       room = await this.joinRoom();
     } catch (err) {
       this.onJoinFailed(err);
+      revealWorld();
       return;
     }
     if (!this.scene.isActive()) {
@@ -213,11 +248,13 @@ export abstract class WorldScene<S extends object> extends Phaser.Scene {
         this.pos = { x: player.x, y: player.y };
         this.dir = asDirection(player.dir);
         this.onLocalPlayer(sprite);
-        uiStore.set({ playerName: player.name });
+        revealWorld();
+        uiStore.set({ playerName: player.name, playerAvatar: player.avatar });
         callbacks.onChange(player, () => {
           sprite.setLook(player.avatar, player.name);
-          uiStore.set({ playerName: player.name });
+          uiStore.set({ playerName: player.name, playerAvatar: player.avatar });
           sprite.setStatus(player.status, player.focusMin);
+          sprite.setTyping(player.typing);
           // Seated by the server: face the desk.
           if (player.status === 'focusing') {
             this.dir = asDirection(player.dir);
@@ -238,6 +275,7 @@ export abstract class WorldScene<S extends object> extends Phaser.Scene {
         sprite.setMotion(asDirection(player.dir), player.moving);
         sprite.setLook(player.avatar, player.name);
         sprite.setStatus(player.status, player.focusMin);
+        sprite.setTyping(player.typing);
       });
     });
 
@@ -260,6 +298,10 @@ export abstract class WorldScene<S extends object> extends Phaser.Scene {
     room.onMessage(ServerMsg.ChatHistory, (history: ChatMessage[]) =>
       chat.reset(history, room.sessionId),
     );
+    room.onMessage(ServerMsg.Emote, (m: EmoteMessage) => {
+      this.sprites.get(m.sessionId)?.emote(m.emote);
+      if (m.sessionId === room.sessionId) sfx.play('pop');
+    });
     room.onMessage(ServerMsg.Whisper, (m: WhisperMessage) => {
       if (!chat.isMuted(m.userId)) chat.addWhisper(m);
     });
@@ -337,9 +379,14 @@ export abstract class WorldScene<S extends object> extends Phaser.Scene {
     uiStore.set({ playersOnline: this.sprites.size });
   }
 
+  /** Every frame, joined or not (ambient life, animations). */
+  protected onFrame(_time: number, _delta: number): void {}
+
   override update(time: number, delta: number): void {
+    this.onFrame(time, delta);
     if (!this.local || !this.room) return;
     this.updateNearby(time);
+    this.publishMinimap(time);
     if (this.movementLocked()) {
       this.local.setMotion(this.dir, false);
       return;
@@ -392,6 +439,23 @@ export abstract class WorldScene<S extends object> extends Phaser.Scene {
 
   /** Subclass cleanup hook (runs before the room is left). */
   protected onTeardown(): void {}
+
+  /** World size in px for the minimap, or null for no minimap here. */
+  protected minimapSize(): { width: number; height: number } | null {
+    return null;
+  }
+
+  private minimapAt = 0;
+  private publishMinimap(time: number): void {
+    const size = this.minimapSize();
+    if (!size || time - this.minimapAt < 250) return;
+    this.minimapAt = time;
+    const others: { x: number; y: number; focusing: boolean }[] = [];
+    for (const s of this.sprites.values()) {
+      if (s !== this.local) others.push({ x: s.x, y: s.y, focusing: s.isFocusing });
+    }
+    minimap.set({ ...size, me: { ...this.pos }, others });
+  }
 
   private teardown(): void {
     this.onTeardown();

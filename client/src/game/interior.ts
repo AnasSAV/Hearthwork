@@ -13,6 +13,7 @@ import {
 } from '@focus-town/shared';
 import type { EditItem } from '../house/editor';
 import { itemFrame, tileFrame } from './frames';
+import { swayCanopy } from './life';
 
 export interface InteriorLook {
   /** Item ids; null/'' = default. */
@@ -87,9 +88,24 @@ export class InteriorView {
       }
       const f = itemFrame(this.scene, spriteKey(item.sprite));
       if (!f) continue;
-      this.objects.push(
-        this.scene.add.image(left, bottom, f.sheet, f.frame).setOrigin(0, 1).setDepth(depth),
-      );
+      const image = this.scene.add
+        .image(left, bottom, f.sheet, f.frame)
+        .setOrigin(0, 1)
+        .setDepth(depth);
+      this.objects.push(image);
+      if (item.id.startsWith('garden_tree')) {
+        // Garden trees: the canopy is a second copy, cropped, swaying over a still trunk.
+        const h = item.sprite.h * TILE_SIZE;
+        const trunk = item.size.h * TILE_SIZE;
+        image.setCrop(0, h - trunk, item.sprite.w * TILE_SIZE, trunk);
+        const canopy = this.scene.add
+          .image(left, bottom, f.sheet, f.frame)
+          .setOrigin(0, 1)
+          .setCrop(0, 0, item.sprite.w * TILE_SIZE, h - trunk + 4)
+          .setDepth(depth + 0.1);
+        swayCanopy(this.scene, canopy, left);
+        this.objects.push(canopy);
+      }
     }
   }
 

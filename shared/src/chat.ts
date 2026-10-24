@@ -133,3 +133,33 @@ const PATTERN = new RegExp(
 export function filterProfanity(text: string): string {
   return text.replace(PATTERN, (m) => '*'.repeat(m.length));
 }
+
+// ---------------------------------------------------------------------------------------------
+// Emotes and typing
+// ---------------------------------------------------------------------------------------------
+
+/** Speech-bubble emotes a player can pop over their head (art: tools/art/build_ui.py). */
+export const EMOTES = [
+  'heart',
+  'music',
+  'zzz',
+  'idea',
+  'question',
+  'sun',
+  'moon',
+  'sweat',
+  'star',
+  'trophy',
+] as const;
+export type Emote = (typeof EMOTES)[number];
+
+export const emoteSendSchema = z.strictObject({ emote: z.enum(EMOTES) });
+export const typingSchema = z.strictObject({ typing: z.boolean() });
+
+/** One emote every this many ms per player (more are dropped). */
+export const EMOTE_MIN_INTERVAL_MS = 1200;
+
+export interface EmoteMessage {
+  sessionId: string;
+  emote: Emote;
+}

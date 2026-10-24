@@ -18,6 +18,8 @@ export const PlayerState = schema(
     /** One of PLAYER_STATUSES. */
     status: t.string(),
     focusMin: t.uint16(),
+    /** Typing in chat right now. */
+    typing: t.boolean(),
   },
   'PlayerState',
 );

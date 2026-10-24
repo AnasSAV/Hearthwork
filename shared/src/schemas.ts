@@ -24,6 +24,10 @@ export const ClientMsg = {
   ChatReport: 'chat:report',
   /** Private message to a nearby player. */
   Whisper: 'whisper',
+  /** Pop an emote bubble over your head. */
+  Emote: 'emote',
+  /** Started or stopped typing in chat (shows "…" over your head). */
+  Typing: 'typing',
 } as const;
 
 /** Server → client message type names. */
@@ -50,6 +54,8 @@ export const ServerMsg = {
   Clock: 'clock',
   /** A private message (WhisperMessage), sent only to its two participants. */
   Whisper: 'whisper',
+  /** Someone popped an emote (EmoteMessage). */
+  Emote: 'emote',
 } as const;
 
 export interface ClockMessage {
