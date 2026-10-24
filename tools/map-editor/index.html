@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Town Editor</title>
+    <link rel="icon" href="data:," />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link
+      rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=Nunito:wght@600;700;800;900&family=Pixelify+Sans:wght@500;600&display=swap"
+    />
+    <link rel="stylesheet" href="/src/style.css" />
+  </head>
+  <body>
+    <header class="bar">
+      <h1>Town editor <small>local only</small></h1>
+      <nav class="tools" id="tools"></nav>
+      <div class="group">
+        <button id="undo" title="Undo (Ctrl+Z)">↶</button>
+        <button id="redo" title="Redo (Ctrl+Shift+Z)">↷</button>
+      </div>
+      <div class="group">
+        <button id="zoom-out" title="Zoom out (-)">−</button>
+        <span id="zoom-label">200%</span>
+        <button id="zoom-in" title="Zoom in (+)">+</button>
+        <button id="zoom-fit" title="Fit the map (0)">Fit</button>
+      </div>
+      <label class="toggle"
+        ><input type="checkbox" id="show-grid" checked /> Grid <kbd>G</kbd></label
+      >
+      <label class="toggle"
+        ><input type="checkbox" id="show-collision" /> Collision <kbd>H</kbd></label
+      >
+      <label class="toggle"><input type="checkbox" id="show-boxes" checked /> Object boxes</label>
+      <span class="spacer"></span>
+      <span id="save-state" class="save-state">Loading…</span>
+      <button id="save" class="primary" title="Save (Ctrl+S)">Save</button>
+    </header>
+
+    <aside class="side left">
+      <section>
+        <h2>Layers</h2>
+        <p class="hint">Paint on the chosen layer. The eye hides a layer while you edit.</p>
+        <div id="layers"></div>
+      </section>
+      <section class="palette-section">
+        <h2>
+          Tiles
+          <span class="row">
+            <button id="pal-zoom" class="small" title="Palette zoom">2×</button>
+          </span>
+        </h2>
+        <p class="hint">
+          Drag across tiles to pick a block. <kbd>Alt</kbd>+click the map to pick from it.
+        </p>
+        <div class="palette" id="palette-wrap"><canvas id="palette"></canvas></div>
+      </section>
+    </aside>
+
+    <main class="stage" id="stage">
+      <canvas id="view"></canvas>
+      <div class="status" id="status"></div>
+    </main>
+
+    <aside class="side right" id="inspector"></aside>
+
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>

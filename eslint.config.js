@@ -27,6 +27,10 @@ export default tseslint.config(
     rules: reactHooks.configs.recommended.rules,
   },
   {
+    files: ['tools/map-editor/src/**/*.ts'],
+    languageOptions: { globals: { ...globals.browser } },
+  },
+  {
     // Tool configs that must be CommonJS (e.g. PM2's ecosystem file).
     files: ['**/*.cjs'],
     languageOptions: { sourceType: 'commonjs' },

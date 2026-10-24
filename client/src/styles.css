@@ -1904,108 +1904,584 @@ input[type='range'] {
 /* ---------- World map ---------- */
 
 .world-map {
-  width: min(880px, calc(100vw - 32px));
-  max-height: calc(100vh - 32px);
-  overflow-y: auto;
+  width: min(1180px, calc(100vw - 32px));
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
 }
 
-.map-field {
+.wm-header {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.wm-header > div:first-child {
+  flex: 1;
+}
+
+.wm-search {
   position: relative;
-  height: min(520px, calc(100vh - 230px));
-  min-height: 360px;
-  border-radius: 14px;
-  overflow: hidden;
-  border: 3px solid var(--wood);
-  background:
-    radial-gradient(circle at 50% 50%, rgba(255, 236, 170, 0.25) 0 14%, transparent 15%),
-    radial-gradient(circle at 20% 30%, rgba(40, 90, 50, 0.5), transparent 40%),
-    radial-gradient(circle at 80% 70%, rgba(40, 90, 50, 0.5), transparent 40%), #6ea865;
 }
 
-.map-paths {
+.wm-search input {
+  width: 210px;
+  font: inherit;
+  font-weight: 700;
+  font-size: 14px;
+  color: var(--ink);
+  background: var(--paper-2);
+  border: 2px solid var(--line);
+  border-radius: 12px;
+  padding: 8px 12px;
+}
+
+.wm-search input:focus {
+  outline: none;
+  border-color: var(--honey);
+}
+
+.wm-results {
+  position: absolute;
+  z-index: 5;
+  top: calc(100% + 6px);
+  right: 0;
+  width: 260px;
+  display: flex;
+  flex-direction: column;
+  padding: 6px;
+  background: var(--paper);
+  border: 2px solid var(--line);
+  border-radius: 14px;
+  box-shadow: var(--shadow);
+  animation: pop-in 0.2s ease-out;
+}
+
+.wm-results button {
+  display: grid;
+  grid-template-columns: 12px 1fr;
+  column-gap: 8px;
+  align-items: center;
+  text-align: left;
+  font: inherit;
+  font-weight: 800;
+  font-size: 13px;
+  color: var(--ink);
+  background: none;
+  border: 0;
+  border-radius: 10px;
+  padding: 6px 8px;
+  cursor: pointer;
+}
+
+.wm-results button:hover {
+  background: var(--paper-2);
+}
+
+.wm-results small {
+  grid-column: 2;
+  font-weight: 600;
+  color: var(--muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.wm-results i,
+.wm-legend i {
+  display: inline-block;
+  width: 12px;
+  height: 12px;
+  border-radius: 4px;
+  border: 2px solid rgba(0, 0, 0, 0.2);
+}
+
+i.home {
+  background: var(--honey);
+}
+
+i.friend {
+  background: var(--sage);
+}
+
+i.public {
+  background: var(--sky);
+}
+
+.wm-viewport {
+  position: relative;
+  height: min(660px, calc(100vh - 170px));
+  min-height: 340px;
+  overflow: hidden;
+  border-radius: 18px;
+  border: 4px solid var(--wood);
+  box-shadow:
+    inset 0 0 0 3px rgba(255, 248, 234, 0.35),
+    inset 0 0 60px rgba(30, 60, 30, 0.35);
+  background: #5b9c55;
+  cursor: grab;
+  touch-action: none;
+  user-select: none;
+}
+
+.wm-viewport.dragging {
+  cursor: grabbing;
+}
+
+.wm-world {
+  position: absolute;
+  left: 0;
+  top: 0;
+  transform-origin: 0 0;
+  transition: transform 0.08s linear;
+}
+
+.wm-viewport.dragging .wm-world {
+  transition: none;
+}
+
+.wm-ground {
   position: absolute;
   inset: 0;
-  width: 100%;
-  height: 100%;
 }
 
-.map-paths line {
-  stroke: #f6e6b8;
-  stroke-dasharray: 3 3;
-  vector-effect: non-scaling-stroke;
-  stroke-width: 3px;
+.wm-current {
+  animation: wm-flow 3s linear infinite;
 }
 
-.map-paths line.home {
-  stroke: var(--honey);
+@keyframes wm-flow {
+  to {
+    stroke-dashoffset: -72;
+  }
 }
 
-.map-node {
+.wm-ripples path {
+  animation: wm-ripple 2.8s ease-in-out infinite alternate;
+}
+
+.wm-ripples path + path {
+  animation-delay: -1.4s;
+}
+
+@keyframes wm-ripple {
+  from {
+    opacity: 0.2;
+    transform: translateX(-6px);
+  }
+  to {
+    opacity: 0.9;
+    transform: translateX(6px);
+  }
+}
+
+.wm-tree {
+  position: absolute;
+  background-repeat: no-repeat;
+  image-rendering: pixelated;
+  pointer-events: none;
+  transform-origin: 50% 100%;
+  animation: wm-sway 4.6s ease-in-out infinite alternate;
+}
+
+@keyframes wm-sway {
+  from {
+    transform: skewX(-1.5deg);
+  }
+  to {
+    transform: skewX(1.5deg);
+  }
+}
+
+.wm-place {
   position: absolute;
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 2px;
-  transform: translate(-50%, -50%);
-  color: var(--ink);
-  background: var(--paper);
-  border: 2px solid var(--line);
-  border-radius: 12px;
-  box-shadow: 0 3px 0 var(--line-2);
-  padding: 6px 8px;
+  font: inherit;
+  background: none;
+  border: 0;
+  padding: 0;
   cursor: pointer;
+}
+
+.wm-town {
+  transform: translate(-50%, -50%);
+}
+
+.wm-town-pic {
+  display: block;
+  border-radius: 14px;
+  background: url('/assets/sprites/town-map.png') center / 100% 100% no-repeat;
+  image-rendering: pixelated;
+  box-shadow:
+    0 0 0 4px #fff8ea,
+    0 0 0 8px var(--wood),
+    0 10px 0 8px var(--wood-dark);
+  transition: transform 0.2s;
+}
+
+.wm-town:hover .wm-town-pic,
+.wm-town.selected .wm-town-pic {
+  transform: translateY(-4px);
+}
+
+.wm-banner {
+  position: absolute;
+  top: -34px;
+  left: 50%;
+  transform: translateX(-50%);
+  font-family: var(--font-pixel);
+  font-size: 22px;
+  color: #fff8ea;
+  white-space: nowrap;
+  background: var(--rose);
+  border: 3px solid var(--rose-dark);
+  border-radius: 10px;
+  padding: 2px 18px 4px;
+  box-shadow: 0 4px 0 var(--rose-dark);
+  text-shadow: 0 2px 0 var(--rose-dark);
+}
+
+.wm-banner::before,
+.wm-banner::after {
+  content: '';
+  position: absolute;
+  top: 8px;
+  width: 14px;
+  height: 22px;
+  background: var(--rose-dark);
+  z-index: -1;
+}
+
+.wm-banner::before {
+  left: -10px;
+  clip-path: polygon(0 0, 100% 0, 100% 100%, 0 100%, 40% 50%);
+}
+
+.wm-banner::after {
+  right: -10px;
+  clip-path: polygon(0 0, 100% 0, 60% 50%, 100% 100%, 0 100%);
+}
+
+.wm-home {
+  transform: translate(-50%, -100%);
+  padding-bottom: 0;
+}
+
+.wm-home.dim {
+  opacity: 0.45;
+}
+
+.wm-house {
+  position: relative;
+  display: block;
+  background-repeat: no-repeat;
+  image-rendering: pixelated;
+  filter: drop-shadow(0 4px 0 rgba(40, 60, 30, 0.35));
+  transition: transform 0.2s cubic-bezier(0.2, 0.9, 0.3, 1.3);
+}
+
+.wm-home:hover .wm-house,
+.wm-home.selected .wm-house {
+  transform: translateY(-6px) scale(1.06);
+}
+
+.wm-plate {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 50%;
+  transform: translateX(-50%);
   max-width: 150px;
-  text-align: center;
-  transition: transform 0.15s;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: 900;
+  font-size: 14px;
+  color: #3b2a1c;
+  background: var(--paper);
+  border: 3px solid var(--line-2);
+  border-radius: 10px;
+  padding: 1px 10px 2px;
+  box-shadow: 0 3px 0 var(--line-2);
 }
 
-.map-node small {
-  color: var(--muted);
-  font-size: 11px;
-}
-
-.map-node:hover:not(:disabled) {
-  transform: translate(-50%, -54%) scale(1.04);
+.wm-plate.home {
+  background: var(--honey);
   border-color: var(--honey-dark);
+  box-shadow: 0 3px 0 var(--honey-dark);
 }
 
-.map-node:disabled {
-  cursor: default;
-}
-
-.map-node.here {
+.wm-plate.friend {
+  background: #c8ebd0;
   border-color: var(--sage-dark);
   box-shadow: 0 3px 0 var(--sage-dark);
 }
 
-.map-node.home strong {
-  color: #b07612;
+.wm-plate.public {
+  background: #d4e7fa;
+  border-color: var(--sky-dark);
+  box-shadow: 0 3px 0 var(--sky-dark);
 }
 
-.map-town {
+.wm-home.here .wm-plate,
+.wm-town.here .wm-banner {
+  animation: wm-glow 1.6s ease-in-out infinite;
+}
+
+@keyframes wm-glow {
+  50% {
+    filter: brightness(1.12) drop-shadow(0 0 6px rgba(255, 240, 180, 0.9));
+  }
+}
+
+.wm-you {
+  position: absolute;
+  transform: translate(-50%, -100%);
+  pointer-events: none;
+  animation: wm-bob 1.2s ease-in-out infinite alternate;
+}
+
+.wm-you-pin {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 46px;
+  height: 46px;
+  background: #fff8ea;
+  border: 3px solid var(--plum);
+  border-radius: 50%;
+  box-shadow: 0 4px 0 var(--plum-dark);
+  overflow: visible;
+}
+
+.wm-you-pin::after {
+  content: '';
+  position: absolute;
+  bottom: -12px;
   left: 50%;
-  top: 50%;
-  padding: 10px 14px;
+  transform: translateX(-50%);
+  border: 8px solid transparent;
+  border-top: 10px solid var(--plum);
 }
 
-.map-town-icon {
-  display: block;
-  width: 130px;
-  height: 96px;
-  border-radius: 8px;
-  background: url('/assets/sprites/town-map.png') center / cover no-repeat;
-  image-rendering: pixelated;
+@keyframes wm-bob {
+  to {
+    transform: translate(-50%, calc(-100% - 8px));
+  }
 }
 
-.map-house-icon {
-  display: block;
-  background-repeat: no-repeat;
-  image-rendering: pixelated;
+.wm-cloud {
+  position: absolute;
+  width: 220px;
+  height: 90px;
+  background:
+    radial-gradient(circle at 30% 62%, #fff 0 26px, transparent 27px),
+    radial-gradient(circle at 50% 42%, #fff 0 36px, transparent 37px),
+    radial-gradient(circle at 70% 60%, #fff 0 28px, transparent 29px),
+    radial-gradient(ellipse 46% 22% at 50% 74%, #fff 0 98%, transparent 100%);
+  opacity: 0.7;
+  filter: drop-shadow(0 34px 4px rgba(20, 50, 20, 0.22));
+  pointer-events: none;
+  animation: wm-drift 70s linear infinite;
 }
 
-.map-more {
+.wm-cloud.one {
+  top: 14%;
+  animation-delay: -10s;
+}
+
+.wm-cloud.two {
+  top: 56%;
+  transform: scale(0.7);
+  animation-duration: 95s;
+  animation-delay: -60s;
+}
+
+.wm-cloud.three {
+  top: 80%;
+  transform: scale(0.85);
+  animation-duration: 82s;
+  animation-delay: -35s;
+}
+
+@keyframes wm-drift {
+  from {
+    left: -260px;
+  }
+  to {
+    left: 110%;
+  }
+}
+
+.wm-compass {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  width: 52px;
+  height: 52px;
+  pointer-events: none;
+  filter: drop-shadow(0 3px 0 rgba(0, 0, 0, 0.2));
+}
+
+.wm-legend {
+  position: absolute;
+  left: 12px;
+  top: 12px;
+  display: flex;
+  gap: 12px;
+  font-weight: 800;
+  font-size: 13px;
+  color: var(--ink);
+  background: var(--paper);
+  border: 2px solid var(--line);
+  border-radius: 12px;
+  padding: 6px 12px;
+  box-shadow: 0 3px 0 var(--line-2);
+}
+
+.wm-legend span {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.wm-zoom {
+  position: absolute;
+  right: 12px;
+  bottom: 12px;
   display: flex;
   flex-direction: column;
+  gap: 8px;
+}
+
+.wm-spinner {
+  position: absolute;
+  inset: 0;
+  margin: auto;
+}
+
+.wm-card {
+  position: absolute;
+  left: 50%;
+  bottom: 14px;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  width: min(440px, calc(100% - 140px));
+  background: var(--paper);
+  border: 3px solid var(--line-2);
+  border-radius: 18px;
+  padding: 12px 16px 12px 12px;
+  box-shadow:
+    0 5px 0 var(--line-2),
+    var(--shadow);
+  cursor: default;
+  animation: wm-card-in 0.28s cubic-bezier(0.2, 0.9, 0.3, 1.25);
+}
+
+@keyframes wm-card-in {
+  from {
+    opacity: 0;
+    transform: translate(-50%, 24px);
+  }
+}
+
+.wm-card-pic {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 64px;
+  height: 64px;
+  border-radius: 14px;
+  color: #fff;
+  border: 3px solid rgba(0, 0, 0, 0.12);
+}
+
+.wm-card-pic.town {
+  background: url('/assets/sprites/town-map.png') center / cover;
+  image-rendering: pixelated;
+}
+
+.wm-card-pic.home {
+  background: var(--honey);
+}
+
+.wm-card-pic .wm-house {
+  filter: none;
+}
+
+.wm-card-pic.friend {
+  background: var(--sage);
+}
+
+.wm-card-pic.public {
+  background: var(--sky);
+}
+
+.wm-card-body {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.wm-card-body strong {
+  font-family: var(--font-pixel);
+  font-size: 19px;
+  font-weight: 600;
+  color: var(--ink);
+}
+
+.wm-card-body small {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--ink-2);
+}
+
+.wm-card-body .row {
+  display: flex;
+  gap: 8px;
+  margin-top: 4px;
+}
+
+.wm-chip {
+  font-size: 11px;
+  font-weight: 900;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  border-radius: 6px;
+  padding: 1px 6px;
+  color: #3b2a1c;
+}
+
+.wm-chip.home {
+  background: var(--honey);
+}
+
+.wm-chip.friend {
+  background: #c8ebd0;
+}
+
+.wm-chip.public {
+  background: #d4e7fa;
+}
+
+@media (max-width: 640px) {
+  .wm-header {
+    flex-wrap: wrap;
+  }
+  .wm-search input {
+    width: 100%;
+  }
+  .wm-legend {
+    display: none;
+  }
+  .wm-card {
+    width: calc(100% - 90px);
+    left: 12px;
+    transform: none;
+  }
 }
 
 /* ---------- Widgets ---------- */

@@ -521,3 +521,36 @@ playlistLength` (`shared/src/radio.ts`, unit-tested) and plays that track from t
 - Ambient life (`client/src/game/life.ts`): flocks of flapping birds, butterflies around flower
   beds (`flowers` objects), drifting leaves, cloud shadows, seagulls by the pond, fireflies
   after dark and a gentle time-of-day tint (local time). Purely decorative and client-side.
+
+## World map redesign and the town editor (2026-10-24)
+
+### World map
+
+- The world map is now a small explorable world: the town picture sits in the middle with a
+  banner, and homes stand on rings around it (your home first, then friends, then public
+  homes), each with a dirt road to town, a coloured nameplate (honey = yours, green = friend,
+  blue = public) and its real house sprite. Positions come from the order and a hash of the
+  owner's id, so homes keep their spot between visits; the world grows with more rings.
+- Forest edges, copses, flowers, a river and a pond fill the space; clouds drift over, trees
+  sway and the water flows (CSS only). A pin with your avatar marks where you are.
+- Drag to pan, scroll or +/− to zoom, the flag button centres on you; the search box finds a
+  home by owner or housemate. Clicking a place opens a card (who lives there, level) with
+  Visit / Go to town; double-click travels straight away. Travel stays blocked while focusing.
+
+### Town editor (local only)
+
+- The brief has no map tooling for the owner beyond Tiled; reshaping the town by hand-editing
+  Tiled layers (a building spans 6 tile layers, collision and objects) is slow, so there is a
+  small editor in `tools/map-editor` (`npm run editor`). It is a separate Vite page bound to
+  127.0.0.1:5180, not part of the client build and never deployed, so it needs no roles or
+  auth: whoever can run it can already edit the repository.
+- It edits `client/public/assets/maps/town.json` in place (same Tiled JSON and key order, so an
+  unchanged save is byte-identical) and writes `town.tmx` with the same writer as
+  `build_town.py`, so Tiled still opens it. On save it also renders the world-map picture
+  (`sprites/town-map.png`), keeps a backup of the previous JSON, and refuses posts from other
+  origins (another site open in the browser can't write the map).
+- Region moves carry every tile layer (ground optional), collision and the objects inside;
+  building doors move with their building. Before saving it checks there is one spawn on a
+  walkable tile, desk names are unique, and desks and doors can be reached from the spawn.
+- The game server reads the map at start (bundled import), so a save restarts it under
+  `tsx watch` in dev; in production the map ships with the next deploy like any code change.

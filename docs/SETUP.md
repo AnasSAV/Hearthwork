@@ -103,6 +103,27 @@ npm run e2e:focus    # ~6.5 min real-time focus session, checks coins + ledger (
 They read `server/.env` and `client/.env`, and create and delete their own throwaway accounts.
 Only run them against local or staging projects.
 
+## Editing the town (optional)
+
+`npm run editor` opens the town editor at http://127.0.0.1:5180. It only runs on your machine
+(it is never built or deployed) and edits the real map files:
+
+- **Select** (V): drag a box around a building, the café or a park, then drag it (or use the
+  arrow keys) to move that part of the town, desks and trees included. Ctrl+C / X / V / D copy,
+  cut, paste and duplicate (pasted desks get new names; a pasted table becomes a new table).
+  Delete clears the box. The map size panel adds or removes rows and columns on any side.
+- **Brush** (B), **Fill** (R), **Erase** (E): paint tiles picked from the palette (drag to pick
+  a block; Alt+click the map to pick from it) on the chosen layer.
+- **Walls** (C): left click makes a tile solid, right click walkable.
+- **Objects** (O): drag desks, trees, animations, butterflies' flower beds and the spawn; edit
+  their properties; place new ones. Trees keep their trunk solid as they move.
+- Ctrl+Z / Ctrl+Shift+Z undo and redo; Ctrl+S saves `town.json`, `town.tmx` and the world-map
+  picture (`sprites/town-map.png`), after checking the spawn, desks and doors are reachable.
+  The previous `town.json` is kept in `tools/map-editor/backups/` (last 30, not committed).
+
+With `npm run dev` running, the game server restarts by itself when the map is saved; reload
+the game to see the change. Commit the three map files when you're happy with it.
+
 ## Rebuilding the art (optional)
 
 The repository already contains everything the game needs. Only to change the art: buy LimeZu's
@@ -117,5 +138,7 @@ npm run art:ui -- "D:/path/to/FocusTown-art"           # emote / timer / typing 
 npm run seed:items                                     # if catalog footprints or names changed
 ```
 
-`map:town` overwrites `town.tmx`; after hand edits in Tiled, export the JSON from Tiled instead.
+`map:town` rebuilds the town from scratch and overwrites `town.json`/`town.tmx`, so it also
+undoes any changes made in the town editor or Tiled. After hand edits in Tiled, export the JSON
+from Tiled.
 Never commit the packs themselves (their license forbids redistribution).

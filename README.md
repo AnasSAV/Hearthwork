@@ -45,6 +45,7 @@ Use a second browser (or a private window) with another account to see two playe
 | `npm run load -- --bots 30`       | Load test: signed-in bots walking and chatting                       |
 | `npm run check:ledger`            | Verify every balance equals its coin ledger                          |
 | `npm run smoke`                   | Two bots join a running server and check sync, speed and wall checks |
+| `npm run editor`                  | Town layout editor on http://127.0.0.1:5180 (local only, see SETUP)  |
 | `npm run map:town -- <pack dir>`  | Rebuild the town map and tileset from the LimeZu pack (see SETUP)    |
 | `npm run art:characters -- <dir>` | Rebuild the character part atlases from the LimeZu pack              |
 | `npm run art:interiors -- <dir>`  | Rebuild furniture and room sprites from the LimeZu pack              |

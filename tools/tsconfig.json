@@ -3,5 +3,6 @@
   "compilerOptions": {
     "types": ["node"]
   },
-  "include": ["**/*.ts", "../supabase/tests/**/*.ts"]
+  "include": ["**/*.ts", "../supabase/tests/**/*.ts"],
+  "exclude": ["map-editor"]
 }
