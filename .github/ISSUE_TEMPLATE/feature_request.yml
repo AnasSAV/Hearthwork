@@ -1,0 +1,23 @@
+name: Feature idea
+description: Suggest something new for the town
+labels: [enhancement]
+body:
+  - type: textarea
+    id: idea
+    attributes:
+      label: The idea
+      description: What would you like, and what would it make better?
+    validations:
+      required: true
+  - type: textarea
+    id: economy
+    attributes:
+      label: Does it touch coins or focus time?
+      description: >-
+        If so, how would the server stay the only source of truth? (Clients can only send
+        intents; coins change only inside SQL functions.)
+  - type: textarea
+    id: context
+    attributes:
+      label: Anything else
+      description: Sketches, references to other apps, or related issues.

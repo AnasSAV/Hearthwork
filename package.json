@@ -1,5 +1,28 @@
 {
   "name": "focus-town",
+  "version": "0.1.0",
+  "description": "A cozy multiplayer pixel town where verified focus time earns coins for decorating your home.",
+  "author": "AnasSAV (https://github.com/AnasSAV)",
+  "homepage": "https://github.com/AnasSAV/Focus-Town#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/AnasSAV/Focus-Town.git"
+  },
+  "bugs": {
+    "url": "https://github.com/AnasSAV/Focus-Town/issues"
+  },
+  "keywords": [
+    "pomodoro",
+    "focus",
+    "study-with-me",
+    "multiplayer",
+    "pixel-art",
+    "phaser",
+    "colyseus",
+    "supabase",
+    "react",
+    "typescript"
+  ],
   "private": true,
   "type": "module",
   "workspaces": [

@@ -1,0 +1,46 @@
+name: Bug report
+description: Something in the game or the tools doesn't work as expected
+labels: [bug]
+body:
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened?
+      description: What did you see, and what did you expect instead?
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. Sign in and go to town
+        2. Sit at a café table and press E
+        3. …
+    validations:
+      required: true
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      options:
+        - Town / movement
+        - Focus sessions / coins
+        - Homes / decorating / housemates
+        - Shop / inventory
+        - Chat / friends
+        - Interface / widgets / music
+        - Town editor / tools
+        - Deployment / setup
+    validations:
+      required: true
+  - type: input
+    id: browser
+    attributes:
+      label: Browser and OS
+      placeholder: e.g. Chrome 140 on Windows 11
+  - type: textarea
+    id: logs
+    attributes:
+      label: Console output or screenshots
+      description: Browser console errors, server logs or screenshots, if you have them.
