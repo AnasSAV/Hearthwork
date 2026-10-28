@@ -1,6 +1,6 @@
 <div align="center">
 
-# Focus Town
+# Hearthwork
 
 **A cozy multiplayer pixel town where verified focus time earns coins for decorating your home.**
 

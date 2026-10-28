@@ -21,7 +21,7 @@ export class BootScene extends Phaser.Scene {
 
   preload(): void {
     uiStore.set({ connection: { kind: 'loading' } });
-    coverWorld('Focus Town');
+    coverWorld('Hearthwork');
     this.load.setPath('assets');
     this.load.tilemapTiledJSON(TOWN_MAP_KEY, 'maps/town.json');
     this.load.image(TOWN_TILESET_KEY, 'tilesets/town.png');

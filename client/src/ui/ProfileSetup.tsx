@@ -5,6 +5,8 @@ import { CharacterCreator } from './CharacterCreator';
 
 interface Props {
   initialUsername: string;
+  /** Pre-filled for brand-new players, e.g. from their Google name. */
+  suggestedUsername?: string;
   /** The stored avatar; old-format or missing avatars start from a random character. */
   initialAvatar: unknown;
   onDone: () => void;
@@ -13,9 +15,15 @@ interface Props {
 }
 
 /** First-run screen (and in-game editor) for the username and the character. */
-export function ProfileSetup({ initialUsername, initialAvatar, onDone, onCancel }: Props) {
+export function ProfileSetup({
+  initialUsername,
+  suggestedUsername = '',
+  initialAvatar,
+  onDone,
+  onCancel,
+}: Props) {
   const [username, setUsername] = useState(
-    initialUsername.startsWith('player_') ? '' : initialUsername,
+    initialUsername.startsWith('player_') ? suggestedUsername : initialUsername,
   );
   const [avatar, setAvatar] = useState<Avatar>(() => parseAvatar(initialAvatar) ?? randomAvatar());
   const [busy, setBusy] = useState(false);

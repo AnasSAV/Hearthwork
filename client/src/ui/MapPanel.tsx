@@ -639,7 +639,7 @@ export function MapPanel() {
               onDoubleClick={() => here !== 'town' && travel(goToTown)}
             >
               <span className="wm-town-pic" style={{ width: world.town.w, height: world.town.h }} />
-              <span className="wm-banner">Focus Town</span>
+              <span className="wm-banner">Hearthwork</span>
             </button>
 
             {world.placed.map((p) => {
@@ -739,7 +739,7 @@ export function MapPanel() {
             <div className="wm-card wm-ui">
               <span className="wm-card-pic town" />
               <div className="wm-card-body">
-                <strong>Focus Town</strong>
+                <strong>Hearthwork</strong>
                 <small>Study plaza, café terrace, park, library and the Furniture Shop.</small>
                 <div className="row">
                   <button

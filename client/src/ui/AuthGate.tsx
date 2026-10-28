@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState, type ReactNode } from 'react';
 import type { Session } from '@supabase/supabase-js';
-import { parseAvatar } from '@focus-town/shared';
+import { parseAvatar, suggestUsername } from '@focus-town/shared';
 import { supabase, supabaseConfigured } from '../net/supabase';
 import { Login } from './Login';
 import { HomeChoice } from './HomeChoice';
@@ -96,6 +96,11 @@ export function AuthGate({ children }: { children: ReactNode }) {
         <Centered>
           <ProfileSetup
             initialUsername={gate.profile.username}
+            suggestedUsername={suggestUsername(
+              (session?.user.user_metadata.full_name ?? session?.user.user_metadata.name) as
+                string | undefined,
+              session?.user.email,
+            )}
             initialAvatar={gate.profile.avatar}
             onDone={() => {
               if (gate.profile.username.startsWith('player_')) setChoosingHome(true);

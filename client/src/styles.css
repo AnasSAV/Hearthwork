@@ -1,5 +1,5 @@
 /* =============================================================================================
-   Focus Town UI: warm paper panels on wood, chunky pressable buttons, a pixel font for numbers
+   Hearthwork UI: warm paper panels on wood, chunky pressable buttons, a pixel font for numbers
    and titles. Everything sits over the game canvas, so panels are opaque and high-contrast.
    ============================================================================================= */
 
@@ -325,6 +325,19 @@ textarea {
 
 .btn-secondary:active:not(:disabled) {
   box-shadow: 0 1px 0 var(--line-2);
+}
+
+/* Google's sign-in button: white, neutral border, the multicolour G. */
+.btn-google {
+  gap: 10px;
+  color: #1f1f1f;
+  background: #fff;
+  border-color: #c9c9c9;
+  box-shadow: 0 4px 0 #b9b9b9;
+}
+
+.btn-google:active:not(:disabled) {
+  box-shadow: 0 1px 0 #b9b9b9;
 }
 
 .btn-sage {

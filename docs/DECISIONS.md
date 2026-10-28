@@ -554,3 +554,17 @@ playlistLength` (`shared/src/radio.ts`, unit-tested) and plays that track from t
   walkable tile, desk names are unique, and desks and doors can be reached from the spawn.
 - The game server reads the map at start (bundled import), so a save restarts it under
   `tsx watch` in dev; in production the map ships with the next deploy like any code change.
+
+## Hearthwork and Google sign-in (2026-10-28)
+
+- The game is now called **Hearthwork** (hearth + work: focus, earn, build a home). Everything
+  players see uses the new name: the page title, sign-in screen, loading transition, world-map
+  banner and the radio's artist name. Internal identifiers keep the old name on purpose, so
+  nothing that already works has to move: the `@focus-town/*` packages, the repository folder, the
+  local Supabase project id, the original brief (`docs/SPEC.md`) and comments in migrations that
+  were already applied.
+- Google sign-in is switched on through environment variables (`supabase/.env` locally), not in
+  `supabase/config.toml`, so CI and fresh clones still start without Google credentials. The
+  button follows Google's style (white, multicolour "G"); a cancelled or failed Google redirect
+  shows a message on the sign-in screen; new Google players get a username suggested from their
+  Google name, which they can change before entering.

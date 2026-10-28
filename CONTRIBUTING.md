@@ -1,6 +1,6 @@
 # Contributing
 
-Thanks for helping with Focus Town. This guide covers the setup, the checks every change must
+Thanks for helping with Hearthwork. This guide covers the setup, the checks every change must
 pass, and the rules the game depends on.
 
 ## Setup

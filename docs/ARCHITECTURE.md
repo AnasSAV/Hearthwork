@@ -1,6 +1,6 @@
 # Architecture
 
-How Focus Town fits together: the processes, the rooms players move between, the messages they
+How Hearthwork fits together: the processes, the rooms players move between, the messages they
 send, the data model, and who is allowed to change what. For the reasoning behind individual
 choices, see [DECISIONS.md](DECISIONS.md).
 

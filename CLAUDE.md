@@ -1,4 +1,7 @@
-# Focus Town
+# Hearthwork
+
+(Formerly "Focus Town". Internal names such as the `@focus-town/*` packages, the repo folder and
+the local Supabase project id keep the old name on purpose.)
 
 Multiplayer pixel town where verified focus time earns coins for decorating your house.
 Full brief: `docs/SPEC.md`. Judgement calls and API deviations: `docs/DECISIONS.md`.

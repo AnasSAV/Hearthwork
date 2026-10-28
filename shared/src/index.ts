@@ -9,4 +9,5 @@ export * from './house.js';
 export * from './chat.js';
 export * from './radio.js';
 export * from './avatar.js';
+export * from './username.js';
 export { YARD_SPRITES } from './interiorSprites.js';

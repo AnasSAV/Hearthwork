@@ -1,6 +1,6 @@
 # Setup: Supabase, keys and sign-in
 
-Focus Town needs a Supabase project for accounts and coins. You can use a **local** stack
+Hearthwork needs a Supabase project for accounts and coins. You can use a **local** stack
 (Docker, best for development) or a **hosted** free-tier project (needed for deployment).
 
 ## Which key goes where
@@ -62,22 +62,34 @@ confirmation.
 
 ## Google sign-in
 
-1. Google Cloud Console → APIs & Services → Credentials → Create OAuth client ID → Web
-   application.
-2. Authorized redirect URI:
-   - hosted: `https://<project-ref>.supabase.co/auth/v1/callback`
-   - local: `http://127.0.0.1:54321/auth/v1/callback`
-3. Hosted: Supabase Dashboard → Authentication → Sign In / Providers → Google, paste the client
-   ID and secret, enable.
-4. Local: put them in `supabase/.env` (gitignored)
+1. [Google Cloud Console](https://console.cloud.google.com) → Google Auth Platform:
+   - **Branding:** app name `Hearthwork`, your support email, authorized domains
+     `anas-hussaindeen.com` and `supabase.co`.
+   - **Audience:** External, then **Publish app** (only the basic `email` and `profile` scopes are
+     used, so Google doesn't need to review it).
+   - **Clients → Create client → Web application:**
+     - Authorized JavaScript origins: `https://hearthwork.anas-hussaindeen.com`,
+       `http://localhost:5173`
+     - Authorized redirect URIs: `https://<project-ref>.supabase.co/auth/v1/callback`,
+       `http://127.0.0.1:54321/auth/v1/callback`
+2. **Local:** put the client ID and secret in `supabase/.env` (git-ignored). The variables
+   override `supabase/config.toml`, which keeps Google off so CI and fresh clones start without
+   credentials:
 
    ```
-   SUPABASE_AUTH_EXTERNAL_GOOGLE_CLIENT_ID=...
-   SUPABASE_AUTH_EXTERNAL_GOOGLE_SECRET=...
+   SUPABASE_AUTH_EXTERNAL_GOOGLE_ENABLED=true
+   SUPABASE_AUTH_EXTERNAL_GOOGLE_CLIENT_ID=...apps.googleusercontent.com
+   SUPABASE_AUTH_EXTERNAL_GOOGLE_SECRET=GOCSPX-...
    ```
 
-   set `enabled = true` under `[auth.external.google]` in `supabase/config.toml`, then
-   `supabase stop && supabase start`.
+   then `supabase stop && supabase start`. `curl localhost:54321/auth/v1/settings` should show
+   `"google": true`.
+
+3. **Hosted:** see [DEPLOY.md](DEPLOY.md).
+
+Google players go through the same character and home screens as everyone else; the username
+field is pre-filled from their Google name (`suggestUsername()` in `shared/src/username.ts`). If
+they cancel at Google, the sign-in screen says so.
 
 ## Checking the economy
 
