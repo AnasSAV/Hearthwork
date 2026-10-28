@@ -69,6 +69,7 @@ export function ChatPanel() {
   const conversations = useChat((s) => s.conversations);
   const tab = useChat((s) => s.tab);
   const focusRequest = useChat((s) => s.focusRequest);
+  const touch = useUi((s) => s.touch);
   const [text, setText] = useState('');
   const [open, setOpen] = useState(false);
   const [emotes, setEmotes] = useState(false);
@@ -274,7 +275,7 @@ export function ChatPanel() {
           value={text}
           maxLength={CHAT_MAX_LEN}
           disabled={!!conversation && !partnerInRange}
-          placeholder={expanded ? placeholder : 'Press Enter to chat'}
+          placeholder={expanded ? placeholder : touch ? 'Tap to chat' : 'Press Enter to chat'}
           onChange={(e) => {
             setText(e.target.value);
             setTyping(e.target.value.length > 0);

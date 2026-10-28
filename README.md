@@ -260,6 +260,13 @@ players.
 | <kbd>I</kbd>                      | Inventory                              |
 | <kbd>+</kbd> <kbd>−</kbd> / wheel | Zoom                                   |
 
+**Phones and tablets.** Put a thumb down anywhere on the world and drag to walk (a joystick
+appears under it), and tap the prompts that pop up (sit and focus, enter the shop). Pinch to
+zoom, tap a player to whisper, tap the chat bar to chat. On a phone the toolbar folds into a
+menu button. While decorating, tap an item and then a spot, drag furniture to move it, and drag
+empty ground to look around. Add the site to your home screen to play it full screen; the
+screen stays on during a focus session.
+
 At home, **Decorate** places furniture inside and garden items in the yard. **Settings**
 manages housemates, visitors, the exterior and upgrades.
 

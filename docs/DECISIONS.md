@@ -568,3 +568,25 @@ playlistLength` (`shared/src/radio.ts`, unit-tested) and plays that track from t
   button follows Google's style (white, multicolour "G"); a cancelled or failed Google redirect
   shows a message on the sign-in screen; new Google players get a username suggested from their
   Google name, which they can change before entering.
+
+## Phones and tablets (2026-10-28)
+
+- Touch play uses a floating joystick: a thumb anywhere on the world steers, in eight directions
+  (straight sectors are wider than diagonal ones so walking a path doesn't drift). It feeds the
+  same input vector as the keys, so movement, prediction and the server's speed check are
+  unchanged. Two fingers step the zoom like the zoom buttons. Taps still reach the game.
+- "Press E" prompts are buttons, so a tap does the same as E (sit and focus, enter the shop).
+  Doors and the garden gate already worked by walking into them.
+- Whether the player is on touch follows the last pointer used (a coarse pointer at first), so
+  hints and placeholders show taps or keys accordingly, including on laptops with touch screens.
+- Decorating by touch: tap an item and then a spot, or drag; tapping placed furniture picks it
+  up and a drag moves it; dragging empty ground pans the view, because a phone shows only part
+  of the yard and the player can't walk while decorating. "Put back" replaces right-click/Esc.
+- Focus verification is unchanged: touches count as input like keys and the mouse. A phone
+  that locks hides the page, so those minutes don't count; the game holds a screen wake lock
+  during a session (where the browser supports it) so the screen stays on.
+- Layout: under 1240px the home bar moves below the HUD; on phones (under 700px wide) the
+  toolbar folds into a menu button and drawers become bottom sheets; short landscape screens
+  trim the bottom stack and let tall panels scroll. Page zoom is off (pinch zooms the world).
+- A web app manifest and icons (`tools/art/app_icons.py`, built from the favicon) let players
+  add it to the home screen and play full screen.

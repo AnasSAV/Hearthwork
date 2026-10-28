@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { decodeAvatar } from '@focus-town/shared';
 import { sfx } from '../audio/sfx';
 import { goToHouse } from '../game/navigation';
+import { interact } from '../game/touch';
 import { useEditor } from '../house/editor';
 import { fetchMyHome } from '../net/houses';
 import { supabase } from '../net/supabase';
@@ -81,6 +82,22 @@ function Tool({
 
 const toggle = (key: keyof UiState) => () => uiStore.set({ [key]: !uiStore.get()[key] });
 
+/** "Press E" with a keyboard, a tappable button with a finger; either way it uses the spot. */
+function Prompt({ touch, children }: { touch: boolean; children: string }) {
+  return (
+    <button
+      type="button"
+      className={`hint panel${touch ? ' tap' : ''}`}
+      onClick={() => {
+        sfx.play('click');
+        interact();
+      }}
+    >
+      {touch ? <Icon name="sparkle" size={16} /> : <kbd>E</kbd>} {children}
+    </button>
+  );
+}
+
 export function HUD() {
   const name = useUi((s) => s.playerName);
   const avatar = useUi((s) => s.playerAvatar);
@@ -101,7 +118,10 @@ export function HUD() {
   const widgetsOpen = useUi((s) => s.widgetPickerOpen);
   const editing = useEditor((s) => s.active);
   const timerOpen = useUi((s) => s.timerOpen);
+  const touch = useUi((s) => s.touch);
   const coins = useCountUp(wallet?.coins ?? 0);
+  // Phones fold the toolbar into a menu button; it closes again once a tool is picked.
+  const [menuOpen, setMenuOpen] = useState(false);
 
   if (!connected) return null;
   const capReached = wallet && wallet.todayCoinMinutes >= wallet.dailyCapMin;
@@ -138,7 +158,26 @@ export function HUD() {
         {coins.gained && <span className="coin-float">+{coins.gained}</span>}
       </div>
 
-      <nav className="toolbar" aria-label="Menu">
+      <nav
+        className={`toolbar${menuOpen ? ' open' : ''}`}
+        aria-label="Menu"
+        onClick={(e) => {
+          if (e.target !== e.currentTarget) setMenuOpen(false);
+        }}
+      >
+        <button
+          type="button"
+          className={`tool menu-toggle${menuOpen ? ' active' : ''}`}
+          aria-label="Menu"
+          aria-expanded={menuOpen}
+          onClick={(e) => {
+            e.stopPropagation();
+            sfx.play('click');
+            setMenuOpen(!menuOpen);
+          }}
+        >
+          <Icon name={menuOpen ? 'close' : 'menu'} size={20} />
+        </button>
         {!house?.isMember && !focusing && (
           <Tool icon="home" label="Home" onClick={() => void goHome()} />
         )}
@@ -175,17 +214,16 @@ export function HUD() {
           Daily coin cap reached ({wallet.dailyCapMin} min). Minutes still count for your streak.
         </div>
       )}
-      {nearDesk && !focusing && !timerOpen && (
-        <div className="hint panel">
-          <kbd>E</kbd> Sit down and focus
+      {nearDesk && !focusing && !timerOpen && <Prompt touch={touch}>Sit down and focus</Prompt>}
+      {nearShop && !shopOpen && <Prompt touch={touch}>Enter the Furniture Shop</Prompt>}
+      {!editing && touch && (
+        <div className="controls touch">
+          <span>drag anywhere to walk</span>
+          <span>pinch to zoom</span>
+          <span>tap a player to whisper</span>
         </div>
       )}
-      {nearShop && !shopOpen && (
-        <div className="hint panel">
-          <kbd>E</kbd> Enter the Furniture Shop
-        </div>
-      )}
-      {!editing && (
+      {!editing && !touch && (
         <div className="controls">
           <span>
             <kbd>WASD</kbd>walk

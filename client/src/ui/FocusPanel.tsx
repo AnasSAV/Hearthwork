@@ -8,7 +8,7 @@ const MISS_TEXT: Record<string, string> = {
   late: 'a heartbeat arrived late',
   presence_pending: 'waiting for you to confirm you are here',
   hidden: 'the tab was in the background',
-  idle: 'no keyboard or mouse activity for 10 minutes',
+  idle: 'no keyboard, mouse or touch activity for 10 minutes',
   ahead_of_clock: 'the session just started',
 };
 
@@ -112,7 +112,7 @@ function Chooser({ deskId, tableId }: { deskId: string; tableId: string | null }
       </label>
       <p className="fine-print">
         You earn about 1 coin per verified minute. A minute counts when the tab is open (or
-        audio-only is on) and you have used the keyboard or mouse in the last 10 minutes.
+        audio-only is on) and you have used the keyboard, mouse or screen in the last 10 minutes.
       </p>
       {error && <div className="form-error">{error}</div>}
       <div className="row">

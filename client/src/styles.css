@@ -1226,6 +1226,11 @@ input[type='range'] {
   animation: slide-in-right 0.28s ease-out;
 }
 
+/* Scroll the drawer rather than squashing its rows when it runs out of height. */
+.drawer > * {
+  flex-shrink: 0;
+}
+
 .drawer-group {
   margin: 6px 0 4px;
   font-size: 12px;
@@ -3310,5 +3315,375 @@ i.public {
     box-shadow:
       0 0 0 2px var(--ink),
       0 0 0 6px rgba(245, 184, 78, 0.45);
+  }
+}
+
+/* ---------- Touch & small screens ---------- */
+
+html,
+body {
+  overscroll-behavior: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* The world takes every gesture (joystick, pinch, taps); no page scrolling, selecting or
+   long-press callouts. */
+.game {
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
+}
+
+/* Clear of notches and rounded corners (landscape phones, installed app). */
+.overlay {
+  top: env(safe-area-inset-top);
+  right: env(safe-area-inset-right);
+  bottom: env(safe-area-inset-bottom);
+  left: env(safe-area-inset-left);
+}
+
+/* Prompts are buttons: E with a keyboard, a tap with a finger. */
+.hint {
+  font: inherit;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.hint.tap {
+  padding: 12px 20px;
+  font-size: 16px;
+  color: var(--wood-dark);
+}
+
+.hint.tap .icon {
+  color: var(--honey-dark);
+}
+
+/* Floating joystick under the thumb. */
+.stick {
+  position: fixed;
+  width: 108px;
+  height: 108px;
+  margin: -54px 0 0 -54px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  background: rgba(255, 248, 234, 0.2);
+  border: 3px solid rgba(255, 248, 234, 0.6);
+  box-shadow: 0 6px 18px rgba(43, 28, 16, 0.25);
+  pointer-events: none;
+}
+
+.stick-knob {
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  background: var(--paper);
+  border: 3px solid var(--line-2);
+  box-shadow: 0 4px 0 var(--line-2);
+}
+
+/* No hover on touch screens: a tapped button would keep its tooltip up. */
+@media (hover: none) {
+  [data-tip]::after {
+    display: none;
+  }
+}
+
+/* Touch tips: shown for a few seconds after arriving, then out of the way. */
+.controls.touch {
+  bottom: 150px;
+  animation: tip-out 0.6s ease-in 9s forwards;
+}
+
+@keyframes tip-out {
+  to {
+    opacity: 0;
+    visibility: hidden;
+  }
+}
+
+.menu-toggle {
+  display: none;
+}
+
+.carry-notice {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.carry-notice .link {
+  flex: none;
+  white-space: nowrap;
+}
+
+/* Narrow windows and tablets: the home bar no longer fits between the HUD and the toolbar. */
+@media (max-width: 1240px) {
+  .house-bar {
+    top: 80px;
+  }
+
+  .toast {
+    top: 136px;
+  }
+}
+
+@media (max-width: 1000px) {
+  .controls:not(.touch) {
+    display: none;
+  }
+}
+
+/* Phones (portrait): compact HUD, the toolbar folds into a menu, drawers become bottom
+   sheets. */
+@media (max-width: 700px) {
+  .hud {
+    top: 8px;
+    left: 8px;
+    max-width: calc(100% - 76px);
+    gap: 8px;
+    padding: 6px 12px 6px 6px;
+  }
+
+  .hud-avatar {
+    width: 36px;
+    height: 36px;
+  }
+
+  .hud-name {
+    font-size: 14px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .pill {
+    font-size: 13px;
+    padding: 1px 7px;
+  }
+
+  .toolbar {
+    top: 8px;
+    right: 8px;
+    flex-direction: column;
+    gap: 8px;
+    padding: 4px;
+    border-radius: 18px;
+  }
+
+  .toolbar > .tool {
+    display: none;
+  }
+
+  /* The open menu drops over the home bar. */
+  .toolbar.open {
+    z-index: 2;
+  }
+
+  .toolbar > .menu-toggle,
+  .toolbar.open > .tool {
+    display: grid;
+  }
+
+  /* Labels beside the icons in the open menu instead of hover tips. */
+  .toolbar .tool[data-tip]::after {
+    display: none;
+  }
+
+  .house-bar {
+    top: 66px;
+    left: 8px;
+    right: 8px;
+    transform: none;
+    flex-wrap: wrap;
+    justify-content: center;
+    row-gap: 6px;
+    white-space: normal;
+    padding: 6px 8px;
+    animation: none;
+  }
+
+  .house-bar strong {
+    font-size: 15px;
+  }
+
+  .toast {
+    top: 132px;
+    max-width: calc(100% - 16px);
+    white-space: normal;
+  }
+
+  .cap {
+    top: 62px;
+    left: 8px;
+    right: 72px;
+  }
+
+  .chat {
+    left: 8px;
+    bottom: 74px;
+    width: calc(100% - 74px);
+  }
+
+  .music {
+    left: 8px;
+    bottom: 8px;
+  }
+
+  .music-bar {
+    width: calc(100vw - 80px);
+  }
+
+  .zoom-controls {
+    right: 8px;
+    bottom: 8px;
+  }
+
+  .hint {
+    bottom: 136px;
+    max-width: calc(100% - 16px);
+  }
+
+  .controls.touch {
+    bottom: 196px;
+    flex-direction: column;
+    align-items: center;
+    gap: 2px;
+    border-radius: 14px;
+  }
+
+  .drawer,
+  .edit-drawer {
+    top: auto;
+    left: 8px;
+    right: 8px;
+    bottom: 8px;
+    width: auto;
+    max-height: 52%;
+    animation: pop-in 0.28s ease-out;
+  }
+
+  .focus-card,
+  .focus-ring {
+    right: 8px;
+    bottom: 8px;
+  }
+
+  .widget-column {
+    top: 66px;
+    right: 8px;
+    bottom: 140px;
+  }
+
+  .minimap {
+    top: 66px;
+    left: 8px;
+    width: min(280px, calc(100% - 16px));
+  }
+
+  .modal-backdrop {
+    padding: 8px;
+  }
+
+  .wm-header {
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  .wm-header > div:first-child {
+    flex-basis: calc(100% - 48px);
+  }
+
+  .wm-search {
+    order: 3;
+    flex: 1 1 100%;
+  }
+
+  .wm-search input {
+    width: 100%;
+  }
+}
+
+/* Landscape phones: little height, so trim the bottom stack. */
+@media (max-height: 500px) {
+  .hud {
+    top: 8px;
+    left: 8px;
+    padding: 5px 12px 5px 5px;
+  }
+
+  .hud-avatar {
+    width: 34px;
+    height: 34px;
+  }
+
+  .toolbar {
+    top: 8px;
+    right: 8px;
+    padding: 4px;
+    gap: 6px;
+  }
+
+  .toolbar .tool,
+  .zoom-controls .tool {
+    width: 40px;
+    height: 40px;
+  }
+
+  .house-bar {
+    top: 58px;
+  }
+
+  .music {
+    left: 8px;
+    bottom: 8px;
+  }
+
+  .music-meta small {
+    display: none;
+  }
+
+  .chat {
+    left: 8px;
+    bottom: 66px;
+  }
+
+  .zoom-controls {
+    right: 8px;
+    bottom: 8px;
+    gap: 6px;
+  }
+
+  .hint {
+    bottom: 66px;
+  }
+
+  .controls.touch {
+    bottom: auto;
+    top: 64px;
+  }
+
+  .drawer,
+  .edit-drawer {
+    top: 60px;
+    bottom: 8px;
+  }
+
+  .focus-card,
+  .focus-ring {
+    bottom: 8px;
+  }
+
+  /* Tall panels scroll instead of running off the bottom. */
+  .modal-backdrop > .panel {
+    max-height: 100%;
+    overflow-y: auto;
+  }
+
+  .wm-viewport {
+    min-height: 220px;
   }
 }

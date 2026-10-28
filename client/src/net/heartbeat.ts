@@ -37,8 +37,31 @@ function tick(): void {
   });
 }
 
+/**
+ * Keep the screen on while focusing. A phone that dims and locks hides the page, and hidden
+ * minutes don't count. The browser drops the lock whenever the page is hidden, so take it again
+ * on return. Not every browser has it; then the screen just sleeps as usual.
+ */
+let wakeLock: WakeLockSentinel | null = null;
+
+async function holdScreenOn(): Promise<void> {
+  if (wakeLock || !('wakeLock' in navigator) || document.visibilityState !== 'visible') return;
+  try {
+    wakeLock = await navigator.wakeLock.request('screen');
+    wakeLock.addEventListener('release', () => (wakeLock = null));
+  } catch {
+    // Refused (battery saver, no user gesture yet): nothing to do.
+  }
+}
+
+const retakeWakeLock = () => {
+  if (uiStore.get().focus) void holdScreenOn();
+};
+
 export function startHeartbeat(): void {
   listenForInput();
+  void holdScreenOn();
+  document.addEventListener('visibilitychange', retakeWakeLock);
   lastBeatAt = Date.now(); // first beat one minute after the session starts
   if (worker) return;
   const source = 'setInterval(() => postMessage(0), 2000);';
@@ -49,4 +72,7 @@ export function startHeartbeat(): void {
 export function stopHeartbeat(): void {
   worker?.terminate();
   worker = null;
+  document.removeEventListener('visibilitychange', retakeWakeLock);
+  void wakeLock?.release();
+  wakeLock = null;
 }

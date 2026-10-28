@@ -86,6 +86,8 @@ export interface UiState {
   focus: ActiveFocus | null;
   focusSummary: FocusEndedMessage | null;
   focusError: string | null;
+  /** Played by touch (joystick and tappable prompts) rather than keyboard and mouse. */
+  touch: boolean;
 }
 
 const ZOOM_KEY = 'focus-town:zoom';
@@ -138,6 +140,7 @@ const initial: UiState = {
   focus: null,
   focusSummary: null,
   focusError: null,
+  touch: typeof matchMedia === 'function' && matchMedia('(pointer: coarse)').matches,
 };
 
 let state: UiState = initial;
@@ -150,7 +153,7 @@ export const uiStore = {
     listeners.forEach((l) => l());
   },
   reset(): void {
-    state = { ...initial, zoom: state.zoom };
+    state = { ...initial, zoom: state.zoom, touch: state.touch };
     listeners.forEach((l) => l());
   },
   subscribe(listener: () => void): () => void {

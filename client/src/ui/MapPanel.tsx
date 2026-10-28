@@ -258,7 +258,7 @@ type Selection = { kind: 'town' } | { kind: 'home'; ownerId: string } | null;
 
 /**
  * The world map: an explorable little world with the town in the middle and homes on roads
- * around it (yours, your friends' and public ones). Drag to look around, scroll to zoom, pick
+ * around it (yours, your friends' and public ones). Drag to look around, scroll or pinch to zoom, pick
  * a place to see who lives there and travel.
  */
 export function MapPanel() {
@@ -278,6 +278,9 @@ export function MapPanel() {
   const drag = useRef<{ x: number; y: number; from: View; moved: boolean; id: number } | null>(
     null,
   );
+  /** Fingers on the map, for pinch zoom; `spread` is their last distance apart. */
+  const fingers = useRef(new Map<number, { x: number; y: number }>());
+  const spread = useRef<number | null>(null);
 
   useEffect(() => {
     if (!open) return;
@@ -402,7 +405,7 @@ export function MapPanel() {
             <p className="subtitle">
               {focusing
                 ? 'Finish your focus session before travelling.'
-                : 'Drag to look around, scroll to zoom, pick a place to visit.'}
+                : 'Drag to look around, pinch or scroll to zoom, pick a place to visit.'}
             </p>
           </div>
           <div className="wm-search">
@@ -447,6 +450,13 @@ export function MapPanel() {
           className="wm-viewport"
           onPointerDown={(e) => {
             if (e.button !== 0 || (e.target as HTMLElement).closest('.wm-ui')) return;
+            fingers.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
+            if (fingers.current.size === 2) {
+              const [a, b] = [...fingers.current.values()];
+              spread.current = Math.hypot(a!.x - b!.x, a!.y - b!.y);
+              drag.current = null;
+              return;
+            }
             drag.current = {
               x: e.clientX,
               y: e.clientY,
@@ -456,6 +466,19 @@ export function MapPanel() {
             };
           }}
           onPointerMove={(e) => {
+            const finger = fingers.current.get(e.pointerId);
+            if (finger) {
+              finger.x = e.clientX;
+              finger.y = e.clientY;
+            }
+            if (spread.current !== null && fingers.current.size === 2) {
+              const [a, b] = [...fingers.current.values()];
+              const now = Math.hypot(a!.x - b!.x, a!.y - b!.y);
+              const r = e.currentTarget.getBoundingClientRect();
+              zoomAt(now / spread.current, (a!.x + b!.x) / 2 - r.left, (a!.y + b!.y) / 2 - r.top);
+              spread.current = now;
+              return;
+            }
             const d = drag.current;
             if (!d) return;
             const dx = e.clientX - d.x;
@@ -470,6 +493,8 @@ export function MapPanel() {
             setView(clamp({ ...d.from, x: d.from.x + dx, y: d.from.y + dy }));
           }}
           onPointerUp={(e) => {
+            fingers.current.delete(e.pointerId);
+            if (fingers.current.size < 2) spread.current = null;
             e.currentTarget.classList.remove('dragging');
             const d = drag.current;
             drag.current = null;
@@ -477,7 +502,11 @@ export function MapPanel() {
               setSelected(null);
             }
           }}
-          onPointerCancel={() => (drag.current = null)}
+          onPointerCancel={(e) => {
+            fingers.current.delete(e.pointerId);
+            spread.current = null;
+            drag.current = null;
+          }}
           onWheel={(e) => {
             const r = e.currentTarget.getBoundingClientRect();
             zoomAt(e.deltaY < 0 ? 1.15 : 1 / 1.15, e.clientX - r.left, e.clientY - r.top);

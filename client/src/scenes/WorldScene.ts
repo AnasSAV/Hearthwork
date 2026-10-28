@@ -32,6 +32,7 @@ import { attachRoomSender } from '../net/roomBridge';
 import { sfx } from '../audio/sfx';
 import { minimap } from '../game/minimap';
 import { revealWorld } from '../game/navigation';
+import { setInteract, stick } from '../game/touch';
 import { setZoom, uiStore } from '../store';
 
 /** Remote players glide slightly longer than the send interval so motion stays continuous. */
@@ -101,11 +102,8 @@ export abstract class WorldScene<S extends object> extends Phaser.Scene {
       cursors: keyboard.createCursorKeys(),
       wasd: keyboard.addKeys('W,A,S,D') as Record<'W' | 'A' | 'S' | 'D', Phaser.Input.Keyboard.Key>,
     };
-    keyboard.addKey('E').on('down', () => {
-      if (this.use()) return;
-      const ui = uiStore.get();
-      if (ui.nearDesk && !ui.focus) uiStore.set({ timerOpen: true, focusSummary: null });
-    });
+    keyboard.addKey('E').on('down', this.interact);
+    setInteract(this.interact);
     keyboard.addKey('I').on('down', () => {
       uiStore.set({ inventoryOpen: !uiStore.get().inventoryOpen });
     });
@@ -128,6 +126,14 @@ export abstract class WorldScene<S extends object> extends Phaser.Scene {
     window.addEventListener('pageshow', this.rejoinOnPageShow);
     void this.connect();
   }
+
+  /** E, or a tap on a prompt: use what's here (shop, door…), or sit down at a desk. */
+  private readonly interact = (): void => {
+    if (!this.local || this.movementLocked()) return;
+    if (this.use()) return;
+    const ui = uiStore.get();
+    if (ui.nearDesk && !ui.focus) uiStore.set({ timerOpen: true, focusSummary: null });
+  };
 
   /** Esc closes the topmost panel. */
   protected escape(): void {
@@ -400,7 +406,7 @@ export abstract class WorldScene<S extends object> extends Phaser.Scene {
     }
 
     const { cursors, wasd } = this.keys;
-    const input = {
+    const keys = {
       x:
         (cursors.right.isDown || wasd.D.isDown ? 1 : 0) -
         (cursors.left.isDown || wasd.A.isDown ? 1 : 0),
@@ -408,6 +414,8 @@ export abstract class WorldScene<S extends object> extends Phaser.Scene {
         (cursors.down.isDown || wasd.S.isDown ? 1 : 0) -
         (cursors.up.isDown || wasd.W.isDown ? 1 : 0),
     };
+    // Keys win over the on-screen joystick when both are used.
+    const input = keys.x !== 0 || keys.y !== 0 ? keys : { x: stick.x, y: stick.y };
     this.heldInput = input;
     const wantsToMove = input.x !== 0 || input.y !== 0;
     // Cap the step so a long frame (tab refocus) can't fling the player across the map.
@@ -466,6 +474,7 @@ export abstract class WorldScene<S extends object> extends Phaser.Scene {
 
   private teardown(): void {
     this.onTeardown();
+    setInteract(null);
     this.scale.off(Phaser.Scale.Events.RESIZE, this.applyZoom, this);
     window.removeEventListener('pagehide', this.leaveOnPageHide);
     window.removeEventListener('pageshow', this.rejoinOnPageShow);

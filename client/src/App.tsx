@@ -1,5 +1,6 @@
 import { useEffect, useRef } from 'react';
 import { createGame } from './game/createGame';
+import { watchInputKind } from './game/touch';
 import { uiStore, useUi } from './store';
 import { AuthGate } from './ui/AuthGate';
 import { ConnectionOverlay } from './ui/ConnectionOverlay';
@@ -23,6 +24,7 @@ import { WidgetLayer, WidgetPicker } from './ui/widgets/WidgetLayer';
 import { ShopPanel } from './ui/ShopPanel';
 import { StatsPanel } from './ui/StatsPanel';
 import { Toast } from './ui/Toast';
+import { TouchStick } from './ui/TouchStick';
 
 function Game() {
   const gameRef = useRef<HTMLDivElement>(null);
@@ -32,7 +34,9 @@ function Game() {
   useEffect(() => {
     if (!gameRef.current) return;
     const game = createGame(gameRef.current);
+    const unwatch = watchInputKind();
     return () => {
+      unwatch();
       game.destroy(true);
       music.stop();
       ambient.stopAll();
@@ -49,6 +53,8 @@ function Game() {
         <AudioPanel />
         <HouseBar />
         <ChatPanel />
+        <MapControls />
+        <TouchStick />
         {!editing && <FocusPanel />}
         {editing ? <EditDrawer /> : <InventoryDrawer />}
         <ShopPanel />
@@ -58,7 +64,6 @@ function Game() {
         <CharacterPanel />
         <MapPanel />
         <WidgetPicker />
-        <MapControls />
         <Toast />
         <ConnectionOverlay />
         <Transition />

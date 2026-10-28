@@ -57,6 +57,13 @@ export class HouseScene extends WorldScene<HouseState> {
   /** Green/red footprint under the ghost: can the item go here? */
   private ghostRect: Phaser.GameObjects.Rectangle | null = null;
   private renderedEditVersion = -1;
+  /**
+   * A finger is down in edit mode and should put the carried item where it lifts: it pressed
+   * while already carrying, or picked something up and then dragged it.
+   */
+  private touchPlace: { carriedAtStart: boolean; x: number; y: number } | null = null;
+  /** A finger dragging empty ground in edit mode pans the view (a phone shows only part). */
+  private touchPan: { x: number; y: number; scrollX: number; scrollY: number } | null = null;
   private unsubscribeEditor: (() => void) | null = null;
   private leaving = false;
   private myUserId: string | null = null;
@@ -312,6 +319,7 @@ export class HouseScene extends WorldScene<HouseState> {
     } else if (this.renderedEditVersion !== -1) {
       this.renderedEditVersion = -1;
       this.view.render(this.dims, this.look, this.items);
+      this.placeCamera(); // back on the player after panning around
     }
     this.updateGhost(this.input.activePointer);
   }
@@ -391,7 +399,18 @@ export class HouseScene extends WorldScene<HouseState> {
   }
 
   private onPointerMove(pointer: Phaser.Input.Pointer): void {
-    if (editor.get().active) this.updateGhost(pointer);
+    if (!editor.get().active) return;
+    const pan = this.touchPan;
+    if (pan && pointer.isDown) {
+      const cam = this.cameras.main;
+      cam.stopFollow();
+      cam.setScroll(
+        pan.scrollX - (pointer.x - pan.x) / cam.zoom,
+        pan.scrollY - (pointer.y - pan.y) / cam.zoom,
+      );
+      return;
+    }
+    this.updateGhost(pointer);
   }
 
   private onPointerDown(pointer: Phaser.Input.Pointer): void {
@@ -399,6 +418,29 @@ export class HouseScene extends WorldScene<HouseState> {
     if (!ed.active) return;
     if (pointer.rightButtonDown()) {
       editor.drop();
+      return;
+    }
+    if (pointer.wasTouch) {
+      // No hover on a touch screen: show the ghost under the finger and place on lift.
+      const carriedAtStart = !!ed.carrying;
+      if (!ed.carrying) {
+        const tile = this.tileUnder(pointer);
+        if (!tile || !editor.pickUpAt(tile.room, tile.x, tile.y)) {
+          // Pan only when the part you're in doesn't fit (then the camera has bounds).
+          const cam = this.cameras.main;
+          if (cam.useBounds) {
+            this.touchPan = {
+              x: pointer.x,
+              y: pointer.y,
+              scrollX: cam.scrollX,
+              scrollY: cam.scrollY,
+            };
+          }
+          return;
+        }
+      }
+      this.touchPlace = { carriedAtStart, x: pointer.x, y: pointer.y };
+      this.updateGhost(pointer);
       return;
     }
     if (ed.carrying) {
@@ -411,7 +453,17 @@ export class HouseScene extends WorldScene<HouseState> {
 
   private onPointerUp(pointer: Phaser.Input.Pointer): void {
     const ed = editor.get();
-    if (ed.active && ed.carrying && ed.dragging) this.tryPlace(pointer, ed.carrying);
+    const press = this.touchPlace;
+    this.touchPlace = null;
+    this.touchPan = null;
+    if (!ed.active || !ed.carrying) return;
+    if (press) {
+      // A tap on furniture just picks it up (place it with the next tap); a drag moves it.
+      const dragged = Math.hypot(pointer.x - press.x, pointer.y - press.y) > 8;
+      if (press.carriedAtStart || dragged) this.tryPlace(pointer, ed.carrying);
+      return;
+    }
+    if (ed.dragging) this.tryPlace(pointer, ed.carrying);
   }
 
   private tryPlace(pointer: Phaser.Input.Pointer, itemId: string): void {

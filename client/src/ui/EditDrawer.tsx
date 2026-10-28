@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { CATALOG, CATALOG_BY_ID, spriteKey, type ItemCategory } from '@focus-town/shared';
 import { editor, useEditor } from '../house/editor';
+import { useUi } from '../store';
 import { ItemSprite } from './ItemSprite';
 
 const GROUPS: { id: ItemCategory; label: string }[] = [
@@ -13,7 +14,8 @@ const GROUPS: { id: ItemCategory; label: string }[] = [
 /**
  * Edit mode: drag (or click) items from here into the room. A green ghost means it fits, red
  * means it doesn't. Click a placed item to pick it back up; right-click or Esc puts the carried
- * item back. Nothing is saved until "Save layout".
+ * item back. On a touch screen: tap an item, then tap (or drag to) a spot; drag furniture to move
+ * it. Nothing is saved until "Save layout".
  */
 export function EditDrawer() {
   const active = useEditor((s) => s.active);
@@ -24,6 +26,7 @@ export function EditDrawer() {
   const saving = useEditor((s) => s.saving);
   const error = useEditor((s) => s.error);
   useEditor((s) => s.version); // re-render counts when the layout changes
+  const touch = useUi((s) => s.touch);
   const [hint, setHint] = useState(true);
 
   // A drag released anywhere but the room becomes click-to-place instead of getting stuck.
@@ -50,8 +53,9 @@ export function EditDrawer() {
       </header>
       {hint && (
         <p className="fine-print">
-          Drag an item into the room (or click it, then click a spot). Click furniture to pick it
-          up; right-click or Esc to put it back.{' '}
+          {touch
+            ? 'Tap an item, then tap a spot in the room (or drag it there). Drag furniture to move it, or tap it to pick it up.'
+            : 'Drag an item into the room (or click it, then click a spot). Click furniture to pick it up; right-click or Esc to put it back.'}{' '}
           <button type="button" className="link" onClick={() => setHint(false)}>
             Got it
           </button>
@@ -110,8 +114,11 @@ export function EditDrawer() {
                     title={`${item.name}: ${left} left`}
                     disabled={left <= 0 && !selected}
                     // No preventDefault here: it would suppress the mouse events Phaser needs
-                    // to see the drag arrive over the room.
-                    onPointerDown={() => editor.carry(item.id, true)}
+                    // to see the drag arrive over the room. Touch uses tap-then-tap instead
+                    // (a finger pressing here may just be scrolling the drawer).
+                    onPointerDown={(e) => {
+                      if (e.pointerType === 'mouse') editor.carry(item.id, true);
+                    }}
                     onClick={() => editor.carry(item.id, false)}
                   >
                     <ItemSprite spriteKey={spriteKey(item.sprite)} box={48} />
@@ -126,8 +133,14 @@ export function EditDrawer() {
       })}
 
       {carrying && (
-        <div className="form-notice">
-          Carrying {CATALOG_BY_ID.get(carrying)?.name}. Click a green spot to place it.
+        <div className="form-notice carry-notice">
+          <span>
+            Carrying {CATALOG_BY_ID.get(carrying)?.name}. {touch ? 'Tap' : 'Click'} a green spot to
+            place it.
+          </span>
+          <button type="button" className="link" onClick={() => editor.drop()}>
+            Put back
+          </button>
         </div>
       )}
       {error && <div className="form-error">{error}</div>}
