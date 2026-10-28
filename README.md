@@ -15,6 +15,8 @@ spend focused turns into coins for furniture, a garden and a bigger house.
 ![Supabase](https://img.shields.io/badge/Supabase-Postgres-3ecf8e?logo=supabase&logoColor=white)
 ![Node](https://img.shields.io/badge/Node-24-5fa04e?logo=node.js&logoColor=white)
 
+**[Play it at hearthwork.anas-hussaindeen.com](https://hearthwork.anas-hussaindeen.com)**
+
 <img src="docs/images/town.webp" alt="The town plaza: players studying at tables and chatting, with clock, Pomodoro and todo widgets" width="100%">
 
 </div>

@@ -2,14 +2,23 @@
 
 Three pieces, deployed separately:
 
-| Piece                  | Where                                                                                 | Notes                                                              |
-| ---------------------- | ------------------------------------------------------------------------------------- | ------------------------------------------------------------------ |
-| Database + auth        | **Supabase** (free tier)                                                              | Pauses after 7 days idle; no automatic backups (we add both fixes) |
-| Game server (Colyseus) | **Render** free web service to prototype, then an **Oracle Cloud** Always Free Arm VM | One process; all state is in Postgres                              |
-| Client (static)        | **Cloudflare Pages**                                                                  | Vite build of `client/`                                            |
+| Piece                  | Where                                                                 | Notes                                                              |
+| ---------------------- | --------------------------------------------------------------------- | ------------------------------------------------------------------ |
+| Database + auth        | **Supabase** (free tier)                                              | Pauses after 7 days idle; no automatic backups (we add both fixes) |
+| Game server (Colyseus) | **Render** free web service (later optionally an **Oracle Cloud** VM) | One process; all state is in Postgres                              |
+| Client (static)        | **Cloudflare Pages**, published by GitHub Actions                     | Vite build of `client/`                                            |
 
 Order: Supabase → game server → client (the client needs both URLs at build time) → GitHub
 Actions secrets.
+
+### Production today
+
+| What        | Where                                                                    |
+| ----------- | ------------------------------------------------------------------------ |
+| Game        | https://hearthwork.anas-hussaindeen.com (Pages project `hearthwork`)     |
+| Game server | https://focus-town-server.onrender.com (Render, Singapore)               |
+| Supabase    | project `wtjmotlodqhkzfercxro` (Seoul, `ap-northeast-2`)                 |
+| Deploys     | push to `main`: Render rebuilds the server, `deploy-client.yml` the site |
 
 ---
 
@@ -41,16 +50,22 @@ Without the CLI: **SQL editor** → run each file in `supabase/migrations/` in n
 
 ### 1.3 Auth settings
 
-1. **Authentication → URL Configuration**
-   - Site URL: your client URL, e.g. `https://focus-town.pages.dev`
-   - Redirect URLs: the same URL, plus `http://localhost:5173` for development.
-2. **Email.** Supabase's built-in mailer only delivers to your project's team members and is
-   heavily rate-limited. For real sign-ups either configure **custom SMTP** (Authentication →
-   Emails → SMTP; e.g. Resend or Brevo free tiers) or, while testing with friends, turn off
-   "Confirm email" (Authentication → Sign In / Providers → Email).
-3. **Google sign-in** (optional): Google Cloud Console → Credentials → OAuth client ID (Web).
-   Authorized redirect URI: `https://<project-ref>.supabase.co/auth/v1/callback`. Paste the
-   client ID and secret into Authentication → Sign In / Providers → Google and enable it.
+The production auth settings live in `supabase/config.toml` under `[remotes.production]` (site
+URL, redirect URLs, email confirmation, Google). Google's client ID and secret come from
+`supabase/.env` (git-ignored, see SETUP.md). Apply them with:
+
+```bash
+supabase config push --project-ref <your-project-ref>
+```
+
+It shows a diff per service and asks before pushing each one: answer **y** for auth and **n** for
+anything you didn't mean to change (e.g. storage).
+
+Email: Supabase's built-in mailer only delivers to your project's team members and is heavily
+rate-limited, so confirmation is **off** for now (players can sign in straight away). Before a
+wider launch, configure **custom SMTP** (Authentication → Emails → SMTP; e.g. Resend or Brevo
+free tiers, sending from your domain) and set `enable_confirmations = true` in the
+`[remotes.production.auth.email]` block.
 
 ### 1.4 Connection string for backups
 
@@ -78,28 +93,37 @@ fine: focus minutes are saved every 5 minutes, and leftover sessions are closed 
 
 ## 3. Client on Cloudflare Pages
 
-1. Cloudflare dashboard → **Workers & Pages → Create → Pages → Connect to Git** → choose the repo.
-2. Build settings:
-   - Framework preset: **None**
-   - Build command: `npm ci && npm run build -w @focus-town/client`
-   - Build output directory: `client/dist`
-   - Root directory: _(leave empty, the repo root)_
-3. Environment variables (Production, and Preview if you use it):
-   - `VITE_SUPABASE_URL` = project URL
-   - `VITE_SUPABASE_ANON_KEY` = **publishable** key
-   - `VITE_SERVER_URL` = `https://<service>.onrender.com` (later `https://game.<your-domain>`)
+The site is published by `.github/workflows/deploy-client.yml` on every push to `main` that
+touches the client (or by hand: Actions → Deploy client → Run workflow). It builds with the
+repository **variables** and uploads with Wrangler.
 
-   Node comes from `.node-version` (22). `VITE_*` values are baked in at build time, so
-   **redeploy after changing them**.
+One-time setup:
 
-4. Deploy, then put the `*.pages.dev` URL (or your custom domain) into Supabase's Site URL and
-   Redirect URLs (step 1.3).
+1. Cloudflare → My Profile → API Tokens → Custom token with **Account · Cloudflare Pages · Edit**
+   (and, for the first setup only, **Zone · DNS · Edit** on your domain).
+2. Create the project and a first deployment:
+
+   ```bash
+   export CLOUDFLARE_API_TOKEN=... CLOUDFLARE_ACCOUNT_ID=...
+   npx wrangler pages project create hearthwork --production-branch main
+   VITE_SUPABASE_URL=... VITE_SUPABASE_ANON_KEY=... VITE_SERVER_URL=...      npm run build -w @focus-town/client
+   npx wrangler pages deploy client/dist --project-name hearthwork --branch main
+   ```
+
+3. Custom domain: Pages project → **Custom domains** → add `hearthwork.<your-domain>`. With the
+   domain on Cloudflare, add a proxied `CNAME hearthwork → hearthwork.pages.dev`; the certificate
+   is issued within a few minutes.
+4. Repository **variables** (public values, baked into the bundle): `VITE_SUPABASE_URL`,
+   `VITE_SUPABASE_ANON_KEY` (publishable key), `VITE_SERVER_URL`. Repository **secrets**:
+   `CLOUDFLARE_API_TOKEN` (Pages-only token), `CLOUDFLARE_ACCOUNT_ID`.
+5. Put the site URL into Supabase's site/redirect URLs (step 1.3) and Google's authorized
+   JavaScript origins.
 
 `client/public/_headers` sets basic security headers and caching.
 
 ---
 
-## 4. Game server on Oracle Cloud (launch)
+## 4. Game server on Oracle Cloud (optional, no sleeping)
 
 Always Free Ampere A1: up to 4 OCPU / 24 GB in total; 2 OCPU / 12 GB is plenty here.
 
@@ -183,9 +207,13 @@ Repo → Settings → Secrets and variables → **Actions** → New repository s
 | `SUPABASE_SERVICE_ROLE_KEY` | secret key                                                   | ledger check             |
 | `SUPABASE_DB_URL`           | Session pooler URI with password (step 1.4)                  | backups                  |
 | `BACKUP_PASSPHRASE`         | a long random passphrase, also kept in your password manager | backups                  |
+| `CLOUDFLARE_API_TOKEN`      | Pages-only API token (step 3)                                | client deploy            |
+| `CLOUDFLARE_ACCOUNT_ID`     | your Cloudflare account ID                                   | client deploy            |
 
 Workflows (`.github/workflows/`):
 
+- **deploy-client.yml**: on pushes to `main` that touch the client, builds and publishes it to
+  Cloudflare Pages.
 - **ci.yml**: on every push/PR runs typecheck, lint, format, unit tests and build, plus the SQL
   integration tests against a throwaway local Supabase stack.
 - **supabase-keepalive.yml**: daily read so the free project never pauses.
