@@ -198,7 +198,7 @@ export abstract class WorldScene<S extends object> extends Phaser.Scene {
       return;
     }
     if (!this.scene.isActive()) {
-      void room.leave();
+      abandonRoom(room);
       return;
     }
     this.room = room;
@@ -328,9 +328,16 @@ export abstract class WorldScene<S extends object> extends Phaser.Scene {
       uiStore.set({ focusError: msg.message });
     });
 
-    room.onDrop(() => uiStore.set({ connection: { kind: 'reconnecting' } }));
-    room.onReconnect(() => uiStore.set({ connection: { kind: 'connected' } }));
+    // Only the room this scene is in may change the connection status (a room we left can
+    // still be closing in the background).
+    room.onDrop(() => {
+      if (this.room === room) uiStore.set({ connection: { kind: 'reconnecting' } });
+    });
+    room.onReconnect(() => {
+      if (this.room === room) uiStore.set({ connection: { kind: 'connected' } });
+    });
     room.onLeave((code) => {
+      if (this.room !== room) return;
       this.room = null;
       // Anything but a deliberate leave (e.g. the server restarted and the reconnection
       // window is gone): rebuild the scene, which joins a fresh room.
@@ -484,8 +491,24 @@ export abstract class WorldScene<S extends object> extends Phaser.Scene {
     this.local = null;
     this.lastSent = null;
     if (this.room) {
-      void this.room.leave();
+      const room = this.room;
       this.room = null;
+      abandonRoom(room);
     }
   }
+}
+
+/**
+ * Leave a room for good: no automatic reconnection and no more callbacks, then a consented
+ * leave. Behind some proxies the server's close takes a long time to reach the browser, and
+ * the SDK would treat that as a drop and keep reconnecting to the room we left, so if it hasn't
+ * closed within a few seconds, close the socket ourselves.
+ */
+function abandonRoom<S>(room: Room<unknown, S>): void {
+  room.reconnection.enabled = false;
+  room.removeAllListeners();
+  void room.leave(true);
+  setTimeout(() => {
+    if (room.connection.isOpen) room.connection.close();
+  }, 3000);
 }
