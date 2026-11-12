@@ -1,5 +1,10 @@
 import { useSyncExternalStore } from 'react';
-import type { FocusEndedMessage, FocusStateMessage, WalletMessage } from '@focus-town/shared';
+import type {
+  FocusEndedMessage,
+  FocusStateMessage,
+  GameId,
+  WalletMessage,
+} from '@focus-town/shared';
 
 /** UI-facing state shared between Phaser scenes and React overlays. */
 export type ConnectionStatus =
@@ -45,6 +50,43 @@ export interface TableTimer {
   seated: number;
 }
 
+/** The mini-game you're at, mirrored from its scene for the React panels. */
+export interface GameUi {
+  id: GameId;
+  score: number;
+  note: string | null;
+  playedMin: number;
+  coinsEarned: number;
+  capReached: boolean;
+  /** What the action button does right now, or null if it does nothing here. */
+  prompt: string | null;
+  /** The last thing that happened. */
+  message: string | null;
+  /** Date.now() when your raft launched, while on the river. */
+  raftStartedAt: number | null;
+  /** The fishing bar, while reeling. */
+  reel: {
+    startedAt: number;
+    periodMs: number;
+    zoneStart: number;
+    zone: number;
+    limitMs: number;
+  } | null;
+}
+
+export const emptyGameUi = (id: GameId): GameUi => ({
+  id,
+  score: 0,
+  note: null,
+  playedMin: 0,
+  coinsEarned: 0,
+  capReached: false,
+  prompt: null,
+  message: null,
+  raftStartedAt: null,
+  reel: null,
+});
+
 export interface UiState {
   connection: ConnectionStatus;
   playerName: string;
@@ -63,6 +105,10 @@ export interface UiState {
   inventoryVersion: number;
   /** null in town. */
   house: HouseInfo | null;
+  /** null unless you're at a mini-game. */
+  game: GameUi | null;
+  /** The list of mini-games is open. */
+  gamesOpen: boolean;
   /** The world map (town, your home, friends' and public homes) is open. */
   mapOpen: boolean;
   /** The widget picker (clock, Pomodoro, radio, todo, notes) is open. */
@@ -86,6 +132,8 @@ export interface UiState {
   focus: ActiveFocus | null;
   focusSummary: FocusEndedMessage | null;
   focusError: string | null;
+  /** The always-on-top mini timer window, while it's open. */
+  miniTimer: Window | null;
   /** Played by touch (joystick and tappable prompts) rather than keyboard and mouse. */
   touch: boolean;
 }
@@ -125,6 +173,8 @@ const initial: UiState = {
   inventoryOpen: false,
   inventoryVersion: 0,
   house: null,
+  game: null,
+  gamesOpen: false,
   mapOpen: false,
   widgetPickerOpen: false,
   transition: { phase: 'idle', label: '' },
@@ -140,6 +190,7 @@ const initial: UiState = {
   focus: null,
   focusSummary: null,
   focusError: null,
+  miniTimer: null,
   touch: typeof matchMedia === 'function' && matchMedia('(pointer: coarse)').matches,
 };
 

@@ -590,3 +590,42 @@ playlistLength` (`shared/src/radio.ts`, unit-tested) and plays that track from t
   trim the bottom stack and let tall panels scroll. Page zoom is off (pinch zooms the world).
 - A web app manifest and icons (`tools/art/app_icons.py`, built from the favicon) let players
   add it to the home screen and play full screen.
+
+## Working in other windows (2026-11-01)
+
+- Deviation from the brief (SPEC, focus rule 3): a minute no longer needs the tab to be visible.
+  The point of the app is to work, and people work in other windows. "Audio-only" is gone, since
+  every session now behaves that way.
+- The input rule also changed. The browser can't see keystrokes in other apps, so "no input for
+  10 minutes" would have ended every real work session. It now only applies while the game window
+  is in front and focused.
+- That leaves "still here?" as the check on someone walking away, so it has to reach them: a chime,
+  a system notification if allowed, the tab title, and the mini timer. Minutes keep counting for 5
+  minutes after the question, then pause until it's answered, so a person glancing away isn't
+  penalised and an empty room stops earning. This is weaker than before (someone can answer every
+  25 minutes without working), which is accepted: the daily cap still bounds it.
+- The mini timer uses Document Picture-in-Picture, which only desktop Chrome and Edge have. It's
+  optional: elsewhere the timer simply keeps running in the background.
+- Phones can't do this: they suspend background pages, so beats stop. The wake lock keeps the
+  screen on instead, and the panel says to keep the page open.
+
+## Mini-games (2026-11-01)
+
+- Four games, each with its own generated map (`tools/art/build_games.py`) and a `game` room
+  filtered by game: fishing, rafting, butterfly catching and treasure digging. The brief asked for
+  fishing, rafting and at least two more; these two were picked to add something different
+  (chasing moving targets, and deduction) with art the pack already has, and all four work with
+  one action button, so they play the same on a phone.
+- **Coins come from time played, not from scores.** The server watches each minute, and one with
+  at least 3 real game actions pays half a focus minute through `award_play` (same streak
+  multiplier, so exactly half at any streak). Scores are only for show, so nothing a client claims
+  can turn into coins, and a cheating client gets no more than an honest one.
+- Paid play is capped at 120 minutes a day (the brief didn't ask for this): without a cap, games
+  could quietly become the main way to earn, in a game about focusing. A minute doesn't pay while
+  a focus session is running in another tab, or in an older game tab.
+- All input is one `game:use` intent; the server decides what it means from the player's state. A
+  raft is an ordinary player whose moves are checked against the water at raft speed, so banks and
+  rocks are as solid as walls, and run times come from positions the server already accepted.
+- "Up" paddles against the current, because a raft that could only go downstream could be stuck
+  for good in a pocket between a rock and the bank.
+- Scores last for the visit; nothing about them is saved. Bests and leaderboards can come later.

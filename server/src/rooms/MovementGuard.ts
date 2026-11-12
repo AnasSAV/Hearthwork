@@ -2,6 +2,7 @@ import type { Client } from 'colyseus';
 import {
   MOVE_MIN_INTERVAL_MS,
   ServerMsg,
+  PLAYER_SPEED,
   validateMove,
   type CollisionGrid,
   type MoveCorrectMessage,
@@ -27,6 +28,7 @@ export class MovementGuard {
   constructor(
     private readonly grid: () => CollisionGrid,
     private readonly now: () => number,
+    private readonly speed: () => number = () => PLAYER_SPEED,
   ) {}
 
   join(sessionId: string): void {
@@ -61,7 +63,7 @@ export class MovementGuard {
     }
 
     const from = { x: player.x, y: player.y };
-    const check = validateMove(this.grid(), from, msg, now - track.at);
+    const check = validateMove(this.grid(), from, msg, now - track.at, this.speed());
     if (!check.ok) {
       log.warn('move rejected', {
         sessionId: client.sessionId,

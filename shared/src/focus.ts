@@ -5,6 +5,7 @@ import {
   FOCUS_BEAT_MIN_INTERVAL_MS,
   FOCUS_MAX_INPUT_IDLE_SEC,
   FOCUS_PRESENCE_EVERY_MIN,
+  FOCUS_PRESENCE_GRACE_MIN,
   type FocusBlock,
 } from './constants.js';
 
@@ -18,17 +19,16 @@ export interface FocusTracker {
   /** Server time (ms) of the last accepted beat, or of the start. */
   lastBeatAt: number;
   plannedMin: FocusBlock | null;
-  /** Player opted out of the "tab must be visible" rule (listening, not looking). */
-  audioOnly: boolean;
   verifiedMin: number;
   /** Verified minutes since the player last proved they're present (start or "still here?"). */
   minutesSincePresence: number;
-  /** A "still here?" prompt is open; no minute counts until it's answered. */
+  /** A "still here?" prompt is open; minutes stop counting if it goes unanswered too long. */
   awaitingPresence: boolean;
 }
 
 export interface Beat {
-  visible: boolean;
+  /** The game window is in front and focused, so the browser can see the player's input. */
+  inGame: boolean;
   lastInputAgoSec: number;
 }
 
@@ -37,29 +37,33 @@ export type BeatOutcome =
   | { kind: 'counted' }
   | {
       kind: 'not_counted';
-      reason: 'late' | 'presence_pending' | 'hidden' | 'idle' | 'ahead_of_clock';
+      reason: 'late' | 'presence_pending' | 'idle' | 'ahead_of_clock';
     };
 
-export function createTracker(
-  now: number,
-  plannedMin: FocusBlock | null,
-  audioOnly: boolean,
-): FocusTracker {
+export function createTracker(now: number, plannedMin: FocusBlock | null): FocusTracker {
   return {
     startedAt: now,
     lastBeatAt: now,
     plannedMin,
-    audioOnly,
     verifiedMin: 0,
     minutesSincePresence: 0,
     awaitingPresence: false,
   };
 }
 
+/** The "still here?" question went unanswered past its grace period: the timer is paused. */
+export function isPresencePaused(t: FocusTracker): boolean {
+  return (
+    t.awaitingPresence &&
+    t.minutesSincePresence >= FOCUS_PRESENCE_EVERY_MIN + FOCUS_PRESENCE_GRACE_MIN
+  );
+}
+
 /**
  * Decide whether a heartbeat verifies one more minute. A minute counts only if the beat
- * arrived on time, no presence check is pending, the tab was visible (or audio-only mode is
- * on), the player had input recently, and the session is old enough to have that many minutes.
+ * arrived on time, the timer isn't paused by an unanswered "still here?", the player had input
+ * recently if the game window is the one in front (working in another window is the point, and
+ * the browser can't see input there), and the session is old enough to have that many minutes.
  */
 export function applyBeat(
   t: FocusTracker,
@@ -77,9 +81,8 @@ export function applyBeat(
   });
 
   if (sinceLast > FOCUS_BEAT_LATE_MS) return notCounted('late');
-  if (t.awaitingPresence) return notCounted('presence_pending');
-  if (!beat.visible && !t.audioOnly) return notCounted('hidden');
-  if (beat.lastInputAgoSec > FOCUS_MAX_INPUT_IDLE_SEC) return notCounted('idle');
+  if (isPresencePaused(t)) return notCounted('presence_pending');
+  if (beat.inGame && beat.lastInputAgoSec > FOCUS_MAX_INPUT_IDLE_SEC) return notCounted('idle');
   // Never verify more minutes than have elapsed (10 s slack for network jitter).
   const elapsedMin = Math.floor((now - t.startedAt + 10_000) / 60_000);
   if (t.verifiedMin + 1 > elapsedMin) return notCounted('ahead_of_clock');

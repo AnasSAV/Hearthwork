@@ -62,7 +62,7 @@ check(wallets[0]?.coins === 0, 'new player starts with 0 coins');
 
 // Starting away from the desk is refused.
 const refused = next<{ message: string }>(room, ServerMsg.FocusError);
-room.send(ClientMsg.FocusStart, { deskId: DESK, plannedMin: 25, audioOnly: false });
+room.send(ClientMsg.FocusStart, { deskId: DESK, plannedMin: 25 });
 check(/desk/i.test((await refused).message), 'focus:start away from the desk is refused');
 
 // Walk to the desk with legal moves along a path through the town.
@@ -92,7 +92,7 @@ check(corrections === 0 && Math.abs(me().x - seat.x) < 1, `walked to ${DESK} wit
 
 // Start a 25-minute block.
 const firstState = next<FocusStateMessage>(room, ServerMsg.FocusState);
-room.send(ClientMsg.FocusStart, { deskId: DESK, plannedMin: 25, audioOnly: false });
+room.send(ClientMsg.FocusStart, { deskId: DESK, plannedMin: 25 });
 const started = await firstState;
 await sleep(300);
 check(
@@ -117,7 +117,7 @@ check(
 
 // A beat after 5 s is ignored (no state update).
 await sleep(5_000);
-room.send(ClientMsg.FocusBeat, { visible: true, lastInputAgoSec: 1 });
+room.send(ClientMsg.FocusBeat, { inGame: true, lastInputAgoSec: 1 });
 let early = false;
 await next(room, ServerMsg.FocusState, 1_500).then(
   () => (early = true),
@@ -131,7 +131,7 @@ let state: FocusStateMessage = started;
 for (let minute = 1; minute <= 5; minute++) {
   await sleep(startedAt + minute * 61_000 - Date.now());
   const pending = next<FocusStateMessage>(room, ServerMsg.FocusState, 10_000);
-  room.send(ClientMsg.FocusBeat, { visible: true, lastInputAgoSec: 3 });
+  room.send(ClientMsg.FocusBeat, { inGame: true, lastInputAgoSec: 3 });
   state = await pending;
   log(`beat ${minute}: verified ${state.verifiedMin} min, +${state.coinsEarned} coins`);
 }

@@ -116,6 +116,8 @@ export function HUD() {
   const inventoryOpen = useUi((s) => s.inventoryOpen);
   const characterOpen = useUi((s) => s.characterOpen);
   const widgetsOpen = useUi((s) => s.widgetPickerOpen);
+  const gamesOpen = useUi((s) => s.gamesOpen);
+  const atGame = useUi((s) => s.game !== null);
   const editing = useEditor((s) => s.active);
   const timerOpen = useUi((s) => s.timerOpen);
   const touch = useUi((s) => s.touch);
@@ -184,6 +186,9 @@ export function HUD() {
         {!focusing && (
           <Tool icon="map" label="Map (M)" onClick={toggle('mapOpen')} active={mapOpen} />
         )}
+        {!focusing && (
+          <Tool icon="game" label="Games" onClick={toggle('gamesOpen')} active={gamesOpen} />
+        )}
         <Tool icon="friends" label="Friends" onClick={toggle('friendsOpen')} active={friendsOpen} />
         <Tool
           icon="widgets"
@@ -216,14 +221,14 @@ export function HUD() {
       )}
       {nearDesk && !focusing && !timerOpen && <Prompt touch={touch}>Sit down and focus</Prompt>}
       {nearShop && !shopOpen && <Prompt touch={touch}>Enter the Furniture Shop</Prompt>}
-      {!editing && touch && (
+      {!editing && !atGame && touch && (
         <div className="controls touch">
           <span>drag anywhere to walk</span>
           <span>pinch to zoom</span>
           <span>tap a player to whisper</span>
         </div>
       )}
-      {!editing && !touch && (
+      {!editing && !atGame && !touch && (
         <div className="controls">
           <span>
             <kbd>WASD</kbd>walk

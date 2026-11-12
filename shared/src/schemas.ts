@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { FOCUS_BLOCKS, type FocusBlock } from './constants.js';
+import { GAME_IDS } from './games.js';
 
 export const DIRECTIONS = ['down', 'up', 'left', 'right'] as const;
 export type Direction = (typeof DIRECTIONS)[number];
@@ -28,6 +29,8 @@ export const ClientMsg = {
   Emote: 'emote',
   /** Started or stopped typing in chat (shows "…" over your head). */
   Typing: 'typing',
+  /** The action button in a mini-game. The server decides what it means right now. */
+  GameUse: 'game:use',
 } as const;
 
 /** Server → client message type names. */
@@ -56,6 +59,10 @@ export const ServerMsg = {
   Whisper: 'whisper',
   /** Someone popped an emote (EmoteMessage). */
   Emote: 'emote',
+  /** Something happened in your mini-game (GameEvent). */
+  GameEvent: 'game:event',
+  /** Your score and earnings in this visit to a mini-game (GameStatusMessage). */
+  GameStatus: 'game:status',
 } as const;
 
 export interface ClockMessage {
@@ -84,18 +91,20 @@ export const focusStartSchema = z.strictObject({
   /** Name of the desk object in the map the player is sitting at. */
   deskId: z.string().min(1).max(40),
   plannedMin: z.union([...FOCUS_BLOCKS.map((b) => z.literal(b)), z.null()]),
-  audioOnly: z.boolean(),
 });
 export type FocusStartMessage = z.infer<typeof focusStartSchema>;
 
 export const focusBeatSchema = z.strictObject({
-  visible: z.boolean(),
+  inGame: z.boolean(),
   lastInputAgoSec: z.number().finite().min(0).max(86_400),
 });
 export type FocusBeatMessage = z.infer<typeof focusBeatSchema>;
 
 export const townJoinSchema = z.object({});
 export type TownJoinOptions = z.infer<typeof townJoinSchema>;
+
+export const gameJoinSchema = z.object({ game: z.enum(GAME_IDS) });
+export type GameJoinOptions = z.infer<typeof gameJoinSchema>;
 
 export const houseJoinSchema = z.object({
   ownerId: z.uuid(),
@@ -123,10 +132,11 @@ export interface WalletMessage {
 export interface FocusStateMessage {
   sessionId: string;
   plannedMin: FocusBlock | null;
-  audioOnly: boolean;
   verifiedMin: number;
   coinsEarned: number;
   awaitingPresence: boolean;
+  /** "Still here?" went unanswered too long: minutes aren't counting until it's answered. */
+  paused: boolean;
   /** Why the last beat didn't count, if it didn't. */
   lastMiss: string | null;
 }

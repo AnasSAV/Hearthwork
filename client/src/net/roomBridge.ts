@@ -24,8 +24,12 @@ export function sendToRoom(type: string, payload?: unknown): void {
 }
 
 export const roomActions = {
-  startFocus(deskId: string, plannedMin: FocusBlock | null, audioOnly: boolean): void {
-    const msg: FocusStartMessage = { deskId, plannedMin, audioOnly };
+  /** The action button in a mini-game. */
+  gameUse(): void {
+    send?.(ClientMsg.GameUse);
+  },
+  startFocus(deskId: string, plannedMin: FocusBlock | null): void {
+    const msg: FocusStartMessage = { deskId, plannedMin };
     send?.(ClientMsg.FocusStart, msg);
   },
   beat(msg: FocusBeatMessage): void {

@@ -46,8 +46,9 @@ spend focused turns into coins for furniture, a garden and a bigger house.
   around, chat, whisper and send emotes in real time.
 - Sit at any table and press <kbd>E</kbd> to focus. People at the same table share one group
   Pomodoro and see each other's timers.
-- 25- and 50-minute blocks, an optional audio-only mode, and a "still here?" check every 25
-  minutes.
+- 25- and 50-minute blocks and open sessions. The timer keeps going when you minimize the window
+  or work in other apps, with a small always-on-top mini timer in Chrome and Edge, and a "still
+  here?" check every 25 minutes.
 
 **Earn and build**
 
@@ -259,6 +260,11 @@ players.
 | <kbd>1</kbd>–<kbd>0</kbd>         | Emotes                                 |
 | <kbd>I</kbd>                      | Inventory                              |
 | <kbd>+</kbd> <kbd>−</kbd> / wheel | Zoom                                   |
+
+**Mini-games.** The Games button takes you to four maps of their own: fish at **Mirror Lake**,
+race **Rushwater Rapids** on a raft, chase butterflies across **Butterfly Meadow**, and dig for
+buried treasure at **Treasure Cove**. They use the same controls, with one action button (E, or
+a tap). Every minute you really play earns half what a focus minute does, up to 120 minutes a day.
 
 **Phones and tablets.** Put a thumb down anywhere on the world and drag to walk (a joystick
 appears under it), and tap the prompts that pop up (sit and focus, enter the shop). Pinch to

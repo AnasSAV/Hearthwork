@@ -4,6 +4,7 @@ export * from './state.js';
 export * from './tiled.js';
 export * from './movement.js';
 export * from './focus.js';
+export * from './games.js';
 export * from './catalog.js';
 export * from './house.js';
 export * from './chat.js';

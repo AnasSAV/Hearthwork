@@ -167,7 +167,6 @@ const deskItem = friendRoom.state.items.find((i) => i.itemId === 'desk_study')!;
 friendRoom.send(ClientMsg.FocusStart, {
   deskId: `${deskItem.id}:0`,
   plannedMin: 25,
-  audioOnly: false,
 });
 const focus = await focusP;
 await sleep(300);

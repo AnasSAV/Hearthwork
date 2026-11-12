@@ -5,6 +5,7 @@ import {
   DIRECTIONS,
   facingFor,
   MOVE_SEND_INTERVAL_MS,
+  PLAYER_SPEED,
   moveCorrectSchema,
   ServerMsg,
   stepMovement,
@@ -19,6 +20,7 @@ import {
   type ClockMessage,
   type PlayerState,
   type TownState,
+  type Vec2,
   type WalletMessage,
   type EmoteMessage,
   type WhisperMessage,
@@ -27,6 +29,7 @@ import {
 import { PlayerSprite } from '../game/PlayerSprite';
 import { chat, type Partner } from '../net/chat';
 import { syncClock } from '../net/clock';
+import { alertFocusEnded, alertFocusState } from '../net/focusAlerts';
 import { startHeartbeat, stopHeartbeat } from '../net/heartbeat';
 import { attachRoomSender } from '../net/roomBridge';
 import { sfx } from '../audio/sfx';
@@ -79,13 +82,45 @@ export abstract class WorldScene<S extends object> extends Phaser.Scene {
   /** Called when joining failed for good (e.g. refused); default does nothing. */
   protected onJoinFailed(_err: unknown): void {}
 
-  /** Should the local player stand still this frame? */
-  protected movementLocked(): boolean {
+  /** Is something in front of the world (a panel, a session), so input shouldn't act on it? */
+  protected inputBlocked(): boolean {
     const ui = uiStore.get();
     return Boolean(
-      ui.focus || ui.shopOpen || ui.houseSettingsOpen || ui.friendsOpen || ui.statsOpen,
+      ui.focus ||
+      ui.shopOpen ||
+      ui.houseSettingsOpen ||
+      ui.friendsOpen ||
+      ui.statsOpen ||
+      ui.gamesOpen,
     );
   }
+
+  /** Should the local player stand still this frame? */
+  protected movementLocked(): boolean {
+    return this.inputBlocked();
+  }
+
+  /** Input as the world turns it into movement (a river adds its current). */
+  protected steer(input: Vec2): Vec2 {
+    return input;
+  }
+
+  /** What the local player collides with. */
+  protected moveGrid(): CollisionGrid {
+    return this.grid;
+  }
+
+  protected moveSpeed(): number {
+    return PLAYER_SPEED;
+  }
+
+  /** Does the local player's sprite walk when moving? */
+  protected walkingAnim(): boolean {
+    return true;
+  }
+
+  /** A player's synced state changed. */
+  protected onPlayerState(_sessionId: string, _player: PlayerState, _sprite: PlayerSprite): void {}
 
   create(): void {
     this.sprites = new Map();
@@ -129,7 +164,7 @@ export abstract class WorldScene<S extends object> extends Phaser.Scene {
 
   /** E, or a tap on a prompt: use what's here (shop, door…), or sit down at a desk. */
   private readonly interact = (): void => {
-    if (!this.local || this.movementLocked()) return;
+    if (!this.local || this.inputBlocked()) return;
     if (this.use()) return;
     const ui = uiStore.get();
     if (ui.nearDesk && !ui.focus) uiStore.set({ timerOpen: true, focusSummary: null });
@@ -144,6 +179,7 @@ export abstract class WorldScene<S extends object> extends Phaser.Scene {
       ui.houseSettingsOpen ||
       ui.friendsOpen ||
       ui.statsOpen ||
+      ui.gamesOpen ||
       ui.mapOpen
     ) {
       uiStore.set({
@@ -152,6 +188,7 @@ export abstract class WorldScene<S extends object> extends Phaser.Scene {
         houseSettingsOpen: false,
         friendsOpen: false,
         statsOpen: false,
+        gamesOpen: false,
         mapOpen: false,
       });
     } else if (!ui.focus) uiStore.set({ timerOpen: false, focusError: null });
@@ -266,7 +303,9 @@ export abstract class WorldScene<S extends object> extends Phaser.Scene {
             this.dir = asDirection(player.dir);
             sprite.setMotion(this.dir, false);
           }
+          this.onPlayerState(sessionId, player, sprite);
         });
+        this.onPlayerState(sessionId, player, sprite);
         return;
       }
       // Click a nearby player to whisper to them.
@@ -282,7 +321,9 @@ export abstract class WorldScene<S extends object> extends Phaser.Scene {
         sprite.setLook(player.avatar, player.name);
         sprite.setStatus(player.status, player.focusMin);
         sprite.setTyping(player.typing);
+        this.onPlayerState(sessionId, player, sprite);
       });
+      this.onPlayerState(sessionId, player, sprite);
     });
 
     callbacks.onRemove('players', (_player: PlayerState, sessionId: string) => {
@@ -319,6 +360,7 @@ export abstract class WorldScene<S extends object> extends Phaser.Scene {
     });
     room.onMessage(ServerMsg.FocusState, (msg: FocusStateMessage) => {
       if (!uiStore.get().focus) startHeartbeat();
+      alertFocusState(uiStore.get().focus, msg);
       uiStore.set({
         focus: { ...msg, receivedAt: Date.now() },
         timerOpen: false,
@@ -328,6 +370,7 @@ export abstract class WorldScene<S extends object> extends Phaser.Scene {
     });
     room.onMessage(ServerMsg.FocusEnded, (msg: FocusEndedMessage) => {
       stopHeartbeat();
+      alertFocusEnded(msg);
       uiStore.set({ focus: null, focusSummary: msg, timerOpen: false });
     });
     room.onMessage(ServerMsg.FocusError, (msg: FocusErrorMessage) => {
@@ -415,18 +458,24 @@ export abstract class WorldScene<S extends object> extends Phaser.Scene {
         (cursors.up.isDown || wasd.W.isDown ? 1 : 0),
     };
     // Keys win over the on-screen joystick when both are used.
-    const input = keys.x !== 0 || keys.y !== 0 ? keys : { x: stick.x, y: stick.y };
+    const input = this.steer(keys.x !== 0 || keys.y !== 0 ? keys : { x: stick.x, y: stick.y });
     this.heldInput = input;
     const wantsToMove = input.x !== 0 || input.y !== 0;
     // Cap the step so a long frame (tab refocus) can't fling the player across the map.
-    const next = stepMovement(this.grid, this.pos, input, Math.min(delta, 50));
+    const next = stepMovement(
+      this.moveGrid(),
+      this.pos,
+      input,
+      Math.min(delta, 50),
+      this.moveSpeed(),
+    );
     const moved = next.x !== this.pos.x || next.y !== this.pos.y;
     this.pos = next;
     this.dir = facingFor(input, this.dir);
     this.moving = wantsToMove && moved;
 
     this.local.placeAt(this.pos.x, this.pos.y);
-    this.local.setMotion(this.dir, wantsToMove);
+    this.local.setMotion(this.dir, wantsToMove && this.walkingAnim());
     this.sendMove(time);
     this.afterMove();
   }

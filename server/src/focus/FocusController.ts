@@ -178,7 +178,6 @@ export class FocusController {
         userId: auth.userId,
         deskId: desk.id,
         plannedMin,
-        audioOnly: msg.audioOnly,
         sink: this.sinkFor(client.sessionId),
         now: Date.now,
       });
@@ -210,7 +209,6 @@ export class FocusController {
         sessionId: session.sessionId,
         desk: desk.id,
         plannedMin,
-        audioOnly: msg.audioOnly,
         table: tableId,
       });
     } catch (err) {

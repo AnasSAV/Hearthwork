@@ -14,11 +14,13 @@ import { CharacterPanel } from './ui/CharacterPanel';
 import { ChatPanel } from './ui/ChatPanel';
 import { EditDrawer } from './ui/EditDrawer';
 import { FriendsPanel } from './ui/FriendsPanel';
+import { GamePanel, GamesPanel } from './ui/GamePanel';
 import { HouseBar } from './ui/HouseBar';
 import { HouseSettings } from './ui/HouseSettings';
 import { InventoryDrawer } from './ui/InventoryDrawer';
 import { MapControls } from './ui/MapControls';
 import { MapPanel } from './ui/MapPanel';
+import { MiniTimer } from './ui/MiniTimer';
 import { Transition } from './ui/Transition';
 import { WidgetLayer, WidgetPicker } from './ui/widgets/WidgetLayer';
 import { ShopPanel } from './ui/ShopPanel';
@@ -56,9 +58,12 @@ function Game() {
         <MapControls />
         <TouchStick />
         {!editing && <FocusPanel />}
+        <MiniTimer />
         {editing ? <EditDrawer /> : <InventoryDrawer />}
         <ShopPanel />
         <HouseSettings />
+        <GamePanel />
+        <GamesPanel />
         <FriendsPanel />
         <StatsPanel />
         <CharacterPanel />
