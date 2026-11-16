@@ -7,7 +7,7 @@
 Sit down at a café table next to other people, start a Pomodoro, and every minute you actually
 spend focused turns into coins for furniture, a garden and a bigger house.
 
-[![CI](https://github.com/AnasSAV/Focus-Town/actions/workflows/ci.yml/badge.svg)](https://github.com/AnasSAV/Focus-Town/actions/workflows/ci.yml)
+[![CI](https://github.com/AnasSAV/Hearthwork/actions/workflows/ci.yml/badge.svg)](https://github.com/AnasSAV/Hearthwork/actions/workflows/ci.yml)
 ![TypeScript](https://img.shields.io/badge/TypeScript-6.0-3178c6?logo=typescript&logoColor=white)
 ![Phaser](https://img.shields.io/badge/Phaser-4-8a4baf)
 ![React](https://img.shields.io/badge/React-19-61dafb?logo=react&logoColor=black)
@@ -94,8 +94,8 @@ spend focused turns into coins for furniture, a garden and a bigger house.
 
 <table>
   <tr>
-    <td width="50%"><img src="docs/images/focus.webp" alt="Focusing at a café table: the session ring, group table timer and widgets"><br><sub><b>Focus mode.</b> The verified timer, a group table and your widgets; the rest of the interface fades back.</sub></td>
-    <td width="50%"><img src="docs/images/home.webp" alt="A decorated level-2 home with a bed, bookshelves, a piano and a study desk"><br><sub><b>Your home.</b> Furniture bought with focus coins, placed with the in-game editor.</sub></td>
+    <td width="50%"><img src="docs/images/focus.webp" alt="Focusing at a study table among other players: the session ring and widgets"><br><sub><b>Focus mode.</b> The verified timer, the people focusing around you and your widgets; the rest of the interface fades back.</sub></td>
+    <td width="50%"><img src="docs/images/home.webp" alt="A decorated level-3 home with two rooms: beds, bookshelves, a piano and study desks"><br><sub><b>Your home.</b> Furniture bought with focus coins, placed with the in-game editor; level 3 adds a second room.</sub></td>
   </tr>
   <tr>
     <td><img src="docs/images/yard.webp" alt="The front yard with a fountain, trees, flowers, lamps and a garden table"><br><sub><b>The yard.</b> Gardens are decorated the same way; the signpost leads to town.</sub></td>
@@ -259,8 +259,8 @@ More diagrams (rooms, data model, security model) are in
 ### Run it locally
 
 ```bash
-git clone https://github.com/AnasSAV/Focus-Town.git
-cd Focus-Town
+git clone https://github.com/AnasSAV/Hearthwork.git
+cd Hearthwork
 npm install
 supabase start      # Postgres, Auth and the REST API in Docker
 ```
