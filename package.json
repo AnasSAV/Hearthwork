@@ -3,13 +3,13 @@
   "version": "0.1.0",
   "description": "A cozy multiplayer pixel town where verified focus time earns coins for decorating your home.",
   "author": "AnasSAV (https://github.com/AnasSAV)",
-  "homepage": "https://github.com/AnasSAV/Focus-Town#readme",
+  "homepage": "https://github.com/AnasSAV/Hearthwork#readme",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/AnasSAV/Focus-Town.git"
+    "url": "git+https://github.com/AnasSAV/Hearthwork.git"
   },
   "bugs": {
-    "url": "https://github.com/AnasSAV/Focus-Town/issues"
+    "url": "https://github.com/AnasSAV/Hearthwork/issues"
   },
   "keywords": [
     "pomodoro",
