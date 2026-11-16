@@ -67,6 +67,16 @@ export interface Kit {
   };
 }
 
+/** How much of the grid a piece takes (its footprint's extent), which can be less than its picture. */
+export function footprintSize(p: Prefab): { w: number; h: number } {
+  const cols = p.base.map(([c]) => c);
+  const rows = p.base.map(([, r]) => r);
+  return {
+    w: Math.max(...cols) - Math.min(...cols) + 1,
+    h: Math.max(...rows) - Math.min(...rows) + 1,
+  };
+}
+
 export const CATEGORIES: { id: Category; label: string }[] = [
   { id: 'buildings', label: 'Buildings' },
   { id: 'study', label: 'Study tables' },

@@ -2,7 +2,7 @@ import kitJson from '../kit/kit.json';
 import kitPng from '../kit/kit.png';
 import { compile, type Issue } from './compile';
 import { groundFrames } from './ground';
-import { CATEGORIES, T, type Cell, type Kit, type Prefab } from './kit';
+import { CATEGORIES, footprintSize, T, type Cell, type Kit, type Prefab } from './kit';
 import {
   blankLayout,
   GROUND,
@@ -484,8 +484,9 @@ function buildCards(): void {
     const card = document.createElement('div');
     card.className = 'piece-card';
     card.dataset.prefab = p.id;
-    card.title = `${p.name} (${p.w}×${p.h})`;
-    card.innerHTML = `<div class="thumb"><img alt="" src="${thumbnail(p)}"></div><div class="name">${p.name}</div><div class="size">${p.w}×${p.h}</div>`;
+    const size = footprintSize(p);
+    card.title = `${p.name} (${size.w}×${size.h})`;
+    card.innerHTML = `<div class="thumb"><img alt="" src="${thumbnail(p)}"></div><div class="name">${p.name}</div><div class="size">${size.w}×${size.h}</div>`;
     card.addEventListener('pointerdown', (e) => startTrayDrag(e, p));
     cards.append(card);
   }
@@ -569,7 +570,8 @@ function showInspector(): void {
   const f = town.prefabOf(selected);
   panel.hidden = false;
   $('insp-name').textContent = f.name;
-  const extras: string[] = [`${f.w}×${f.h} tiles`, `at ${selected.x}, ${selected.y}`];
+  const size = footprintSize(f);
+  const extras: string[] = [`${size.w}×${size.h} tiles`, `at ${selected.x}, ${selected.y}`];
   if (f.seats) extras.push(`${f.seats.length} seats${f.group ? ', one shared Pomodoro' : ''}`);
   if (f.building?.doorCol !== undefined) extras.push('its door opens the shop');
   $('insp-info').textContent = extras.join(' · ');

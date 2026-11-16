@@ -159,9 +159,11 @@ def table_pair_image(table_name):
 TABLES = [("Camping_16x16_Table_5", "Blue"), ("Camping_16x16_Table_6", "Green"),
           ("Camping_16x16_Table_7", "Wooden"), ("Camping_16x16_Table_8", "Café")]
 for table_name, look in TABLES:
-    im, solid = table_pair_image(table_name)
+    im, _ = table_pair_image(table_name)
+    # 4x1 on the grid: everything is drawn on the seat row except a 3 px sliver (chair tops and
+    # the table's top edge), which overhangs the row above like a tree top does.
     piece(f"desk-pair-{look.lower().replace('é', 'e')}", f"{look} table, 2 seats", "study", im,
-          solid=solid, kind="desks",
+          solid=[(1, 1), (2, 1)], base=[(c, 1) for c in range(4)], kind="desks",
           seats=[{"c": 0, "r": 1, "facing": "right"}, {"c": 3, "r": 1, "facing": "left"}])
 
 # A group table: three pairs in a column, six seats sharing one Pomodoro.
@@ -170,16 +172,18 @@ ph = size(pair)[1]
 group = Image.new("RGBA", (4 * T, (4 + ph) * T))
 for k in range(3):
     group.alpha_composite(pair, (0, 2 * k * T))
-piece("group-table", "Group table, 6 seats", "study", group,
-      solid=[(c, r + 2 * k) for k in range(3) for c, r in pair_solid], kind="desks", group=True,
+group_solid = [(c, r + 2 * k) for k in range(3) for c, r in pair_solid]
+piece("group-table", "Group table, 6 seats", "study", group, solid=group_solid,
+      base=group_solid + [(c, 1 + 2 * k) for k in range(3) for c in (0, 3)], kind="desks", group=True,
       seats=[{"c": c, "r": 1 + 2 * k, "facing": f} for k in range(3) for c, f in ((0, "right"), (3, "left"))])
 # A café row: three pairs side by side, also one shared Pomodoro.
 cafe, cafe_solid = table_pair_image("Camping_16x16_Table_8")
 row = Image.new("RGBA", (16 * T, size(cafe)[1] * T))
 for k in range(3):
     row.alpha_composite(cafe, (6 * k * T, 0))
-piece("cafe-row", "Café row, 6 seats", "study", row,
-      solid=[(c + 6 * k, r) for k in range(3) for c, r in cafe_solid], kind="desks", group=True,
+row_solid = [(c + 6 * k, r) for k in range(3) for c, r in cafe_solid]
+piece("cafe-row", "Café row, 6 seats", "study", row, solid=row_solid,
+      base=row_solid + [(c + 6 * k, 1) for k in range(3) for c in (0, 3)], kind="desks", group=True,
       seats=[{"c": c + 6 * k, "r": 1, "facing": f} for k in range(3) for c, f in ((0, "right"), (3, "left"))])
 
 # Trees: drawn by the game as swaying sprites; only the trunk is solid.
