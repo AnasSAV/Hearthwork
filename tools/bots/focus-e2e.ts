@@ -141,14 +141,15 @@ const wallet = wallets.at(-1)!;
 check(wallet.coins > 0, `coins rose to ${wallet.coins} after 5 minutes`);
 check(me().focusMin === 5, 'focus minutes shown above the head');
 
-// A hidden-tab beat doesn't count.
+// Sitting in front of the game without touching anything for 10 minutes doesn't count.
+// (Working in another window does: the browser can't see that input.)
 await sleep(startedAt + 6 * 61_000 - Date.now());
-const hidden = next<FocusStateMessage>(room, ServerMsg.FocusState, 10_000);
-room.send(ClientMsg.FocusBeat, { visible: false, lastInputAgoSec: 3 });
-const afterHidden = await hidden;
+const idle = next<FocusStateMessage>(room, ServerMsg.FocusState, 10_000);
+room.send(ClientMsg.FocusBeat, { inGame: true, lastInputAgoSec: 700 });
+const afterIdle = await idle;
 check(
-  afterHidden.verifiedMin === 5 && afterHidden.lastMiss === 'hidden',
-  'hidden-tab minute not counted',
+  afterIdle.verifiedMin === 5 && afterIdle.lastMiss === 'idle',
+  'idle minute in front of the game not counted',
 );
 
 // End the session.

@@ -307,8 +307,9 @@ there is no build step between them.
 | `npm run e2e:focus`               | A real 6½-minute focus session through the running server             |
 | `npm run load -- --bots 30`       | Load test: signed-in bots walking and chatting                        |
 | `npm run check:ledger`            | Verify every balance equals its coin ledger                           |
-| `npm run editor`                  | Town editor on http://127.0.0.1:5180 (local only)                     |
+| `npm run editor`                  | Town Builder on http://127.0.0.1:5180 (local only)                    |
 | `npm run map:town -- <pack dir>`  | Rebuild the town map and tileset from the LimeZu packs                |
+| `npm run art:town-kit -- <dir>`   | Rebuild the Town Builder's pieces from the LimeZu packs               |
 | `npm run art:characters -- <dir>` | Rebuild the character part atlases                                    |
 | `npm run art:interiors -- <dir>`  | Rebuild furniture and room sprites                                    |
 | `npm run art:ui -- <dir>`         | Rebuild emote, timer and typing bubbles                               |
@@ -332,15 +333,15 @@ ledger, and keep the free Supabase project awake.
 
 ## Town editor
 
-<img src="docs/images/editor.webp" alt="The town editor: layer list and tile palette on the left, the map with object boxes in the middle, selection tools on the right" width="100%">
+<img src="docs/images/editor.webp" alt="The Town Builder: the town in the middle, a tray of buildings along the bottom" width="100%">
 
-`npm run editor` opens a local-only layout editor for the town map (bound to 127.0.0.1,
-never deployed). Select part of the town and drag it somewhere else along with its desks,
-trees, walls and doors. You can also paint tiles and walls, place and edit desks, trees and
-animations, and resize the map. Before saving, it checks that the spawn point is clear and
-that every desk and door can be reached. Saving writes the Tiled JSON and `.tmx` and
-regenerates the world-map picture; in development the game server reloads the new map
-automatically. See [docs/SETUP.md](docs/SETUP.md#editing-the-town-optional).
+`npm run editor` opens the **Town Builder**, a local-only page for laying out the town (bound
+to 127.0.0.1, never deployed). Drag buildings, study tables, trees, benches and more from the
+tray onto the town, drag them around, and paint grass, paving, water or sand. Green means a
+piece fits, red means it doesn't. Saving checks the town still works (a reachable shop, an
+arrival point, reachable seats) and writes the map the game loads; in development the game
+server picks up the new town by itself. See
+[docs/SETUP.md](docs/SETUP.md#editing-the-town-optional).
 
 ## Deployment
 

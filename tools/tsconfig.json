@@ -4,5 +4,5 @@
     "types": ["node"]
   },
   "include": ["**/*.ts", "../supabase/tests/**/*.ts"],
-  "exclude": ["map-editor"]
+  "exclude": ["town-builder"]
 }

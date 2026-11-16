@@ -539,21 +539,11 @@ playlistLength` (`shared/src/radio.ts`, unit-tested) and plays that track from t
 
 ### Town editor (local only)
 
-- The brief has no map tooling for the owner beyond Tiled; reshaping the town by hand-editing
-  Tiled layers (a building spans 6 tile layers, collision and objects) is slow, so there is a
-  small editor in `tools/map-editor` (`npm run editor`). It is a separate Vite page bound to
-  127.0.0.1:5180, not part of the client build and never deployed, so it needs no roles or
-  auth: whoever can run it can already edit the repository.
-- It edits `client/public/assets/maps/town.json` in place (same Tiled JSON and key order, so an
-  unchanged save is byte-identical) and writes `town.tmx` with the same writer as
-  `build_town.py`, so Tiled still opens it. On save it also renders the world-map picture
-  (`sprites/town-map.png`), keeps a backup of the previous JSON, and refuses posts from other
-  origins (another site open in the browser can't write the map).
-- Region moves carry every tile layer (ground optional), collision and the objects inside;
-  building doors move with their building. Before saving it checks there is one spawn on a
-  walkable tile, desk names are unique, and desks and doors can be reached from the spawn.
-- The game server reads the map at start (bundled import), so a save restarts it under
-  `tsx watch` in dev; in production the map ships with the next deploy like any code change.
+- The brief has no map tooling for the owner beyond Tiled, and reshaping the town by hand-editing
+  Tiled layers is slow, so there is a local-only editor (`npm run editor`): a separate Vite page
+  bound to 127.0.0.1:5180, not part of the client build and never deployed, so it needs no roles
+  or auth (whoever can run it can already edit the repository). It refuses saves posted from
+  other origins. The first version edited tiles; it was replaced by the Town Builder below.
 
 ## Hearthwork and Google sign-in (2026-10-28)
 
@@ -629,3 +619,26 @@ playlistLength` (`shared/src/radio.ts`, unit-tested) and plays that track from t
 - "Up" paddles against the current, because a raft that could only go downstream could be stuck
   for good in a pocket between a rock and the bank.
 - Scores last for the visit; nothing about them is saved. Bests and leaderboards can come later.
+
+## Town Builder (2026-11-16)
+
+- The tile editor was replaced by a piece-based builder, because moving a building meant
+  selecting the right rectangle across six layers. Now the town is a layout of pieces (a
+  building, a group table, a tree...) on painted ground, saved as
+  `tools/town-builder/town.layout.json`. Saving compiles it into exactly the files the game
+  already loads, so the game, the server and the map format are unchanged.
+- That makes the layout the source of truth for the town, and `town.json` a build output of it
+  (it was the other way round: CLAUDE.md said the map JSON was the source of truth after the
+  generator). Hand edits to `town.json` are lost at the next save from the builder.
+- Pieces come from `tools/art/build_town_kit.py`, which also wrote the starting layout: the town
+  `build_town.py` made, rebuilt from pieces (the scattered trees differ, and two flower benches
+  moved up a row because they overlapped the group tables).
+- A piece claims only its footprint (its solid cells, or its bottom row), so pieces can't stack
+  but tree tops and roofs can overlap what's behind them, as before. Fully transparent tiles
+  of a picture are no longer solid.
+- Desks get their names on save (`desk-1`...), and a group table or café row becomes one shared
+  Pomodoro (`table-<piece id>`). The tree and animation sheets always hold every tree and
+  animation in the kit, because the world map draws some of those trees too.
+- The saved map carries a version, and the game adds it to the tileset and sheet URLs: those
+  files keep their names when the town changes, and with day-long caching an old tileset under
+  a new map would scramble the town.
