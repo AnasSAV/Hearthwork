@@ -1,18 +1,20 @@
 import { useEffect, useState } from 'react';
 import type { FocusBlock, FocusEndReason } from '@focus-town/shared';
+import { requestFocusAlerts } from '../net/focusAlerts';
 import { serverNow } from '../net/clock';
 import { roomActions } from '../net/roomBridge';
-import { uiStore, useUi, type ActiveFocus, type TableTimer } from '../store';
+import { uiStore, useUi, type ActiveFocus } from '../store';
+import { fmtClock, useFocusClock, useNow, useTableTimer } from './focusClock';
+import { miniTimerSupported, openMiniTimer } from './miniTimerWindow';
 
 const MISS_TEXT: Record<string, string> = {
   late: 'a heartbeat arrived late',
   presence_pending: 'waiting for you to confirm you are here',
-  hidden: 'the tab was in the background',
   idle: 'no keyboard, mouse or touch activity for 10 minutes',
   ahead_of_clock: 'the session just started',
 };
 
-const END_TEXT: Record<FocusEndReason, string> = {
+export const SESSION_END_TEXT: Record<FocusEndReason, string> = {
   completed: 'Block complete. Nice work!',
   ended: 'Session ended.',
   replaced: 'You started a session somewhere else, so this one ended.',
@@ -22,37 +24,54 @@ const END_TEXT: Record<FocusEndReason, string> = {
   error: 'The session was interrupted.',
 };
 
-function useNow(intervalMs = 1000): number {
-  const [now, setNow] = useState(() => Date.now());
-  useEffect(() => {
-    const id = setInterval(() => setNow(Date.now()), intervalMs);
-    return () => clearInterval(id);
-  }, [intervalMs]);
-  return now;
-}
-
-const fmt = (totalSec: number) => {
-  const s = Math.max(0, Math.round(totalSec));
-  return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
+const MINI_TIMER_KEY = 'focus-town:mini-timer';
+const miniTimerWanted = () => {
+  try {
+    return localStorage.getItem(MINI_TIMER_KEY) !== 'off';
+  } catch {
+    return true;
+  }
 };
 
-/** Seconds of focus the server has verified, plus the current minute in progress. */
-function shownSeconds(focus: ActiveFocus, now: number): number {
-  const inProgress = focus.awaitingPresence ? 0 : Math.min(60, (now - focus.receivedAt) / 1000);
-  return focus.verifiedMin * 60 + inProgress;
-}
-
-/** The running group-table timer at `tableId`, if any. */
-function useTableTimer(tableId: string | null): TableTimer | null {
-  const timer = useUi((s) => (tableId ? s.tables[tableId] : undefined));
-  return timer && timer.endsAt > serverNow() ? timer : null;
+/** The countdown ring, shared by the focus panel and the mini timer. */
+export function FocusRing({
+  clock,
+  progress,
+  label,
+}: {
+  clock: string;
+  progress: number;
+  label: string;
+}) {
+  const R = 62;
+  const C = 2 * Math.PI * R;
+  return (
+    <div className="ring">
+      <svg viewBox="0 0 150 150">
+        <circle className="track" cx="75" cy="75" r={R} />
+        <circle
+          className="fill"
+          cx="75"
+          cy="75"
+          r={R}
+          strokeDasharray={C}
+          strokeDashoffset={C * (1 - Math.min(1, Math.max(0, progress)))}
+        />
+      </svg>
+      <div className="ring-center">
+        <span className="ring-time">{clock}</span>
+        <span className="ring-sub">{label}</span>
+      </div>
+    </div>
+  );
 }
 
 function Chooser({ deskId, tableId }: { deskId: string; tableId: string | null }) {
   const [plan, setPlan] = useState<FocusBlock | null>(25);
   const table = useTableTimer(tableId);
   useNow();
-  const [audioOnly, setAudioOnly] = useState(false);
+  const touch = useUi((s) => s.touch);
+  const [miniTimer, setMiniTimer] = useState(miniTimerWanted);
   const [requested, setStarting] = useState(false);
   const error = useUi((s) => s.focusError);
   // Waiting for the server: either focus:state arrives (panel switches) or focus:error does.
@@ -61,7 +80,10 @@ function Chooser({ deskId, tableId }: { deskId: string; tableId: string | null }
   const start = () => {
     setStarting(true);
     uiStore.set({ focusError: null });
-    roomActions.startFocus(deskId, plan, audioOnly);
+    // Both need this click: browsers refuse them later, without a user gesture.
+    requestFocusAlerts();
+    if (miniTimer && miniTimerSupported()) void openMiniTimer();
+    roomActions.startFocus(deskId, plan);
   };
 
   const options: { value: FocusBlock | null; label: string; hint: string }[] = [
@@ -78,7 +100,8 @@ function Chooser({ deskId, tableId }: { deskId: string; tableId: string | null }
         <p className="subtitle">
           This table&apos;s {table.plannedMin}-minute Pomodoro is running with {table.seated}{' '}
           {table.seated === 1 ? 'person' : 'people'}:{' '}
-          <strong>{fmt((table.endsAt - serverNow()) / 1000)}</strong> left. Sit down to join it.
+          <strong>{fmtClock((table.endsAt - serverNow()) / 1000)}</strong> left. Sit down to join
+          it.
         </p>
       ) : (
         <>
@@ -102,17 +125,29 @@ function Chooser({ deskId, tableId }: { deskId: string; tableId: string | null }
           </div>
         </>
       )}
-      <label className="check">
-        <input
-          type="checkbox"
-          checked={audioOnly}
-          onChange={(e) => setAudioOnly(e.target.checked)}
-        />
-        Audio-only: minutes count while this tab is in the background
-      </label>
+      {miniTimerSupported() && (
+        <label className="check">
+          <input
+            type="checkbox"
+            checked={miniTimer}
+            onChange={(e) => {
+              setMiniTimer(e.target.checked);
+              try {
+                localStorage.setItem(MINI_TIMER_KEY, e.target.checked ? 'on' : 'off');
+              } catch {
+                // Not remembered; fine.
+              }
+            }}
+          />
+          Mini timer: a small window that stays on top of your other apps
+        </label>
+      )}
       <p className="fine-print">
-        You earn about 1 coin per verified minute. A minute counts when the tab is open (or
-        audio-only is on) and you have used the keyboard, mouse or screen in the last 10 minutes.
+        You earn about 1 coin per minute.{' '}
+        {touch
+          ? 'Keep this screen open: phones pause pages in the background.'
+          : 'Minimize this window or work in other apps, and your timer keeps going.'}{' '}
+        Every 25 minutes you&apos;ll be asked if you&apos;re still here.
       </p>
       {error && <div className="form-error">{error}</div>}
       <div className="row">
@@ -132,75 +167,63 @@ function Chooser({ deskId, tableId }: { deskId: string; tableId: string | null }
 }
 
 function Running({ focus, tableId }: { focus: ActiveFocus; tableId: string | null }) {
-  const now = useNow();
-  const table = useTableTimer(tableId);
-  const elapsed = shownSeconds(focus, now);
-  // At a group table everyone sees the table's shared countdown.
-  const total = table ? table.plannedMin * 60 : focus.plannedMin ? focus.plannedMin * 60 : null;
-  const left = table
-    ? (table.endsAt - serverNow()) / 1000
-    : focus.plannedMin
-      ? focus.plannedMin * 60 - elapsed
-      : null;
-  const clock = left !== null ? fmt(left) : fmt(elapsed);
-  // Open sessions fill the ring once per 25 minutes.
-  const progress = total && left !== null ? 1 - left / total : (elapsed % 1500) / 1500;
-  const R = 62;
-  const C = 2 * Math.PI * R;
+  const { clock, progress, label } = useFocusClock(focus, tableId);
+  const miniOpen = useUi((s) => s.miniTimer !== null);
+
+  // The tab's title is one more place to see the time from another window.
+  useEffect(() => {
+    document.title = focus.awaitingPresence ? 'Still here? · Hearthwork' : `${clock} · Hearthwork`;
+    return () => {
+      document.title = 'Hearthwork';
+    };
+  }, [clock, focus.awaitingPresence]);
 
   return (
     <div className="panel focus-ring">
-      <div className="ring">
-        <svg viewBox="0 0 150 150">
-          <circle className="track" cx="75" cy="75" r={R} />
-          <circle
-            className="fill"
-            cx="75"
-            cy="75"
-            r={R}
-            strokeDasharray={C}
-            strokeDashoffset={C * (1 - Math.min(1, Math.max(0, progress)))}
-          />
-        </svg>
-        <div className="ring-center">
-          <span className="ring-time">{clock}</span>
-          <span className="ring-sub">
-            {table
-              ? `Table · ${table.seated} seated`
-              : focus.plannedMin
-                ? `${focus.plannedMin} min block`
-                : 'Open session'}
-          </span>
-        </div>
-      </div>
+      <FocusRing clock={clock} progress={progress} label={label} />
       <div className="ring-stats">
         <span className="pill people">{focus.verifiedMin} min</span>
         <span className="pill coins">+{focus.coinsEarned}</span>
-        {focus.audioOnly && <span className="tag">audio-only</span>}
       </div>
       {focus.lastMiss && MISS_TEXT[focus.lastMiss] && (
         <div className="fine-print" style={{ maxWidth: 200, textAlign: 'center' }}>
           Last minute didn&apos;t count: {MISS_TEXT[focus.lastMiss]}.
         </div>
       )}
-      <button
-        type="button"
-        className="btn btn-secondary"
-        style={{ fontSize: 12, padding: '4px 12px' }}
-        onClick={() => roomActions.endFocus()}
-      >
-        End session
-      </button>
+      <div className="row">
+        {miniTimerSupported() && !miniOpen && (
+          <button
+            type="button"
+            className="btn btn-secondary"
+            style={{ fontSize: 12, padding: '4px 12px' }}
+            onClick={() => void openMiniTimer()}
+          >
+            Pop out
+          </button>
+        )}
+        <button
+          type="button"
+          className="btn btn-secondary"
+          style={{ fontSize: 12, padding: '4px 12px' }}
+          onClick={() => roomActions.endFocus()}
+        >
+          End session
+        </button>
+      </div>
     </div>
   );
 }
 
-function PresencePrompt() {
+function PresencePrompt({ paused }: { paused: boolean }) {
   return (
     <div className="modal-backdrop">
       <div className="panel card">
         <h2 className="title">Still here?</h2>
-        <p className="subtitle">Confirm to keep earning. Your timer is paused until you do.</p>
+        <p className="subtitle">
+          {paused
+            ? 'Your timer is paused until you confirm.'
+            : 'Confirm in the next few minutes to keep your timer going.'}
+        </p>
         <button
           type="button"
           className="btn"
@@ -219,7 +242,7 @@ function Summary() {
   if (!summary) return null;
   return (
     <div className="panel focus-card">
-      <div className="focus-title">{END_TEXT[summary.reason]}</div>
+      <div className="focus-title">{SESSION_END_TEXT[summary.reason]}</div>
       <div className="focus-stats">
         <span>{summary.verifiedMin} min verified</span>
         <span>
@@ -244,7 +267,7 @@ export function FocusPanel() {
       <>
         <div className="focus-vignette" />
         <Running focus={focus} tableId={nearDesk?.table ?? null} />
-        {focus.awaitingPresence && <PresencePrompt />}
+        {focus.awaitingPresence && <PresencePrompt paused={focus.paused} />}
       </>
     );
   }

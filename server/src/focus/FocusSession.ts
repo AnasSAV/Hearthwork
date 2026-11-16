@@ -7,6 +7,7 @@ import {
   FOCUS_AWARD_EVERY_MIN,
   FOCUS_MISSED_BEATS_LIMIT,
   isBlockComplete,
+  isPresencePaused,
   missedBeats,
   type Beat,
   type BeatOutcome,
@@ -61,11 +62,10 @@ export class FocusSession {
     readonly sessionId: string,
     readonly deskId: string,
     plannedMin: FocusBlock | null,
-    audioOnly: boolean,
     private sink: FocusSink,
     now: number,
   ) {
-    this.tracker = createTracker(now, plannedMin, audioOnly);
+    this.tracker = createTracker(now, plannedMin);
   }
 
   static async start(opts: {
@@ -73,7 +73,6 @@ export class FocusSession {
     userId: string;
     deskId: string;
     plannedMin: FocusBlock | null;
-    audioOnly: boolean;
     sink: FocusSink;
     now: () => number;
   }): Promise<FocusSession> {
@@ -84,7 +83,6 @@ export class FocusSession {
       sessionId,
       opts.deskId,
       opts.plannedMin,
-      opts.audioOnly,
       opts.sink,
       opts.now(),
     );
@@ -212,10 +210,10 @@ export class FocusSession {
     this.sink.state({
       sessionId: this.sessionId,
       plannedMin: this.tracker.plannedMin,
-      audioOnly: this.tracker.audioOnly,
       verifiedMin: this.tracker.verifiedMin,
       coinsEarned: this.coinsEarned,
       awaitingPresence: this.tracker.awaitingPresence,
+      paused: isPresencePaused(this.tracker),
       lastMiss: this.lastMiss,
     });
   }

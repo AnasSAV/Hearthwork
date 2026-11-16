@@ -2,6 +2,7 @@ import { defineRoom, defineServer, listen } from 'colyseus';
 import { config } from './config.js';
 import { db } from './db.js';
 import { startFocusTicker } from './focus/registry.js';
+import { GameRoom } from './games/GameRoom.js';
 import { log } from './log.js';
 import { HouseRoom } from './rooms/HouseRoom.js';
 import { TownRoom } from './rooms/TownRoom.js';
@@ -13,6 +14,8 @@ export const server = defineServer({
     town: defineRoom(TownRoom),
     // One instance per house owner, created on the first visit and disposed when empty.
     house: defineRoom(HouseRoom).filterBy(['ownerId']),
+    // One set of instances per mini-game.
+    game: defineRoom(GameRoom).filterBy(['game']),
   },
   express: (app) => {
     // Cheap endpoint the client pings to wake a sleeping Render instance.

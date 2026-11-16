@@ -27,7 +27,7 @@ export default tseslint.config(
     rules: reactHooks.configs.recommended.rules,
   },
   {
-    files: ['tools/map-editor/src/**/*.ts'],
+    files: ['tools/town-builder/src/**/*.ts'],
     languageOptions: { globals: { ...globals.browser } },
   },
   {

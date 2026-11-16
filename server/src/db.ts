@@ -11,7 +11,10 @@ import {
   STREAK_STEP,
   parseAvatar,
   type Avatar,
+  PLAY_DAILY_CAP_MIN,
+  PLAY_RATE,
   type FocusBlock,
+  type GameId,
 } from '@focus-town/shared';
 import { config } from './config.js';
 
@@ -29,6 +32,15 @@ export interface AwardResult {
   coinsAwarded: number;
   focusCoins: number;
   bonus: number;
+  rewardableMinutes: number;
+  coins: number;
+  streakDays: number;
+  totalFocusMin: number;
+  todayCoinMinutes: number;
+}
+
+export interface PlayAwardResult {
+  coinsAwarded: number;
   rewardableMinutes: number;
   coins: number;
   streakDays: number;
@@ -76,6 +88,9 @@ export interface GameDb {
     completionBonus: number,
   ): Promise<AwardResult>;
   abandonActiveSessions(): Promise<number>;
+  awardPlay(userId: string, game: GameId, minutes: number): Promise<PlayAwardResult>;
+  /** Accepted friends' user ids. */
+  friendIds(userId: string): Promise<string[]>;
   getHouse(ownerId: string): Promise<HouseRecord | null>;
   canVisit(visitorId: string, ownerId: string): Promise<boolean>;
   /** Store a reported chat message for moderation. Returns false if already reported by them. */
@@ -201,6 +216,32 @@ export class SupabaseGameDb implements GameDb {
     });
     if (error) throw new Error(`award_focus: ${error.message}`);
     return data as AwardResult;
+  }
+
+  async friendIds(userId: string): Promise<string[]> {
+    const { data, error } = await this.sb
+      .from('friendships')
+      .select('user_id, friend_id')
+      .eq('status', 'accepted')
+      .or(`user_id.eq.${userId},friend_id.eq.${userId}`);
+    if (error) throw new Error(`friendships: ${error.message}`);
+    return (data as { user_id: string; friend_id: string }[]).map((f) =>
+      f.user_id === userId ? f.friend_id : f.user_id,
+    );
+  }
+
+  async awardPlay(userId: string, game: GameId, minutes: number): Promise<PlayAwardResult> {
+    const { data, error } = await this.sb.rpc('award_play', {
+      p_user_id: userId,
+      p_game: game,
+      p_minutes: minutes,
+      p_rate: PLAY_RATE,
+      p_streak_step: STREAK_STEP,
+      p_streak_max: STREAK_MAX_DAYS,
+      p_daily_cap_min: PLAY_DAILY_CAP_MIN,
+    });
+    if (error) throw new Error(`award_play: ${error.message}`);
+    return data as PlayAwardResult;
   }
 
   async abandonActiveSessions(): Promise<number> {

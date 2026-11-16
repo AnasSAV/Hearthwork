@@ -25,6 +25,12 @@ export const MOVE_SLACK_PX = 4;
 export const TOWN_MAX_CLIENTS = 50;
 /** Owner plus visitors in one house. */
 export const HOUSE_MAX_CLIENTS = 16;
+/** Players per mini-game instance; another instance opens when full. */
+export const GAME_MAX_CLIENTS = 24;
+
+/** A player can pinch someone this often, and the same friend this often. */
+export const PINCH_EVERY_MS = 3_000;
+export const PINCH_SAME_FRIEND_EVERY_MS = 20_000;
 
 /** Seconds the server keeps a dropped player's seat for automatic reconnection. */
 export const RECONNECT_GRACE_SEC = 20;
@@ -56,10 +62,15 @@ export const FOCUS_BEAT_INTERVAL_MS = 60_000;
 export const FOCUS_BEAT_MIN_INTERVAL_MS = 50_000;
 /** A beat later than this after the previous one doesn't verify its minute. */
 export const FOCUS_BEAT_LATE_MS = 80_000;
-/** A minute only counts if the player touched keyboard/mouse within this many seconds. */
+/**
+ * With the game window in front, a minute only counts if the player touched keyboard, mouse or
+ * screen within this many seconds. (Working in another window, the browser can't see input.)
+ */
 export const FOCUS_MAX_INPUT_IDLE_SEC = 600;
-/** After this many verified minutes the player must click "still here?" before more count. */
+/** After this many verified minutes the player is asked "still here?". */
 export const FOCUS_PRESENCE_EVERY_MIN = 25;
+/** Minutes keep counting this long after the question; unanswered, the timer then pauses. */
+export const FOCUS_PRESENCE_GRACE_MIN = 5;
 /** This many missed beats in a row ends the session. */
 export const FOCUS_MISSED_BEATS_LIMIT = 3;
 /** Verified minutes are saved to the database in chunks of this size. */

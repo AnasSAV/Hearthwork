@@ -1,7 +1,9 @@
 import { Client, MatchMakeError, ServerError, type Room } from '@colyseus/sdk';
 import {
+  GameState,
   HouseState,
   TownState,
+  type GameId,
   type HouseJoinOptions,
   type TownJoinOptions,
 } from '@focus-town/shared';
@@ -81,6 +83,10 @@ export async function joinTown(options: TownJoinOptions = {}): Promise<TownRoom>
     }
     throw err;
   }
+}
+
+export function joinGame(game: GameId): Promise<Room<unknown, GameState>> {
+  return join('game', { game }, GameState);
 }
 
 export function joinHouse(options: HouseJoinOptions): Promise<HouseRoom> {

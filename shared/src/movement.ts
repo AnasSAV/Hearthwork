@@ -17,9 +17,12 @@ export interface CollisionGrid {
   solid: Uint8Array;
 }
 
-export function collisionGridFromTiled(map: TiledMap): CollisionGrid {
-  const layer = findTileLayer(map, MapLayer.Collision);
-  if (!layer) throw new Error(`Map has no "${MapLayer.Collision}" tile layer`);
+export function collisionGridFromTiled(
+  map: TiledMap,
+  layerName: string = MapLayer.Collision,
+): CollisionGrid {
+  const layer = findTileLayer(map, layerName);
+  if (!layer) throw new Error(`Map has no "${layerName}" tile layer`);
   const solid = new Uint8Array(layer.width * layer.height);
   layer.data.forEach((gid, i) => {
     solid[i] = gid !== 0 ? 1 : 0;
@@ -57,10 +60,16 @@ export interface Vec2 {
  * Advance a player by one frame of input. Each axis is resolved separately so players
  * slide along walls. Used by the client for prediction; the server re-checks the result.
  */
-export function stepMovement(grid: CollisionGrid, pos: Vec2, input: Vec2, dtMs: number): Vec2 {
+export function stepMovement(
+  grid: CollisionGrid,
+  pos: Vec2,
+  input: Vec2,
+  dtMs: number,
+  speed: number = PLAYER_SPEED,
+): Vec2 {
   const len = Math.hypot(input.x, input.y);
   if (len === 0) return { ...pos };
-  const dist = (PLAYER_SPEED * dtMs) / 1000;
+  const dist = (speed * dtMs) / 1000;
   const dx = (input.x / len) * dist;
   const dy = (input.y / len) * dist;
   let { x, y } = pos;
@@ -100,9 +109,10 @@ export function validateMove(
   from: Vec2,
   to: Vec2,
   elapsedMs: number,
+  speed: number = PLAYER_SPEED,
 ): MoveCheck {
   const credit = Math.min(Math.max(elapsedMs, 0), MOVE_MAX_CREDIT_MS);
-  const allowed = (PLAYER_SPEED * MOVE_SPEED_TOLERANCE * credit) / 1000 + MOVE_SLACK_PX;
+  const allowed = (speed * MOVE_SPEED_TOLERANCE * credit) / 1000 + MOVE_SLACK_PX;
   if (Math.hypot(to.x - from.x, to.y - from.y) > allowed) return { ok: false, reason: 'too_fast' };
   if (!canStand(grid, to.x, to.y)) return { ok: false, reason: 'blocked' };
   if (segmentClear(grid, from, to)) return { ok: true };
@@ -111,6 +121,14 @@ export function validateMove(
   const yFirst = { x: from.x, y: to.y };
   if (segmentClear(grid, from, yFirst) && segmentClear(grid, yFirst, to)) return { ok: true };
   return { ok: false, reason: 'blocked' };
+}
+
+/** One step in the direction a player faces. */
+export function facingVector(dir: string): Vec2 {
+  if (dir === 'left') return { x: -1, y: 0 };
+  if (dir === 'right') return { x: 1, y: 0 };
+  if (dir === 'up') return { x: 0, y: -1 };
+  return { x: 0, y: 1 };
 }
 
 /** Feet position at the centre-bottom of a tile. */

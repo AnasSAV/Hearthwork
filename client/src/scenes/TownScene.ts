@@ -1,3 +1,4 @@
+import type Phaser from 'phaser';
 import { Callbacks, type Room } from '@colyseus/sdk';
 import {
   collisionGridFromTiled,
@@ -29,6 +30,8 @@ const onDoorstep = (door: Door, p: { x: number; y: number }) =>
 export class TownScene extends WorldScene<TownState> {
   private desks: TiledObject[] = [];
   private shopDoor: Door | null = null;
+  /** "Buy furniture here!" floating over the shop. */
+  private shopSign: Phaser.GameObjects.Container | null = null;
   private mapWidth = 0;
   private life: WorldLife | null = null;
   private mapHeight = 0;
@@ -76,6 +79,7 @@ export class TownScene extends WorldScene<TownState> {
     }
     const shop = buildings.find((b) => b.name === 'shop');
     this.shopDoor = shop ? doorOf(shop) : null;
+    this.shopSign = this.shopDoor ? this.addShopSign(this.shopDoor) : null;
 
     // Trees sway; birds, butterflies, leaves and cloud shadows drift about.
     for (const t of findObjects(mapData.data, MapObjectType.Tree)) {
@@ -157,6 +161,50 @@ export class TownScene extends WorldScene<TownState> {
     this.updateNearDesk();
     const nearShop = !!this.shopDoor && onDoorstep(this.shopDoor, this.pos);
     if (uiStore.get().nearShop !== nearShop) uiStore.set({ nearShop });
+    // At the door the "Enter" prompt takes over from the sign.
+    this.shopSign?.setVisible(!nearShop);
+  }
+
+  /**
+   * A sign beside the Furniture Shop's door, pointing at it and nudging towards it, so new
+   * players notice where to buy furniture.
+   */
+  private addShopSign(door: Door): Phaser.GameObjects.Container {
+    const text = this.add
+      .text(0, 0, 'Buy furniture here!', {
+        fontFamily: 'Nunito, system-ui, sans-serif',
+        fontSize: '9px',
+        fontStyle: '900',
+        color: '#4a2a0c',
+        resolution: this.textResolution(),
+      })
+      .setOrigin(0, 0.5);
+    this.labels.push(text);
+    // The bubble starts a little right of the door and points back at it from its left end.
+    const pad = 6;
+    const tail = 7;
+    const w = Math.ceil(text.width) + pad * 2;
+    const h = Math.ceil(text.height) + 6;
+    text.setX(tail + pad);
+    const bubble = this.add.graphics();
+    bubble.fillStyle(0x7a4b07, 0.35).fillRoundedRect(tail + 1, -h / 2 + 2, w, h, 5);
+    bubble.fillStyle(0xf5b84e, 1).lineStyle(1, 0xa86812, 1);
+    bubble.fillRoundedRect(tail, -h / 2, w, h, 5).strokeRoundedRect(tail, -h / 2, w, h, 5);
+    bubble.fillTriangle(tail + 0.5, -4, tail + 0.5, 4, 0, 0);
+    bubble.lineBetween(tail, -4, 0, 0).lineBetween(tail, 4, 0, 0);
+    // Tip just right of the door's middle, at the height of the door itself.
+    const x = door.x + 18;
+    const y = door.y - 10;
+    const sign = this.add.container(x, y, [bubble, text]).setDepth(ABOVE_DEPTH + 2);
+    this.tweens.add({
+      targets: sign,
+      x: x - 5,
+      duration: 520,
+      ease: 'Sine.easeInOut',
+      yoyo: true,
+      repeat: -1,
+    });
+    return sign;
   }
 
   private updateNearDesk(): void {
@@ -184,6 +232,7 @@ export class TownScene extends WorldScene<TownState> {
   }
 
   protected override onTeardown(): void {
+    this.shopSign = null;
     minimap.clear();
     this.life?.destroy();
     this.life = null;

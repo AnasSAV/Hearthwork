@@ -1,4 +1,5 @@
 import type Phaser from 'phaser';
+import { GAMES, type GameId } from '@focus-town/shared';
 import { sfx } from '../audio/sfx';
 import { uiStore } from '../store';
 
@@ -20,6 +21,10 @@ export interface HouseSceneData {
 
 export type TownSceneData = Record<string, never>;
 
+export interface GameSceneData {
+  game: GameId;
+}
+
 export function attachGame(g: Phaser.Game | null): void {
   game = g;
 }
@@ -33,14 +38,14 @@ const MIN_COVER_MS = 800;
 let coverTimer: ReturnType<typeof setTimeout> | null = null;
 let coveredAt = 0;
 
-function switchTo(key: 'Town' | 'House', data: object, label: string): void {
+function switchTo(key: 'Town' | 'House' | 'Game', data: object, label: string): void {
   if (!game) return;
   const g = game;
   if (uiStore.get().transition.phase === 'closing') return;
   uiStore.set({ transition: { phase: 'closing', label } });
   sfx.play('whoosh');
   setTimeout(() => {
-    for (const k of ['Town', 'House'] as const) {
+    for (const k of ['Town', 'House', 'Game'] as const) {
       if (k !== key && g.scene.isActive(k)) g.scene.stop(k);
     }
     if (g.scene.isActive(key)) g.scene.getScene(key).scene.restart(data);
@@ -78,6 +83,10 @@ export function revealWorld(): void {
 
 export function goToHouse(data: HouseSceneData): void {
   switchTo('House', data, data.label ?? 'Home');
+}
+
+export function goToGame(data: GameSceneData): void {
+  switchTo('Game', data, GAMES[data.game].name);
 }
 
 export function goToTown(): void {

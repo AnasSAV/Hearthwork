@@ -57,7 +57,7 @@ export function MapControls() {
   const connected = useUi((s) => s.connection.kind === 'connected');
   const zoom = useUi((s) => s.zoom);
   const minimapOpen = useUi((s) => s.minimapOpen);
-  const inTown = useUi((s) => s.house === null);
+  const inTown = useUi((s) => s.house === null && s.game === null);
   const focusing = useUi((s) => s.focus !== null);
   if (!connected) return null;
   const step = (d: number) => {

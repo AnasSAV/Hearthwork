@@ -11,4 +11,4 @@ coverage/
 .vite/
 tools/bots/.load-bots.json
 art-review/
-tools/map-editor/backups/
+tools/town-builder/backups/

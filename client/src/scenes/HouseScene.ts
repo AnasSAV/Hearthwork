@@ -250,8 +250,8 @@ export class HouseScene extends WorldScene<HouseState> {
     return !editor.get().active;
   }
 
-  protected override movementLocked(): boolean {
-    return super.movementLocked() || editor.get().active;
+  protected override inputBlocked(): boolean {
+    return super.inputBlocked() || editor.get().active;
   }
 
   protected use(): boolean {

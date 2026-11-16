@@ -122,7 +122,7 @@ export function HouseSettings() {
           <>
             <div className="field">
               <span>Who lives here</span>
-              <ul className="people">
+              <ul className="people-list">
                 {home.members.map((m) => (
                   <li key={m.user_id} className="friend-row">
                     <AvatarSprite avatar={m.avatar} scale={2} head />

@@ -61,6 +61,17 @@ export const MapObjectType = {
   /** A flower bed (butterflies hover around these). */
   Flowers: 'flowers',
   Building: 'building',
+  /** A place name drawn on the map. */
+  Label: 'label',
+  /** Standing here, you can cast a fishing line. */
+  FishZone: 'fish_zone',
+  /** The rafting jetty, with the raft's start in its properties. */
+  Launch: 'launch',
+  Finish: 'finish',
+  /** Collect these on the river. */
+  Buoy: 'buoy',
+  /** Treasure is buried somewhere in this area. */
+  DigZone: 'dig_zone',
 } as const;
 
 export function objectType(o: TiledObject): string {

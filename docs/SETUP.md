@@ -115,26 +115,49 @@ npm run e2e:focus    # ~6.5 min real-time focus session, checks coins + ledger (
 They read `server/.env` and `client/.env`, and create and delete their own throwaway accounts.
 Only run them against local or staging projects.
 
-## Editing the town (optional)
+## Editing the town and game maps (optional)
 
-`npm run editor` opens the town editor at http://127.0.0.1:5180. It only runs on your machine
-(it is never built or deployed) and edits the real map files:
+`npm run editor` opens the **Town Builder** at http://127.0.0.1:5180. It only runs on your
+machine (it is never built or deployed). The picker at the top switches between the town and the
+four mini-game maps (Mirror Lake, Rushwater Rapids, Butterfly Meadow, Treasure Cove). Every map
+is made of pieces you drag around, like a base builder:
 
-- **Select** (V): drag a box around a building, the café or a park, then drag it (or use the
-  arrow keys) to move that part of the town, desks and trees included. Ctrl+C / X / V / D copy,
-  cut, paste and duplicate (pasted desks get new names; a pasted table becomes a new table).
-  Delete clears the box. The map size panel adds or removes rows and columns on any side.
-- **Brush** (B), **Fill** (R), **Erase** (E): paint tiles picked from the palette (drag to pick
-  a block; Alt+click the map to pick from it) on the chosen layer.
-- **Walls** (C): left click makes a tile solid, right click walkable.
-- **Objects** (O): drag desks, trees, animations, butterflies' flower beds and the spawn; edit
-  their properties; place new ones. Trees keep their trunk solid as they move.
-- Ctrl+Z / Ctrl+Shift+Z undo and redo; Ctrl+S saves `town.json`, `town.tmx` and the world-map
-  picture (`sprites/town-map.png`), after checking the spawn, desks and doors are reachable.
-  The previous `town.json` is kept in `tools/map-editor/backups/` (last 30, not committed).
+- **Drag** a piece from the tray at the bottom onto the town: buildings, study tables, trees and
+  flowers, benches and lamps, fish for the ponds, and the arrival point. **Click** a piece in
+  the tray instead to keep it in hand and place several (Esc or right click to stop).
+- Green means it fits; red means it doesn't (it would sit on another piece, on water, or off the
+  map), and a note says why. Each piece only claims its footprint, so tree tops and roofs can
+  overlap things behind them.
+- **Drag** a placed piece to move it; arrow keys nudge it. The panel on the right renames a
+  building's sign, duplicates (D) or removes (Del) the piece. Drag empty ground to look around;
+  the mouse wheel zooms.
+- **Ground**: paint grass, paving, water, sand, sea or pier planks with a 1–8 tile brush;
+  Shift+drag fills a box. Water and sand get proper edges by themselves.
+- **Mini-game maps** need a few things the builder checks before saving; the rest is worked out
+  from the map:
+  - Mirror Lake: players fish from any bank or pier edge next to water.
+  - Rushwater Rapids: place the **Raft launch** beside the river and the **Finish line**
+    downriver (Special). Rafts go in at the open water nearest the launch, rocks in the water
+    are obstacles, and **Bonus buoys** take 2 seconds off. It warns if the river is blocked.
+  - Butterfly Meadow: butterflies gather at the flower beds.
+  - Treasure Cove: treasure is buried somewhere on the sand.
+  - Every game map has an arrival point and can have a **Place name** sign.
+- **Town size** adds or removes land on any side. Ctrl+Z / Ctrl+Y undo and redo; unsaved work
+  survives a reload.
+- **Save town** (Ctrl+S) first checks the town works: there must be a Furniture Shop whose door
+  can be reached and an arrival point on open ground; it also warns about seats nobody can
+  reach. Then it writes the layout (`tools/town-builder/maps/<map>.layout.json`) and
+  everything the game loads: `maps/<map>.json` + `.tmx` and `tilesets/<map>.png`, plus the tree
+  and animation sheets and world-map picture for the town, or the shared `sprites/games.*` for a
+  game map. The previous versions are kept in `tools/town-builder/backups/` (last
+  20, not committed).
 
-With `npm run dev` running, the game server restarts by itself when the map is saved; reload
-the game to see the change. Commit the three map files when you're happy with it.
+With `npm run dev` running, the game server restarts by itself when you save; reload the game
+to see the change. Commit the layouts in `tools/town-builder/maps/` and the changed files under
+`client/public/assets` when you're happy with it.
+
+The pieces come from `tools/art/build_town_kit.py` (`npm run art:town-kit -- <pack dir>`), which
+cuts them from the LimeZu pack. To add a piece, add a line there and rebuild the kit.
 
 ## Rebuilding the art (optional)
 
@@ -150,7 +173,8 @@ npm run art:ui -- "D:/path/to/FocusTown-art"           # emote / timer / typing 
 npm run seed:items                                     # if catalog footprints or names changed
 ```
 
-`map:town` rebuilds the town from scratch and overwrites `town.json`/`town.tmx`, so it also
-undoes any changes made in the town editor or Tiled. After hand edits in Tiled, export the JSON
-from Tiled.
+`map:town` is the original town generator. The Town Builder owns the town now, so rebuilding
+with it is rarely what you want: the builder's next save replaces its output again. To change
+what the builder offers, rebuild its kit (`npm run art:town-kit -- <pack dir>`); add
+`--starter` only to reset the layout to the generated town.
 Never commit the packs themselves (their license forbids redistribution).

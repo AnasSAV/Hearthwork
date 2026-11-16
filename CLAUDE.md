@@ -18,15 +18,17 @@ Full brief: `docs/SPEC.md`. Judgement calls and API deviations: `docs/DECISIONS.
 ## Layout
 
 ```
-client/   src/scenes (WorldScene base → TownScene, HouseScene), src/ui (React), src/house (editor),
+client/   src/scenes (WorldScene base → TownScene, HouseScene, GameScene), src/ui (React), src/house (editor),
           src/net (Colyseus/Supabase), public/assets
-server/   src/rooms (TownRoom, HouseRoom), src/focus, src/db.ts (service-role, server only)
+server/   src/rooms (TownRoom, HouseRoom), src/games (GameRoom, one file per mini-game), src/focus,
+          src/db.ts (service-role, server only)
 shared/   src/schemas.ts (Zod), src/state.ts (Colyseus schema), src/movement.ts, src/constants.ts,
-          src/focus.ts (verified-minute rules), src/catalog.ts (items → `npm run seed:items`),
+          src/focus.ts (verified-minute rules), src/games.ts (mini-game rules, coins for playing), src/catalog.ts (items → `npm run seed:items`),
           src/house.ts (canPlace + interior geometry; mirrored by save_layout in SQL)
 supabase/ migrations/*.sql, seed.sql
-tools/    asset/map generators (bootstrap only; the map JSON/.tmx is the source of truth afterwards),
-          map-editor (local-only town layout editor, `npm run editor`)
+tools/    asset/map generators (bootstrap only; the map JSON/.tmx is the source of truth afterwards,
+          except the town and mini-game maps: town-builder/maps/<map>.layout.json are, and the
+          Town Builder (`npm run editor`, local only) compiles them into maps/<map>.json and art)
 docs/     SPEC.md, DECISIONS.md, SETUP.md (keys), DEPLOY.md
 deploy/   pm2 + Caddy configs; render.yaml at the root; .github/workflows (CI, backups, checks)
 ```

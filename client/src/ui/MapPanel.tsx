@@ -263,7 +263,7 @@ type Selection = { kind: 'town' } | { kind: 'home'; ownerId: string } | null;
  */
 export function MapPanel() {
   const open = useUi((s) => s.mapOpen);
-  const here = useUi((s) => s.house?.ownerId ?? 'town');
+  const here = useUi((s) => (s.game ? 'away' : (s.house?.ownerId ?? 'town')));
   const focusing = useUi((s) => s.focus !== null);
   const avatar = useUi((s) => s.playerAvatar);
   const [homes, setHomes] = useState<MapHome[] | null>(null);

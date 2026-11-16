@@ -46,8 +46,9 @@ spend focused turns into coins for furniture, a garden and a bigger house.
   around, chat, whisper and send emotes in real time.
 - Sit at any table and press <kbd>E</kbd> to focus. People at the same table share one group
   Pomodoro and see each other's timers.
-- 25- and 50-minute blocks, an optional audio-only mode, and a "still here?" check every 25
-  minutes.
+- 25- and 50-minute blocks and open sessions. The timer keeps going when you minimize the window
+  or work in other apps, with a small always-on-top mini timer in Chrome and Edge, and a "still
+  here?" check every 25 minutes.
 
 **Earn and build**
 
@@ -260,6 +261,15 @@ players.
 | <kbd>I</kbd>                      | Inventory                              |
 | <kbd>+</kbd> <kbd>−</kbd> / wheel | Zoom                                   |
 
+**Getting started and friends.** New players get a short introduction the first time (the
+**?** button shows it again), a sign over the Furniture Shop points the way, and friends can
+**pinch** each other from the Friends panel, which also shows who's online.
+
+**Mini-games.** The Games button takes you to four maps of their own: fish at **Mirror Lake**,
+race **Rushwater Rapids** on a raft, chase butterflies across **Butterfly Meadow**, and dig for
+buried treasure at **Treasure Cove**. They use the same controls, with one action button (E, or
+a tap). Every minute you really play earns half what a focus minute does, up to 120 minutes a day.
+
 **Phones and tablets.** Put a thumb down anywhere on the world and drag to walk (a joystick
 appears under it), and tap the prompts that pop up (sit and focus, enter the shop). Pinch to
 zoom, tap a player to whisper, tap the chat bar to chat. On a phone the toolbar folds into a
@@ -301,8 +311,9 @@ there is no build step between them.
 | `npm run e2e:focus`               | A real 6½-minute focus session through the running server             |
 | `npm run load -- --bots 30`       | Load test: signed-in bots walking and chatting                        |
 | `npm run check:ledger`            | Verify every balance equals its coin ledger                           |
-| `npm run editor`                  | Town editor on http://127.0.0.1:5180 (local only)                     |
+| `npm run editor`                  | Town Builder on http://127.0.0.1:5180 (local only)                    |
 | `npm run map:town -- <pack dir>`  | Rebuild the town map and tileset from the LimeZu packs                |
+| `npm run art:town-kit -- <dir>`   | Rebuild the Town Builder's pieces from the LimeZu packs               |
 | `npm run art:characters -- <dir>` | Rebuild the character part atlases                                    |
 | `npm run art:interiors -- <dir>`  | Rebuild furniture and room sprites                                    |
 | `npm run art:ui -- <dir>`         | Rebuild emote, timer and typing bubbles                               |
@@ -326,15 +337,16 @@ ledger, and keep the free Supabase project awake.
 
 ## Town editor
 
-<img src="docs/images/editor.webp" alt="The town editor: layer list and tile palette on the left, the map with object boxes in the middle, selection tools on the right" width="100%">
+<img src="docs/images/editor.webp" alt="The Town Builder: the town in the middle, a tray of buildings along the bottom" width="100%">
 
-`npm run editor` opens a local-only layout editor for the town map (bound to 127.0.0.1,
-never deployed). Select part of the town and drag it somewhere else along with its desks,
-trees, walls and doors. You can also paint tiles and walls, place and edit desks, trees and
-animations, and resize the map. Before saving, it checks that the spawn point is clear and
-that every desk and door can be reached. Saving writes the Tiled JSON and `.tmx` and
-regenerates the world-map picture; in development the game server reloads the new map
-automatically. See [docs/SETUP.md](docs/SETUP.md#editing-the-town-optional).
+`npm run editor` opens the **Town Builder**, a local-only page for laying out the town and the
+four mini-game maps (bound to 127.0.0.1, never deployed). Drag buildings, study tables, trees,
+benches, boats, rocks and more from the tray, drag them around, and paint grass, paving, water,
+sand, sea or pier planks. Green means a
+piece fits, red means it doesn't. Saving checks the town still works (a reachable shop, an
+arrival point, reachable seats) and writes the map the game loads; in development the game
+server picks up the new town by itself. See
+[docs/SETUP.md](docs/SETUP.md#editing-the-town-and-game-maps-optional).
 
 ## Deployment
 

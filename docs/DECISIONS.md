@@ -539,21 +539,11 @@ playlistLength` (`shared/src/radio.ts`, unit-tested) and plays that track from t
 
 ### Town editor (local only)
 
-- The brief has no map tooling for the owner beyond Tiled; reshaping the town by hand-editing
-  Tiled layers (a building spans 6 tile layers, collision and objects) is slow, so there is a
-  small editor in `tools/map-editor` (`npm run editor`). It is a separate Vite page bound to
-  127.0.0.1:5180, not part of the client build and never deployed, so it needs no roles or
-  auth: whoever can run it can already edit the repository.
-- It edits `client/public/assets/maps/town.json` in place (same Tiled JSON and key order, so an
-  unchanged save is byte-identical) and writes `town.tmx` with the same writer as
-  `build_town.py`, so Tiled still opens it. On save it also renders the world-map picture
-  (`sprites/town-map.png`), keeps a backup of the previous JSON, and refuses posts from other
-  origins (another site open in the browser can't write the map).
-- Region moves carry every tile layer (ground optional), collision and the objects inside;
-  building doors move with their building. Before saving it checks there is one spawn on a
-  walkable tile, desk names are unique, and desks and doors can be reached from the spawn.
-- The game server reads the map at start (bundled import), so a save restarts it under
-  `tsx watch` in dev; in production the map ships with the next deploy like any code change.
+- The brief has no map tooling for the owner beyond Tiled, and reshaping the town by hand-editing
+  Tiled layers is slow, so there is a local-only editor (`npm run editor`): a separate Vite page
+  bound to 127.0.0.1:5180, not part of the client build and never deployed, so it needs no roles
+  or auth (whoever can run it can already edit the repository). It refuses saves posted from
+  other origins. The first version edited tiles; it was replaced by the Town Builder below.
 
 ## Hearthwork and Google sign-in (2026-10-28)
 
@@ -590,3 +580,98 @@ playlistLength` (`shared/src/radio.ts`, unit-tested) and plays that track from t
   trim the bottom stack and let tall panels scroll. Page zoom is off (pinch zooms the world).
 - A web app manifest and icons (`tools/art/app_icons.py`, built from the favicon) let players
   add it to the home screen and play full screen.
+
+## Working in other windows (2026-11-01)
+
+- Deviation from the brief (SPEC, focus rule 3): a minute no longer needs the tab to be visible.
+  The point of the app is to work, and people work in other windows. "Audio-only" is gone, since
+  every session now behaves that way.
+- The input rule also changed. The browser can't see keystrokes in other apps, so "no input for
+  10 minutes" would have ended every real work session. It now only applies while the game window
+  is in front and focused.
+- That leaves "still here?" as the check on someone walking away, so it has to reach them: a chime,
+  a system notification if allowed, the tab title, and the mini timer. Minutes keep counting for 5
+  minutes after the question, then pause until it's answered, so a person glancing away isn't
+  penalised and an empty room stops earning. This is weaker than before (someone can answer every
+  25 minutes without working), which is accepted: the daily cap still bounds it.
+- The mini timer uses Document Picture-in-Picture, which only desktop Chrome and Edge have. It's
+  optional: elsewhere the timer simply keeps running in the background.
+- Phones can't do this: they suspend background pages, so beats stop. The wake lock keeps the
+  screen on instead, and the panel says to keep the page open.
+
+## Mini-games (2026-11-01)
+
+- Four games, each with its own generated map (`tools/art/build_games.py`) and a `game` room
+  filtered by game: fishing, rafting, butterfly catching and treasure digging. The brief asked for
+  fishing, rafting and at least two more; these two were picked to add something different
+  (chasing moving targets, and deduction) with art the pack already has, and all four work with
+  one action button, so they play the same on a phone.
+- **Coins come from time played, not from scores.** The server watches each minute, and one with
+  at least 3 real game actions pays half a focus minute through `award_play` (same streak
+  multiplier, so exactly half at any streak). Scores are only for show, so nothing a client claims
+  can turn into coins, and a cheating client gets no more than an honest one.
+- Paid play is capped at 120 minutes a day (the brief didn't ask for this): without a cap, games
+  could quietly become the main way to earn, in a game about focusing. A minute doesn't pay while
+  a focus session is running in another tab, or in an older game tab.
+- All input is one `game:use` intent; the server decides what it means from the player's state. A
+  raft is an ordinary player whose moves are checked against the water at raft speed, so banks and
+  rocks are as solid as walls, and run times come from positions the server already accepted.
+- "Up" paddles against the current, because a raft that could only go downstream could be stuck
+  for good in a pocket between a rock and the bank.
+- Scores last for the visit; nothing about them is saved. Bests and leaderboards can come later.
+
+## Town Builder (2026-11-16)
+
+- The tile editor was replaced by a piece-based builder, because moving a building meant
+  selecting the right rectangle across six layers. Now the town is a layout of pieces (a
+  building, a group table, a tree...) on painted ground, saved as
+  `tools/town-builder/town.layout.json`. Saving compiles it into exactly the files the game
+  already loads, so the game, the server and the map format are unchanged.
+- That makes the layout the source of truth for the town, and `town.json` a build output of it
+  (it was the other way round: CLAUDE.md said the map JSON was the source of truth after the
+  generator). Hand edits to `town.json` are lost at the next save from the builder.
+- Pieces come from `tools/art/build_town_kit.py`, which also wrote the starting layout: the town
+  `build_town.py` made, rebuilt from pieces (the scattered trees differ, and two flower benches
+  moved up a row because they overlapped the group tables).
+- A piece claims only its footprint (its solid cells, or its bottom row), so pieces can't stack
+  but tree tops and roofs can overlap what's behind them, as before. Fully transparent tiles
+  of a picture are no longer solid.
+- Desks get their names on save (`desk-1`...), and a group table or café row becomes one shared
+  Pomodoro (`table-<piece id>`). The tree and animation sheets always hold every tree and
+  animation in the kit, because the world map draws some of those trees too.
+- The saved map carries a version, and the game adds it to the tileset and sheet URLs: those
+  files keep their names when the town changes, and with day-long caching an old tileset under
+  a new map would scramble the town.
+
+## Introduction, shop sign and pinches (2026-11-16)
+
+- New players get a six-step introduction the first time they're in the world (walking, focus,
+  decorating, friends, games). `profiles.tutorial_seen_at` remembers it per account, set through
+  `finish_tutorial()` as soon as it's shown, so closing the tab halfway doesn't bring it back;
+  the "How to play" button reopens it any time. Existing players see it once too.
+- A bobbing "Buy furniture here!" bubble sits over the Furniture Shop and gives way to the
+  "Enter" prompt at the door.
+- Friends can pinch each other: `pinch` is an intent with the friend's id; the server checks the
+  friendship in the database, that they're online, and rate limits (one pinch every 3 seconds,
+  the same friend every 20), then tells every tab they have open, in any room. They get a popup
+  with "Pinch back", and a system notification if they're in another window.
+- Who's online is a list in the game server's memory, filled as players join rooms. It's only a
+  convenience (the friends panel's dots and pinches); after a restart it fills up again as
+  players reconnect. Pinches to offline friends aren't stored.
+
+## Game maps in the Town Builder (2026-11-16)
+
+- The builder edits the four mini-game maps as well as the town (a picker at the top). Their
+  layouts live next to the town's in `tools/town-builder/maps/`. The starting layouts were
+  recorded by `tools/art/build_games.py --layouts` from the maps it had generated; trees at the
+  very edge were nudged a tile in so their trunks are on the map, and the lake's arrival point
+  is kept clear of trees.
+- What the games read is worked out on save rather than placed by hand: fishing spots are every
+  walkable tile beside water, the treasure dig zone covers the reachable sand, and a raft floats
+  on water away from the bank and through no solid piece. The few things that need a decision
+  are pieces: the Raft launch, the Finish line, Bonus buoys and a Place name.
+- Each game map now has its own tileset (`tilesets/<map>.png`, loaded by map version like the
+  town's) instead of one shared `tilesets/games.png`, so saving one map can't change another's
+  tiles. The shared `sprites/games.*` holds every animation in the kit plus the raft and shells.
+- On game maps, trees are tiles (the canopy drawn over players), as `build_games.py` drew them;
+  only the town draws trees as swaying sprites.

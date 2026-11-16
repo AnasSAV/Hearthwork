@@ -1,0 +1,114 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Town Builder</title>
+    <link rel="icon" href="data:," />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link
+      rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=Nunito:wght@600;700;800;900&family=Pixelify+Sans:wght@500;600&display=swap"
+    />
+    <link rel="stylesheet" href="/src/style.css" />
+  </head>
+  <body>
+    <canvas id="map"></canvas>
+
+    <header class="bar">
+      <h1>Town Builder <small>local only</small></h1>
+      <label class="map-pick" title="Which map to edit"
+        ><select id="map-pick" aria-label="Map"></select
+      ></label>
+      <div class="group">
+        <button id="undo" title="Undo (Ctrl+Z)">↶ Undo</button>
+        <button id="redo" title="Redo (Ctrl+Y)">↷ Redo</button>
+      </div>
+      <div class="group">
+        <button id="zoom-out" title="Zoom out (−)">−</button>
+        <span id="zoom-label">100%</span>
+        <button id="zoom-in" title="Zoom in (+)">+</button>
+        <button id="zoom-fit" title="See the whole town (F)">Fit</button>
+      </div>
+      <label class="toggle"><input type="checkbox" id="show-grid" /> Grid <kbd>G</kbd></label>
+      <button id="map-size" title="Make the town bigger or smaller">Town size</button>
+      <span class="spacer"></span>
+      <span id="status" class="status">Loading…</span>
+      <button id="save" class="primary" title="Save (Ctrl+S)">Save town</button>
+    </header>
+
+    <aside id="help" class="card help">
+      <div class="card-head">
+        <strong>How to build</strong>
+        <button id="help-toggle" class="icon" aria-label="Hide help">−</button>
+      </div>
+      <p id="map-blurb" class="muted"></p>
+      <ul id="help-body">
+        <li><b>Drag</b> a piece from the tray onto the town. <b>Click</b> one to place several.</li>
+        <li>Green means it fits, red means it doesn't.</li>
+        <li><b>Drag</b> a placed piece to move it. Drag empty ground to look around.</li>
+        <li><kbd>Del</kbd> removes, <kbd>D</kbd> duplicates, <kbd>Esc</kbd> stops placing.</li>
+        <li>
+          <b>Ground</b>: paint grass, paving, water or sand. <kbd>Shift</kbd>+drag fills a box.
+        </li>
+        <li>Mouse wheel zooms. <b>Save town</b> updates the game.</li>
+      </ul>
+    </aside>
+
+    <aside id="inspector" class="card inspector" hidden>
+      <div class="card-head">
+        <strong id="insp-name">Piece</strong>
+        <button id="insp-close" class="icon" aria-label="Deselect">×</button>
+      </div>
+      <p id="insp-info" class="muted"></p>
+      <label id="insp-label-row" class="field" hidden
+        >Sign above it <input id="insp-label" maxlength="24" placeholder="(none)"
+      /></label>
+      <div class="row">
+        <button id="insp-dup" title="Duplicate (D)">Duplicate</button>
+        <button id="insp-del" class="danger" title="Remove (Del)">Remove</button>
+      </div>
+    </aside>
+
+    <aside id="issues" class="card issues" hidden>
+      <div class="card-head">
+        <strong>Before saving</strong>
+        <button id="issues-close" class="icon" aria-label="Close">×</button>
+      </div>
+      <ul id="issues-list"></ul>
+    </aside>
+
+    <div id="tip" class="tip" hidden></div>
+
+    <footer class="tray">
+      <nav id="tabs" class="tabs"></nav>
+      <div id="cards" class="cards"></div>
+    </footer>
+
+    <dialog id="size-dialog" class="card">
+      <form method="dialog">
+        <strong>Town size</strong>
+        <p class="muted" id="size-now"></p>
+        <p class="muted">
+          Add land on each side (or take it away with negative numbers). New land is grass.
+        </p>
+        <div class="size-grid">
+          <label>Left <input type="number" id="grow-left" value="0" /></label>
+          <label>Top <input type="number" id="grow-top" value="0" /></label>
+          <label>Right <input type="number" id="grow-right" value="0" /></label>
+          <label>Bottom <input type="number" id="grow-bottom" value="0" /></label>
+        </div>
+        <div class="row">
+          <button value="cancel">Cancel</button>
+          <button value="ok" class="primary">Resize</button>
+        </div>
+        <hr />
+        <button id="start-over" type="button" class="danger">
+          Start over with an empty field…
+        </button>
+      </form>
+    </dialog>
+
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>

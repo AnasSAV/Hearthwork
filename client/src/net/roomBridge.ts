@@ -24,8 +24,20 @@ export function sendToRoom(type: string, payload?: unknown): void {
 }
 
 export const roomActions = {
-  startFocus(deskId: string, plannedMin: FocusBlock | null, audioOnly: boolean): void {
-    const msg: FocusStartMessage = { deskId, plannedMin, audioOnly };
+  /** Pinch a friend (the server checks you're friends and they're online). */
+  pinch(userId: string): void {
+    send?.(ClientMsg.Pinch, { userId });
+  },
+  /** Ask which friends are online; the answer arrives as friends:online. */
+  friendsOnline(): void {
+    send?.(ClientMsg.FriendsOnline);
+  },
+  /** The action button in a mini-game. */
+  gameUse(): void {
+    send?.(ClientMsg.GameUse);
+  },
+  startFocus(deskId: string, plannedMin: FocusBlock | null): void {
+    const msg: FocusStartMessage = { deskId, plannedMin };
     send?.(ClientMsg.FocusStart, msg);
   },
   beat(msg: FocusBeatMessage): void {

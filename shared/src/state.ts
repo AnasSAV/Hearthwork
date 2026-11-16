@@ -20,6 +20,11 @@ export const PlayerState = schema(
     focusMin: t.uint16(),
     /** Typing in chat right now. */
     typing: t.boolean(),
+    /** In a mini-game: 'cast' (line in the water), 'raft' (on the river), or ''. */
+    mode: t.string(),
+    /** While casting: where the float is, in world pixels. */
+    castX: t.number(),
+    castY: t.number(),
   },
   'PlayerState',
 );
@@ -90,3 +95,26 @@ export const HouseState = schema(
   'HouseState',
 );
 export type HouseState = SchemaType<typeof HouseState>;
+
+/** A butterfly in the meadow, flown by the server. */
+export const CritterState = schema(
+  {
+    /** One of BUTTERFLY_KINDS' ids. */
+    kind: t.string(),
+    x: t.number(),
+    y: t.number(),
+  },
+  'CritterState',
+);
+export type CritterState = SchemaType<typeof CritterState>;
+
+export const GameState = schema(
+  {
+    players: t.map(PlayerState),
+    /** Butterflies, in the meadow. */
+    critters: t.map(CritterState),
+    focusingNow: t.uint16(),
+  },
+  'GameState',
+);
+export type GameState = SchemaType<typeof GameState>;

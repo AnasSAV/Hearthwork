@@ -11,6 +11,7 @@ import {
   type Friend,
   type MyHome,
 } from '../net/houses';
+import { roomActions } from '../net/roomBridge';
 import { uiStore, useUi } from '../store';
 import { AvatarSprite } from './AvatarSprite';
 
@@ -34,6 +35,15 @@ export function FriendsPanel() {
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [version, setVersion] = useState(0);
+  const onlineIds = useUi((s) => s.onlineFriends);
+
+  // Who's online, while the panel is open.
+  useEffect(() => {
+    if (!open) return;
+    roomActions.friendsOnline();
+    const id = setInterval(() => roomActions.friendsOnline(), 15_000);
+    return () => clearInterval(id);
+  }, [open, version]);
 
   useEffect(() => {
     if (!open) return;
@@ -85,7 +95,11 @@ export function FriendsPanel() {
 
   const incoming = friends?.filter((f) => f.status === 'pending' && f.incoming) ?? [];
   const outgoing = friends?.filter((f) => f.status === 'pending' && !f.incoming) ?? [];
-  const accepted = friends?.filter((f) => f.status === 'accepted') ?? [];
+  const online = new Set(onlineIds);
+  // Online friends first.
+  const accepted = (friends?.filter((f) => f.status === 'accepted') ?? []).sort(
+    (a, b) => Number(online.has(b.user_id)) - Number(online.has(a.user_id)),
+  );
   const invitations = home?.invites.filter((i) => i.from_owner) ?? [];
   const waitingOn = new Set(home?.invites.filter((i) => !i.from_owner).map((i) => i.owner_id));
 
@@ -187,11 +201,29 @@ export function FriendsPanel() {
         )}
         {accepted.map((f) => (
           <div key={f.user_id} className="friend-row">
-            <AvatarSprite avatar={f.avatar} scale={2} head />
+            <span className="friend-face">
+              <AvatarSprite avatar={f.avatar} scale={2} head />
+              <span
+                className={`online-dot${online.has(f.user_id) ? ' on' : ''}`}
+                title={online.has(f.user_id) ? 'Online' : 'Offline'}
+              />
+            </span>
             <span className="friend-name">
               {f.username}
-              {f.house_level ? <small> · house Lv {f.house_level}</small> : null}
+              <small>
+                {online.has(f.user_id) ? ' · online' : ''}
+                {f.house_level ? ` · house Lv ${f.house_level}` : ''}
+              </small>
             </span>
+            <button
+              type="button"
+              className="btn btn-secondary pinch-btn"
+              disabled={!online.has(f.user_id)}
+              title={online.has(f.user_id) ? `Pinch ${f.username}` : 'Not online right now'}
+              onClick={() => roomActions.pinch(f.user_id)}
+            >
+              Pinch
+            </button>
             <button
               type="button"
               className="btn"

@@ -1,5 +1,6 @@
 import Phaser from 'phaser';
 import { BootScene } from '../scenes/BootScene';
+import { GameScene } from '../scenes/GameScene';
 import { HouseScene } from '../scenes/HouseScene';
 import { TownScene } from '../scenes/TownScene';
 import { attachGame } from './navigation';
@@ -17,7 +18,7 @@ export function createGame(parent: HTMLElement): Phaser.Game {
       width: '100%',
       height: '100%',
     },
-    scene: [BootScene, TownScene, HouseScene],
+    scene: [BootScene, TownScene, HouseScene, GameScene],
   });
   attachGame(game);
 

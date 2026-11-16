@@ -36,7 +36,7 @@
   "scripts": {
     "dev": "concurrently -k -n server,client -c magenta,cyan \"npm:dev -w @focus-town/server\" \"npm:dev -w @focus-town/client\"",
     "build": "npm run build -w @focus-town/server && npm run build -w @focus-town/client",
-    "typecheck": "npm run typecheck --workspaces --if-present && tsc -p tools && tsc -p tools/map-editor",
+    "typecheck": "npm run typecheck --workspaces --if-present && tsc -p tools && tsc -p tools/town-builder",
     "lint": "eslint .",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
@@ -46,7 +46,8 @@
     "art:interiors": "python tools/art/build_interiors.py",
     "art:ui": "python tools/art/build_ui.py",
     "map:town": "python tools/art/build_town.py",
-    "editor": "vite --config tools/map-editor/vite.config.ts",
+    "editor": "vite --config tools/town-builder/vite.config.ts",
+    "art:town-kit": "python tools/art/build_town_kit.py",
     "test:db": "node --env-file=server/.env --env-file=client/.env node_modules/vitest/vitest.mjs run --config vitest.db.config.ts",
     "e2e:focus": "tsx --env-file=server/.env --env-file=client/.env tools/bots/focus-e2e.ts",
     "seed:items": "tsx tools/db/generate-seed.ts",
