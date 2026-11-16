@@ -403,8 +403,10 @@ The client is a static site and the game server is a single Node process.
 ## Credits
 
 Characters, town, houses and furniture are by [LimeZu](https://limezu.itch.io) (Modern
-Interiors and Modern Exteriors), used under their license with credit. The packs themselves are
-not in this repository; only derived atlases are. Fonts are
+Interiors and Modern Exteriors), used under their license with credit. That art may not be redistributed, so
+neither the packs nor the atlases derived from them are in this repository: they're kept in a
+private repository and added at deploy time (see
+[docs/SETUP.md](docs/SETUP.md#getting-the-art)). Fonts are
 [Nunito](https://fonts.google.com/specimen/Nunito) and
 [Pixelify Sans](https://fonts.google.com/specimen/Pixelify+Sans) (SIL OFL). Full details are in
 [CREDITS.md](CREDITS.md).

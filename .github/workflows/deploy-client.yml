@@ -23,6 +23,15 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
+      # The LimeZu-derived art can't be redistributed, so it lives in a private repository
+      # (read with a deploy key) and is copied into place for the build.
+      - name: Art
+        uses: actions/checkout@v7
+        with:
+          repository: AnasSAV/Hearthwork-art
+          ssh-key: ${{ secrets.ART_DEPLOY_KEY }}
+          path: .art
+      - run: cp -r .art/client . && rm -rf .art
       - uses: actions/setup-node@v7
         with:
           node-version-file: .node-version

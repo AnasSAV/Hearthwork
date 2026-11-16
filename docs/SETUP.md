@@ -153,15 +153,27 @@ is made of pieces you drag around, like a base builder:
   20, not committed).
 
 With `npm run dev` running, the game server restarts by itself when you save; reload the game
-to see the change. Commit the layouts in `tools/town-builder/maps/` and the changed files under
-`client/public/assets` when you're happy with it.
+to see the change. Commit the layouts in `tools/town-builder/maps/` and the changed maps under
+`client/public/assets/maps` when you're happy with it, and the changed images
+(`tilesets/<map>.png`, `sprites/*`) to the private art repository.
 
 The pieces come from `tools/art/build_town_kit.py` (`npm run art:town-kit -- <pack dir>`), which
 cuts them from the LimeZu pack. To add a piece, add a line there and rebuild the kit.
 
+## Getting the art
+
+The game's art comes from LimeZu's paid packs, which may not be redistributed, so the images
+derived from them are **not in this repository** (their paths are gitignored). Without them the
+game runs but draws nothing. Either:
+
+- **With access to the private art repository** (`AnasSAV/Hearthwork-art`): clone it and copy
+  its `client/` and `tools/` folders over this checkout. The deploy workflow does the same with a
+  read-only deploy key (`ART_DEPLOY_KEY`).
+- **Otherwise**, buy the packs and build the images yourself, as below.
+
 ## Rebuilding the art (optional)
 
-The repository already contains everything the game needs. Only to change the art: buy LimeZu's
+Only to change or rebuild the art: buy LimeZu's
 **Modern Interiors** and **Modern Exteriors** (16×16), unzip them into one folder with
 `Interior/` and `Exterior/` inside, install Python 3 and Pillow (`pip install pillow`), then:
 

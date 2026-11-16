@@ -61,9 +61,10 @@ These protect the economy and players' trust. A change that breaks one won't be 
   `supabase/seed.sql`. If placement rules change, keep `canPlace()` in `shared/src/house.ts`
   and `save_layout` in SQL in step.
 - **Town layout:** use the town editor (`npm run editor`) and commit `town.json`, `town.tmx`
-  and `sprites/town-map.png` together.
-- **Art:** only derived atlases are committed. The LimeZu packs must never be added to the
-  repository; see [docs/SETUP.md](docs/SETUP.md#rebuilding-the-art-optional).
+  (the map's images go to the private art repository).
+- **Art:** neither the LimeZu packs nor images derived from them may be committed here (the
+  paths are gitignored); they live in the private art repository. See
+  [docs/SETUP.md](docs/SETUP.md#getting-the-art).
 - **Decisions:** if a change departs from [docs/SPEC.md](docs/SPEC.md) or makes a judgement
   call, add a short note to [docs/DECISIONS.md](docs/DECISIONS.md).
 

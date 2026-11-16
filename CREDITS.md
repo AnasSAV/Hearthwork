@@ -6,8 +6,9 @@ All game art (characters, town, houses and interiors) is by **LimeZu**:
 [Modern Interiors](https://limezu.itch.io/moderninteriors) and
 [Modern Exteriors](https://limezu.itch.io/modernexteriors). These packs are paid and licensed:
 they may be used and edited in this game with credit, but not redistributed or resold. The
-repository only contains small atlases derived from them by `tools/art/`; get the packs from
-LimeZu to regenerate or extend the art.
+atlases derived from them by `tools/art/` are therefore not in this public repository either:
+they live in a private repository and are copied in at deploy time. Get the packs from LimeZu
+to build the atlases yourself (see `docs/SETUP.md`). The table below lists what the game loads.
 
 | File in `client/public/assets/`              | Source                                                                                                                                                                      | How it was derived                                                                                                 |
 | -------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------ |

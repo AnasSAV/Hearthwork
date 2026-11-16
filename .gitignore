@@ -12,3 +12,13 @@ coverage/
 tools/bots/.load-bots.json
 art-review/
 tools/town-builder/backups/
+
+# LimeZu-derived art: licensed, not redistributable, so it lives in the private
+# AnasSAV/Hearthwork-art repository and is copied in for builds (see docs/SETUP.md).
+client/public/assets/characters/*.png
+client/public/assets/sprites/*.png
+client/public/assets/tilesets/*.png
+!client/public/assets/tilesets/collision.png
+client/public/assets/ui/*.png
+client/public/icons/*.png
+tools/town-builder/kit/*.png
