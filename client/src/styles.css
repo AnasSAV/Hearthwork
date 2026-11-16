@@ -3423,7 +3423,7 @@ body {
 }
 
 /* Narrow windows and tablets: the home bar no longer fits between the HUD and the toolbar. */
-@media (max-width: 1240px) {
+@media (max-width: 1420px) {
   .house-bar {
     top: 80px;
   }
@@ -3912,7 +3912,7 @@ body {
 }
 
 /* No room between the HUD and the toolbar: the news sits above the action button instead. */
-@media (max-width: 1240px) {
+@media (max-width: 1420px) {
   .game-message {
     top: auto;
     bottom: 140px;
