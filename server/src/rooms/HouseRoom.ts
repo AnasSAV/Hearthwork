@@ -31,6 +31,7 @@ import { focusRegistry } from '../focus/registry.js';
 import { log } from '../log.js';
 import { ChatController, clockNow } from './ChatController.js';
 import { correct, MovementGuard } from './MovementGuard.js';
+import { SocialController } from './SocialController.js';
 import { registerProfileReload } from './profileReload.js';
 import { onValidated, rejectUnknownMessages } from './validated.js';
 
@@ -63,6 +64,7 @@ export class HouseRoom extends Room<{ state: HouseState }> {
     () => this.grid,
     () => this.clock.currentTime,
   );
+  private social = new SocialController(this, () => this.state.players);
   private chat = new ChatController(
     this,
     () => `house:${this.state.ownerId}`,
@@ -97,6 +99,7 @@ export class HouseRoom extends Room<{ state: HouseState }> {
     onValidated(this, ClientMsg.HouseDoor, emptySchema, (client) => this.useDoor(client));
     this.focus.register();
     this.chat.register();
+    this.social.register();
     registerProfileReload(this, () => this.state.players);
     rejectUnknownMessages(this);
     this.clock.setInterval(() => this.broadcast(ServerMsg.Clock, clockNow()), 30_000);
@@ -141,6 +144,7 @@ export class HouseRoom extends Room<{ state: HouseState }> {
     client.send(ServerMsg.Wallet, auth.wallet);
     client.send(ServerMsg.Clock, clockNow());
     this.chat.join(client);
+    this.social.join(client);
     log.info('house visitor joined', {
       roomId: this.roomId,
       ownerId: this.state.ownerId,
@@ -169,6 +173,7 @@ export class HouseRoom extends Room<{ state: HouseState }> {
     this.state.players.delete(client.sessionId);
     this.moves.leave(client.sessionId);
     this.chat.leave(client);
+    this.social.leave(client);
     await this.focus.leave(client);
   }
 

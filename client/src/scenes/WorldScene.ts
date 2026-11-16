@@ -14,6 +14,9 @@ import {
   type FocusEndedMessage,
   type FocusErrorMessage,
   type FocusStateMessage,
+  type FriendsOnlineMessage,
+  type NoticeMessage,
+  type PinchedMessage,
   type MoveMessage,
   type ChatMessage,
   type ChatNotice,
@@ -29,14 +32,14 @@ import {
 import { PlayerSprite } from '../game/PlayerSprite';
 import { chat, type Partner } from '../net/chat';
 import { syncClock } from '../net/clock';
-import { alertFocusEnded, alertFocusState } from '../net/focusAlerts';
+import { alertFocusEnded, alertFocusState, notifyAway } from '../net/focusAlerts';
 import { startHeartbeat, stopHeartbeat } from '../net/heartbeat';
 import { attachRoomSender } from '../net/roomBridge';
 import { sfx } from '../audio/sfx';
 import { minimap } from '../game/minimap';
 import { revealWorld } from '../game/navigation';
 import { setInteract, stick } from '../game/touch';
-import { setZoom, uiStore } from '../store';
+import { setZoom, showNotice, uiStore } from '../store';
 
 /** Remote players glide slightly longer than the send interval so motion stays continuous. */
 const REMOTE_TWEEN_MS = MOVE_SEND_INTERVAL_MS + 30;
@@ -91,7 +94,8 @@ export abstract class WorldScene<S extends object> extends Phaser.Scene {
       ui.houseSettingsOpen ||
       ui.friendsOpen ||
       ui.statsOpen ||
-      ui.gamesOpen,
+      ui.gamesOpen ||
+      ui.tutorialOpen,
     );
   }
 
@@ -353,6 +357,15 @@ export abstract class WorldScene<S extends object> extends Phaser.Scene {
       if (!chat.isMuted(m.userId)) chat.addWhisper(m);
     });
     room.onMessage(ServerMsg.ChatNotice, (n: ChatNotice) => chat.notice(n.message));
+    room.onMessage(ServerMsg.Notice, (n: NoticeMessage) => showNotice(n.message));
+    room.onMessage(ServerMsg.FriendsOnline, (m: FriendsOnlineMessage) =>
+      uiStore.set({ onlineFriends: m.online }),
+    );
+    room.onMessage(ServerMsg.Pinched, (m: PinchedMessage) => {
+      uiStore.set({ pinch: { ...m, at: Date.now() } });
+      notifyAway(`${m.fromName} pinched you!`, 'Say hi back in Hearthwork.', 'pop');
+      this.local?.emote('heart');
+    });
     room.onMessage(ServerMsg.Chat, (m: ChatMessage) => {
       chat.add(m);
       if (!chat.isMuted(m.userId))

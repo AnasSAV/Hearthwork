@@ -89,6 +89,8 @@ export interface GameDb {
   ): Promise<AwardResult>;
   abandonActiveSessions(): Promise<number>;
   awardPlay(userId: string, game: GameId, minutes: number): Promise<PlayAwardResult>;
+  /** Accepted friends' user ids. */
+  friendIds(userId: string): Promise<string[]>;
   getHouse(ownerId: string): Promise<HouseRecord | null>;
   canVisit(visitorId: string, ownerId: string): Promise<boolean>;
   /** Store a reported chat message for moderation. Returns false if already reported by them. */
@@ -214,6 +216,18 @@ export class SupabaseGameDb implements GameDb {
     });
     if (error) throw new Error(`award_focus: ${error.message}`);
     return data as AwardResult;
+  }
+
+  async friendIds(userId: string): Promise<string[]> {
+    const { data, error } = await this.sb
+      .from('friendships')
+      .select('user_id, friend_id')
+      .eq('status', 'accepted')
+      .or(`user_id.eq.${userId},friend_id.eq.${userId}`);
+    if (error) throw new Error(`friendships: ${error.message}`);
+    return (data as { user_id: string; friend_id: string }[]).map((f) =>
+      f.user_id === userId ? f.friend_id : f.user_id,
+    );
   }
 
   async awardPlay(userId: string, game: GameId, minutes: number): Promise<PlayAwardResult> {

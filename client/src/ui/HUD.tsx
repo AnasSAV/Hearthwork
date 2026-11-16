@@ -211,6 +211,7 @@ export function HUD() {
           onClick={toggle('characterOpen')}
           active={characterOpen}
         />
+        <Tool icon="help" label="How to play" onClick={() => uiStore.set({ tutorialOpen: true })} />
         <Tool icon="door" label="Sign out" onClick={() => void supabase.auth.signOut()} />
       </nav>
 

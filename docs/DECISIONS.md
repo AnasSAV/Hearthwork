@@ -642,3 +642,19 @@ playlistLength` (`shared/src/radio.ts`, unit-tested) and plays that track from t
 - The saved map carries a version, and the game adds it to the tileset and sheet URLs: those
   files keep their names when the town changes, and with day-long caching an old tileset under
   a new map would scramble the town.
+
+## Introduction, shop sign and pinches (2026-11-16)
+
+- New players get a six-step introduction the first time they're in the world (walking, focus,
+  decorating, friends, games). `profiles.tutorial_seen_at` remembers it per account, set through
+  `finish_tutorial()` as soon as it's shown, so closing the tab halfway doesn't bring it back;
+  the "How to play" button reopens it any time. Existing players see it once too.
+- A bobbing "Buy furniture here!" bubble sits over the Furniture Shop and gives way to the
+  "Enter" prompt at the door.
+- Friends can pinch each other: `pinch` is an intent with the friend's id; the server checks the
+  friendship in the database, that they're online, and rate limits (one pinch every 3 seconds,
+  the same friend every 20), then tells every tab they have open, in any room. They get a popup
+  with "Pinch back", and a system notification if they're in another window.
+- Who's online is a list in the game server's memory, filled as players join rooms. It's only a
+  convenience (the friends panel's dots and pinches); after a restart it fills up again as
+  players reconnect. Pinches to offline friends aren't stored.

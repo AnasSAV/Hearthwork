@@ -18,6 +18,7 @@ import { log } from '../log.js';
 import { isAtDesk, townMap } from '../maps.js';
 import { ChatController, clockNow } from './ChatController.js';
 import { MovementGuard } from './MovementGuard.js';
+import { SocialController } from './SocialController.js';
 import { registerProfileReload } from './profileReload.js';
 import { onValidated, rejectUnknownMessages } from './validated.js';
 
@@ -46,6 +47,7 @@ export class TownRoom extends Room<{ state: TownState }> {
       timers: () => this.state.tables,
     },
   );
+  private social = new SocialController(this, () => this.state.players);
   private chat = new ChatController(
     this,
     () => `town:${this.roomId}`,
@@ -59,6 +61,7 @@ export class TownRoom extends Room<{ state: TownState }> {
     });
     this.focus.register();
     this.chat.register();
+    this.social.register();
     registerProfileReload(this, () => this.state.players);
     rejectUnknownMessages(this);
     this.clock.setInterval(() => this.focus.tickTables(Date.now()), 1_000);
@@ -96,6 +99,7 @@ export class TownRoom extends Room<{ state: TownState }> {
     client.send(ServerMsg.Wallet, auth.wallet);
     client.send(ServerMsg.Clock, clockNow());
     this.chat.join(client);
+    this.social.join(client);
     log.info('player joined', {
       roomId: this.roomId,
       sessionId: client.sessionId,
@@ -131,6 +135,7 @@ export class TownRoom extends Room<{ state: TownState }> {
     this.moves.leave(client.sessionId);
     log.info('player left', { roomId: this.roomId, sessionId: client.sessionId });
     this.chat.leave(client);
+    this.social.leave(client);
     await this.focus.leave(client);
   }
 

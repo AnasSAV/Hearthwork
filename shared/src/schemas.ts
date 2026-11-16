@@ -31,6 +31,10 @@ export const ClientMsg = {
   Typing: 'typing',
   /** The action button in a mini-game. The server decides what it means right now. */
   GameUse: 'game:use',
+  /** Which of my friends are online (answered with FriendsOnline). */
+  FriendsOnline: 'friends:online',
+  /** Pinch a friend: they get a notification, wherever they are. */
+  Pinch: 'pinch',
 } as const;
 
 /** Server → client message type names. */
@@ -63,6 +67,12 @@ export const ServerMsg = {
   GameEvent: 'game:event',
   /** Your score and earnings in this visit to a mini-game (GameStatusMessage). */
   GameStatus: 'game:status',
+  /** Your friends who are online right now (FriendsOnlineMessage). */
+  FriendsOnline: 'friends:online',
+  /** A friend pinched you (PinchedMessage). */
+  Pinched: 'pinched',
+  /** A short message for a toast (NoticeMessage), e.g. "You pinched Ana!". */
+  Notice: 'notice',
 } as const;
 
 export interface ClockMessage {
@@ -102,6 +112,9 @@ export type FocusBeatMessage = z.infer<typeof focusBeatSchema>;
 
 export const townJoinSchema = z.object({});
 export type TownJoinOptions = z.infer<typeof townJoinSchema>;
+
+export const pinchSchema = z.strictObject({ userId: z.uuid() });
+export type PinchMessage = z.infer<typeof pinchSchema>;
 
 export const gameJoinSchema = z.object({ game: z.enum(GAME_IDS) });
 export type GameJoinOptions = z.infer<typeof gameJoinSchema>;
@@ -152,6 +165,20 @@ export interface FocusEndedMessage {
 }
 
 export interface FocusErrorMessage {
+  message: string;
+}
+
+export interface FriendsOnlineMessage {
+  /** User ids. */
+  online: string[];
+}
+
+export interface PinchedMessage {
+  fromId: string;
+  fromName: string;
+}
+
+export interface NoticeMessage {
   message: string;
 }
 

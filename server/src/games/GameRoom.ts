@@ -21,6 +21,7 @@ import { log } from '../log.js';
 import { gameMaps, type GameMap } from '../maps.js';
 import { ChatController, clockNow } from '../rooms/ChatController.js';
 import { correct, MovementGuard } from '../rooms/MovementGuard.js';
+import { SocialController } from '../rooms/SocialController.js';
 import { registerProfileReload } from '../rooms/profileReload.js';
 import { onValidated, rejectUnknownMessages } from '../rooms/validated.js';
 import { ButterflyGame } from './butterflies.js';
@@ -44,6 +45,7 @@ export class GameRoom extends Room<{ state: GameState }> {
   /** On a raft, moves are checked against the water at raft speed. */
   private raft: MovementGuard | null = null;
   private chat!: ChatController;
+  private social = new SocialController(this, () => this.state.players);
 
   override onCreate(options: unknown): void {
     const { game } = gameJoinSchema.parse(options);
@@ -79,6 +81,7 @@ export class GameRoom extends Room<{ state: GameState }> {
       if (player) this.logic.use(client, player);
     });
     this.chat.register();
+    this.social.register();
     registerProfileReload(this, () => this.state.players);
     rejectUnknownMessages(this);
 
@@ -154,6 +157,7 @@ export class GameRoom extends Room<{ state: GameState }> {
     client.send(ServerMsg.Wallet, auth.wallet);
     client.send(ServerMsg.Clock, clockNow());
     this.chat.join(client);
+    this.social.join(client);
     log.info('player joined game', {
       roomId: this.roomId,
       room: this.roomName,
@@ -185,6 +189,7 @@ export class GameRoom extends Room<{ state: GameState }> {
     this.raft?.leave(client.sessionId);
     this.logic.leave(client);
     this.chat.leave(client);
+    this.social.leave(client);
     await this.play.leave(client);
     log.info('player left game', { roomId: this.roomId, sessionId: client.sessionId });
   }

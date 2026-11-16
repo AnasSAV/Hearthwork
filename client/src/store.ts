@@ -132,6 +132,12 @@ export interface UiState {
   focus: ActiveFocus | null;
   focusSummary: FocusEndedMessage | null;
   focusError: string | null;
+  /** The introduction (first visit, or the "How to play" button). */
+  tutorialOpen: boolean;
+  /** A friend just pinched you. */
+  pinch: { fromId: string; fromName: string; at: number } | null;
+  /** Friends online right now (user ids), as of the last time the friends panel asked. */
+  onlineFriends: string[];
   /** The always-on-top mini timer window, while it's open. */
   miniTimer: Window | null;
   /** Played by touch (joystick and tappable prompts) rather than keyboard and mouse. */
@@ -191,6 +197,9 @@ const initial: UiState = {
   focusSummary: null,
   focusError: null,
   miniTimer: null,
+  tutorialOpen: false,
+  pinch: null,
+  onlineFriends: [],
   touch: typeof matchMedia === 'function' && matchMedia('(pointer: coarse)').matches,
 };
 

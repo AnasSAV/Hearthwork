@@ -14,8 +14,14 @@ export function requestFocusAlerts(): void {
   }
 }
 
-function notify(title: string, body: string): void {
-  sfx.play('chime');
+/** A sound, and a system notification if they're in another window and allowed them. */
+export function notifyAway(title: string, body: string, sound: 'chime' | 'pop' = 'chime'): void {
+  sfx.play(sound);
+  if (away()) notify(title, body, false);
+}
+
+function notify(title: string, body: string, chime = true): void {
+  if (chime) sfx.play('chime');
   if (!('Notification' in window) || Notification.permission !== 'granted') return;
   const n = new Notification(title, {
     body,

@@ -261,6 +261,10 @@ players.
 | <kbd>I</kbd>                      | Inventory                              |
 | <kbd>+</kbd> <kbd>−</kbd> / wheel | Zoom                                   |
 
+**Getting started and friends.** New players get a short introduction the first time (the
+**?** button shows it again), a sign over the Furniture Shop points the way, and friends can
+**pinch** each other from the Friends panel, which also shows who's online.
+
 **Mini-games.** The Games button takes you to four maps of their own: fish at **Mirror Lake**,
 race **Rushwater Rapids** on a raft, chase butterflies across **Butterfly Meadow**, and dig for
 buried treasure at **Treasure Cove**. They use the same controls, with one action button (E, or

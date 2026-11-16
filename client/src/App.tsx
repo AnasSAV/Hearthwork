@@ -26,6 +26,8 @@ import { WidgetLayer, WidgetPicker } from './ui/widgets/WidgetLayer';
 import { ShopPanel } from './ui/ShopPanel';
 import { StatsPanel } from './ui/StatsPanel';
 import { Toast } from './ui/Toast';
+import { PinchPopup } from './ui/PinchPopup';
+import { Tutorial } from './ui/Tutorial';
 import { TouchStick } from './ui/TouchStick';
 
 function Game() {
@@ -70,6 +72,8 @@ function Game() {
         <MapPanel />
         <WidgetPicker />
         <Toast />
+        <PinchPopup />
+        <Tutorial />
         <ConnectionOverlay />
         <Transition />
       </div>

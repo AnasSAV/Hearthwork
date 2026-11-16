@@ -28,6 +28,10 @@ export const HOUSE_MAX_CLIENTS = 16;
 /** Players per mini-game instance; another instance opens when full. */
 export const GAME_MAX_CLIENTS = 24;
 
+/** A player can pinch someone this often, and the same friend this often. */
+export const PINCH_EVERY_MS = 3_000;
+export const PINCH_SAME_FRIEND_EVERY_MS = 20_000;
+
 /** Seconds the server keeps a dropped player's seat for automatic reconnection. */
 export const RECONNECT_GRACE_SEC = 20;
 
