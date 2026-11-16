@@ -339,13 +339,14 @@ ledger, and keep the free Supabase project awake.
 
 <img src="docs/images/editor.webp" alt="The Town Builder: the town in the middle, a tray of buildings along the bottom" width="100%">
 
-`npm run editor` opens the **Town Builder**, a local-only page for laying out the town (bound
-to 127.0.0.1, never deployed). Drag buildings, study tables, trees, benches and more from the
-tray onto the town, drag them around, and paint grass, paving, water or sand. Green means a
+`npm run editor` opens the **Town Builder**, a local-only page for laying out the town and the
+four mini-game maps (bound to 127.0.0.1, never deployed). Drag buildings, study tables, trees,
+benches, boats, rocks and more from the tray, drag them around, and paint grass, paving, water,
+sand, sea or pier planks. Green means a
 piece fits, red means it doesn't. Saving checks the town still works (a reachable shop, an
 arrival point, reachable seats) and writes the map the game loads; in development the game
 server picks up the new town by itself. See
-[docs/SETUP.md](docs/SETUP.md#editing-the-town-optional).
+[docs/SETUP.md](docs/SETUP.md#editing-the-town-and-game-maps-optional).
 
 ## Deployment
 

@@ -17,6 +17,9 @@
 
     <header class="bar">
       <h1>Town Builder <small>local only</small></h1>
+      <label class="map-pick" title="Which map to edit"
+        ><select id="map-pick" aria-label="Map"></select
+      ></label>
       <div class="group">
         <button id="undo" title="Undo (Ctrl+Z)">↶ Undo</button>
         <button id="redo" title="Redo (Ctrl+Y)">↷ Redo</button>
@@ -39,6 +42,7 @@
         <strong>How to build</strong>
         <button id="help-toggle" class="icon" aria-label="Hide help">−</button>
       </div>
+      <p id="map-blurb" class="muted"></p>
       <ul id="help-body">
         <li><b>Drag</b> a piece from the tray onto the town. <b>Click</b> one to place several.</li>
         <li>Green means it fits, red means it doesn't.</li>

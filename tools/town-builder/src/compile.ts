@@ -1,15 +1,25 @@
 import { groundFrames } from './ground';
-import { T, type Frame, type Kit, type Prefab } from './kit';
-import { GROUND, type Piece, type Town } from './layout';
+import { T, type Kit, type Prefab } from './kit';
+import { GROUND, isWet, type Piece, type Town } from './layout';
+import type { MapId } from './maps';
 import { toTmx, type TiledMap, type TiledObject } from './tmx';
 
 /**
- * Turn a layout into what the game loads, in the same shape tools/art/build_town.py writes:
+ * Turn a layout into what the game loads, in the same shape the generators write.
+ *
+ * The town (tools/art/build_town.py):
  *   maps/town.json + town.tmx   tile layers, hidden collision layer, objects
  *   tilesets/town.png           every tile used, deduplicated
  *   sprites/town-trees.*        every tree in the kit (the world map draws some of them too)
  *   sprites/town-anims.*        every animation in the kit, frames "<name>:<i>"
  *   sprites/town-map.png        a small picture of the town for the world map
+ *
+ * A mini-game map (tools/art/build_games.py):
+ *   maps/<id>.json + .tmx       the same layers; the rapids add a hidden `raft` layer
+ *   tilesets/<id>.png           its own tileset
+ *   sprites/games.*             every animation in the kit plus the games' own sprites (shared)
+ * with what the games read worked out here: fishing spots along every bank, the dig zone over
+ * the sand, where a raft can float, the raft's start, the finish and the bonus buoys.
  */
 const TILE_LAYERS = ['ground', 'paths', 'decor', 'below', 'below2', 'above', 'above2'] as const;
 type TileLayer = (typeof TILE_LAYERS)[number];
@@ -23,12 +33,8 @@ export interface Issue {
 }
 
 export interface Compiled {
-  map: TiledMap;
-  tmx: string;
-  tileset: string;
-  trees: { png: string; json: string };
-  anims: { png: string; json: string };
-  picture: string;
+  /** Path under client/public/assets → file contents (text, or a PNG data URL). */
+  files: Record<string, string>;
   issues: Issue[];
 }
 
@@ -57,14 +63,62 @@ function canvas(w: number, h: number): [HTMLCanvasElement, CanvasRenderingContex
   return [c, ctx];
 }
 
-/** A short content hash, so the game can tell a new tileset from a cached old one. */
+/** A short content hash, so the game can tell new art from a cached old copy. */
 function hashText(s: string): string {
   let h = 2166136261;
   for (let i = 0; i < s.length; i++) h = Math.imul(h ^ s.charCodeAt(i), 16777619);
   return (h >>> 0).toString(36);
 }
 
-export function compile(town: Town, kit: Kit, art: HTMLImageElement): Compiled {
+const prop = (name: string, value: string | number | boolean) => ({
+  name,
+  type:
+    typeof value === 'number'
+      ? Number.isInteger(value)
+        ? 'int'
+        : 'float'
+      : typeof value === 'boolean'
+        ? 'bool'
+        : 'string',
+  value,
+});
+
+const atlasJson = (frames: Record<string, AtlasFrame>, image: string, c: HTMLCanvasElement) =>
+  JSON.stringify(
+    { frames, meta: { image, size: { w: c.width, h: c.height }, scale: '1' } },
+    null,
+    1,
+  );
+
+/** Tiles and places that can be reached on foot (or by raft) from a start tile. */
+function flood(W: number, H: number, blocked: Uint8Array, sx: number, sy: number): Uint8Array {
+  const seen = new Uint8Array(W * H);
+  if (sx < 0 || sy < 0 || sx >= W || sy >= H || blocked[sy * W + sx]) return seen;
+  const queue = [sy * W + sx];
+  seen[sy * W + sx] = 1;
+  while (queue.length) {
+    const i = queue.pop()!;
+    const x = i % W;
+    const y = (i - x) / W;
+    for (const [dx, dy] of [
+      [1, 0],
+      [-1, 0],
+      [0, 1],
+      [0, -1],
+    ] as const) {
+      const nx = x + dx;
+      const ny = y + dy;
+      const n = ny * W + nx;
+      if (nx < 0 || ny < 0 || nx >= W || ny >= H || blocked[n] || seen[n]) continue;
+      seen[n] = 1;
+      queue.push(n);
+    }
+  }
+  return seen;
+}
+
+export function compile(town: Town, kit: Kit, art: HTMLImageElement, mapId: MapId): Compiled {
+  const isTown = mapId === 'town';
   const W = town.width;
   const H = town.height;
   const [atlasCanvas, atlasCtx] = canvas(art.width, art.height);
@@ -109,6 +163,7 @@ export function compile(town: Town, kit: Kit, art: HTMLImageElement): Compiled {
   const solid = new Uint8Array(W * H);
   const at = (x: number, y: number) => y * W + x;
   const inside = (x: number, y: number) => x >= 0 && y >= 0 && x < W && y < H;
+  const ground = (x: number, y: number) => town.groundAt(x, y);
 
   // 1. Ground.
   for (let y = 0; y < H; y++) {
@@ -116,7 +171,8 @@ export function compile(town: Town, kit: Kit, art: HTMLImageElement): Compiled {
       const f = groundFrames(kit, town, x, y);
       layers.ground[at(x, y)] = gidOf(f.ground.x, f.ground.y);
       if (f.path) layers.paths[at(x, y)] = gidOf(f.path.x, f.path.y);
-      if (town.groundAt(x, y) === GROUND.water) solid[at(x, y)] = 1;
+      if (f.top) layers.decor[at(x, y)] = gidOf(f.top.x, f.top.y);
+      if (isWet(ground(x, y))) solid[at(x, y)] = 1;
     }
   }
 
@@ -124,18 +180,6 @@ export function compile(town: Town, kit: Kit, art: HTMLImageElement): Compiled {
   const objects: TiledObject[] = [];
   const object = (o: Omit<TiledObject, 'id' | 'rotation' | 'visible'>) =>
     objects.push({ id: objects.length + 1, rotation: 0, visible: true, ...o });
-  const prop = (name: string, value: string | number | boolean) => ({
-    name,
-    type:
-      typeof value === 'number'
-        ? Number.isInteger(value)
-          ? 'int'
-          : 'float'
-        : typeof value === 'boolean'
-          ? 'bool'
-          : 'string',
-    value,
-  });
   const ordered = [...town.layout.pieces].sort(
     (a, b) => a.y + town.prefabOf(a).h - (b.y + town.prefabOf(b).h) || a.x - b.x,
   );
@@ -143,9 +187,12 @@ export function compile(town: Town, kit: Kit, art: HTMLImageElement): Compiled {
   const seats: { x: number; y: number; name: string }[] = [];
   let deskCount = 0;
   let spawn: Piece | null = null;
+  let launch: Piece | null = null;
+  let finish: Piece | null = null;
   let shopDoor: { x: number; y: number }[] | null = null;
+  const raftBlocked = new Set<number>();
 
-  function stampTiles(f: Prefab, p: Piece): void {
+  function stampTiles(f: Prefab, p: Piece, above: number): void {
     for (let r = 0; r < f.h; r++) {
       for (let c = 0; c < f.w; c++) {
         const x = p.x + c;
@@ -157,7 +204,7 @@ export function compile(town: Town, kit: Kit, art: HTMLImageElement): Compiled {
           layers.decor[at(x, y)] = gid;
           continue;
         }
-        const pair: TileLayer[] = r < f.above ? ['above', 'above2'] : ['below', 'below2'];
+        const pair: TileLayer[] = r < above ? ['above', 'above2'] : ['below', 'below2'];
         const free = pair.find((n) => !layers[n][at(x, y)]);
         layers[free ?? pair[1]!][at(x, y)] = gid;
       }
@@ -166,18 +213,28 @@ export function compile(town: Town, kit: Kit, art: HTMLImageElement): Compiled {
 
   for (const p of ordered) {
     const f = town.prefabOf(p);
-    for (const [c, r] of f.solid) if (inside(p.x + c, p.y + r)) solid[at(p.x + c, p.y + r)] = 1;
+    for (const [c, r] of f.solid) {
+      if (!inside(p.x + c, p.y + r)) continue;
+      solid[at(p.x + c, p.y + r)] = 1;
+      raftBlocked.add(at(p.x + c, p.y + r));
+    }
     switch (f.kind) {
       case 'tree':
-        object({
-          name: f.tree!.name,
-          type: 'tree',
-          x: p.x * T,
-          y: p.y * T,
-          width: f.w * T,
-          height: f.h * T,
-          properties: [prop('trunk', f.tree!.trunk)],
-        });
+        if (isTown) {
+          // The town draws trees as swaying sprites.
+          object({
+            name: f.tree!.name,
+            type: 'tree',
+            x: p.x * T,
+            y: p.y * T,
+            width: f.w * T,
+            height: f.h * T,
+            properties: [prop('trunk', f.tree!.trunk)],
+          });
+        } else {
+          // Game maps draw them as tiles: the canopy over players, the trunk under.
+          stampTiles(f, p, f.h - f.tree!.trunk);
+        }
         break;
       case 'anim':
         object({
@@ -193,8 +250,34 @@ export function compile(town: Town, kit: Kit, art: HTMLImageElement): Compiled {
       case 'spawn':
         spawn = p;
         break;
+      case 'marker':
+        if (f.role === 'launch') launch = p;
+        if (f.role === 'finish') finish = p;
+        if (f.role === 'label' && p.label) {
+          object({
+            name: p.label,
+            type: 'label',
+            x: p.x * T + T / 2,
+            y: p.y * T + T,
+            width: 0,
+            height: 0,
+          });
+        }
+        if (f.role === 'buoy') {
+          // GameScene draws the buoy with its feet at this point.
+          object({
+            name: `buoy-${p.uid}`,
+            type: 'buoy',
+            x: p.x * T + T,
+            y: p.y * T + T + T / 2,
+            width: 0,
+            height: 0,
+            point: true,
+          });
+        }
+        break;
       default:
-        stampTiles(f, p);
+        stampTiles(f, p, f.above);
     }
     if (f.building) {
       const props = [];
@@ -249,17 +332,19 @@ export function compile(town: Town, kit: Kit, art: HTMLImageElement): Compiled {
       });
     }
     // Pieces left in a bad place by older layouts, map resizes or ground painting.
-    if (!town.check(f, p.x, p.y, p).ok) {
+    const check = town.check(f, p.x, p.y, p);
+    if (!check.ok) {
       issues.push({
         level: 'warning',
-        message: `${f.name}: ${town.check(f, p.x, p.y, p).reason}`,
+        message: `${f.name}: ${check.reason}`,
         at: { x: p.x, y: p.y },
       });
     }
   }
 
-  // 3. The arrival point, and whether everything can be reached from it.
+  // 3. The arrival point, and what can be reached from it on foot.
   const spawnPiece = spawn as Piece | null;
+  let reached: Uint8Array = new Uint8Array(W * H);
   if (!spawnPiece) {
     issues.push({
       level: 'error',
@@ -281,26 +366,15 @@ export function compile(town: Town, kit: Kit, art: HTMLImageElement): Compiled {
       height: 0,
       point: true,
     });
-    const reached = new Uint8Array(W * H);
-    const queue = [[spawnPiece.x, spawnPiece.y]];
-    reached[at(spawnPiece.x, spawnPiece.y)] = 1;
-    while (queue.length) {
-      const [x, y] = queue.pop()!;
-      for (const [dx, dy] of [
-        [1, 0],
-        [-1, 0],
-        [0, 1],
-        [0, -1],
-      ] as const) {
-        const nx = x! + dx;
-        const ny = y! + dy;
-        if (!inside(nx, ny) || solid[at(nx, ny)] || reached[at(nx, ny)]) continue;
-        reached[at(nx, ny)] = 1;
-        queue.push([nx, ny]);
-      }
-    }
-    const unreachable = seats.filter((s) => !reached[at(s.x, s.y)]);
-    if (unreachable.length) {
+    reached = flood(W, H, solid, spawnPiece.x, spawnPiece.y);
+  }
+  const canReach = (x: number, y: number) => inside(x, y) && reached[at(x, y)] === 1;
+
+  // 4. What each map's game needs.
+  let raftLayer: number[] | null = null;
+  if (isTown) {
+    const unreachable = seats.filter((s) => !canReach(s.x, s.y));
+    if (spawnPiece && unreachable.length) {
       issues.push({
         level: 'warning',
         message: `${unreachable.length} ${unreachable.length === 1 ? 'seat' : 'seats'} can't be reached from the arrival point.`,
@@ -308,23 +382,201 @@ export function compile(town: Town, kit: Kit, art: HTMLImageElement): Compiled {
       });
     }
     const door = shopDoor as { x: number; y: number }[] | null;
-    if (door && !door.some((d) => inside(d.x, d.y) && reached[at(d.x, d.y)])) {
+    if (!town.layout.pieces.some((p) => p.prefab === 'shop')) {
+      issues.push({
+        level: 'error',
+        message: 'Place the Furniture Shop (Buildings): players buy furniture there.',
+      });
+    } else if (spawnPiece && door && !door.some((d) => canReach(d.x, d.y))) {
       issues.push({
         level: 'error',
         message: "The Furniture Shop's door can't be reached.",
         at: door[0],
       });
     }
+    if (deskCount === 0)
+      issues.push({ level: 'warning', message: 'There are no study tables yet.' });
   }
-  if (!town.layout.pieces.some((p) => p.prefab === 'shop')) {
+
+  if (mapId === 'lake') {
+    // Anyone standing next to the water (a bank or a pier edge) can fish: one zone per run of
+    // such tiles along a row.
+    let spots = 0;
+    let reachable = 0;
+    for (let y = 0; y < H; y++) {
+      let runStart = -1;
+      for (let x = 0; x <= W; x++) {
+        const spot =
+          x < W &&
+          !solid[at(x, y)] &&
+          [
+            [1, 0],
+            [-1, 0],
+            [0, 1],
+            [0, -1],
+          ].some(([dx, dy]) => inside(x + dx!, y + dy!) && isWet(ground(x + dx!, y + dy!)));
+        if (spot) {
+          spots++;
+          if (canReach(x, y)) reachable++;
+          if (runStart < 0) runStart = x;
+        } else if (runStart >= 0) {
+          object({
+            name: `fishing-${runStart}-${y}`,
+            type: 'fish_zone',
+            x: runStart * T,
+            y: y * T,
+            width: (x - runStart) * T,
+            height: T,
+          });
+          runStart = -1;
+        }
+      }
+    }
+    if (!spots) issues.push({ level: 'error', message: 'There is no water to fish in.' });
+    else if (spawnPiece && !reachable) {
+      issues.push({
+        level: 'error',
+        message: "Nobody can walk to the water's edge from the arrival point.",
+      });
+    }
+  }
+
+  if (mapId === 'rapids') {
+    // A raft floats on water away from the very edge of it (the bank art covers most of an edge
+    // tile), and not through anything solid.
+    const raft = new Uint8Array(W * H);
+    for (let y = 0; y < H; y++) {
+      for (let x = 0; x < W; x++) {
+        const water = (cx: number, cy: number) => inside(cx, cy) && ground(cx, cy) === GROUND.water;
+        const open =
+          water(x, y) &&
+          water(x - 1, y) &&
+          water(x + 1, y) &&
+          water(x, y - 1) &&
+          water(x, y + 1) &&
+          !raftBlocked.has(at(x, y));
+        raft[at(x, y)] = open ? 0 : 1;
+      }
+    }
+    raftLayer = Array.from(raft);
+    const launchPiece = launch as Piece | null;
+    const finishPiece = finish as Piece | null;
+    if (!launchPiece) {
+      issues.push({ level: 'error', message: 'Place the Raft launch (Special) beside the river.' });
+    }
+    if (!finishPiece) {
+      issues.push({ level: 'error', message: 'Place the Finish line (Special) downriver.' });
+    }
+    if (launchPiece) {
+      const f = town.prefabOf(launchPiece);
+      // The raft goes in at the open water nearest the launch.
+      const cx = launchPiece.x + f.w / 2;
+      const cy = launchPiece.y + f.h / 2;
+      let start: { x: number; y: number } | null = null;
+      let best = Infinity;
+      for (let y = 0; y < H; y++) {
+        for (let x = 0; x < W; x++) {
+          if (raft[at(x, y)]) continue;
+          const d = Math.hypot(x + 0.5 - cx, y + 0.5 - cy);
+          if (d < best) {
+            best = d;
+            start = { x, y };
+          }
+        }
+      }
+      if (!start || best > 8) {
+        issues.push({
+          level: 'error',
+          message: 'The Raft launch needs open water close by (within 8 tiles).',
+          at: launchPiece,
+        });
+      } else {
+        object({
+          name: 'launch',
+          type: 'launch',
+          x: launchPiece.x * T,
+          y: launchPiece.y * T,
+          width: f.w * T,
+          height: f.h * T,
+          properties: [prop('startX', start.x * T + T / 2), prop('startY', start.y * T + T - 1)],
+        });
+        if (spawnPiece) {
+          let onFoot = false;
+          for (let y = launchPiece.y; y < launchPiece.y + f.h; y++)
+            for (let x = launchPiece.x; x < launchPiece.x + f.w; x++)
+              if (canReach(x, y)) onFoot = true;
+          if (!onFoot) {
+            issues.push({
+              level: 'error',
+              message: "The Raft launch can't be reached on foot.",
+              at: launchPiece,
+            });
+          }
+        }
+        if (finishPiece) {
+          const floated = flood(W, H, raft, start.x, start.y);
+          let arrives = false;
+          for (let y = finishPiece.y; y < Math.min(H, finishPiece.y + 3); y++)
+            for (let x = 0; x < W; x++) if (floated[at(x, y)]) arrives = true;
+          if (!arrives) {
+            issues.push({
+              level: 'warning',
+              message: "A raft can't get from the launch to the finish line: the river is blocked.",
+              at: finishPiece,
+            });
+          }
+        }
+      }
+    }
+    if (finishPiece) {
+      object({
+        name: 'finish',
+        type: 'finish',
+        x: 0,
+        y: finishPiece.y * T,
+        width: W * T,
+        height: 3 * T,
+      });
+    }
+  }
+
+  if (mapId === 'meadow' && !town.layout.pieces.some((p) => town.prefabOf(p).flowers)) {
     issues.push({
-      level: 'error',
-      message: 'Place the Furniture Shop (Buildings): players buy furniture there.',
+      level: 'warning',
+      message: 'Butterflies need flower beds (Nature) to gather at.',
     });
   }
-  if (deskCount === 0) issues.push({ level: 'warning', message: 'There are no study tables yet.' });
 
-  // 4. The tileset.
+  if (mapId === 'cove') {
+    // Treasure is buried somewhere on the sand a player can stand on.
+    let x0 = W;
+    let y0 = H;
+    let x1 = -1;
+    let y1 = -1;
+    for (let y = 0; y < H; y++) {
+      for (let x = 0; x < W; x++) {
+        if (ground(x, y) !== GROUND.sand || solid[at(x, y)] || (spawnPiece && !canReach(x, y)))
+          continue;
+        x0 = Math.min(x0, x);
+        y0 = Math.min(y0, y);
+        x1 = Math.max(x1, x);
+        y1 = Math.max(y1, y);
+      }
+    }
+    if (x1 < 0) issues.push({ level: 'error', message: 'Paint some sand to dig in (Ground).' });
+    else {
+      object({
+        name: 'dig',
+        type: 'dig_zone',
+        x: x0 * T,
+        y: y0 * T,
+        width: (x1 - x0 + 1) * T,
+        height: (y1 - y0 + 1) * T,
+      });
+    }
+  }
+
+  // 5. The tileset.
   const rows = Math.max(1, Math.ceil(tileSources.length / COLS));
   const [tiles, tilesCtx] = canvas(COLS * T, rows * T);
   tileSources.forEach((s, i) =>
@@ -332,59 +584,14 @@ export function compile(town: Town, kit: Kit, art: HTMLImageElement): Compiled {
   );
   const tileset = tiles.toDataURL('image/png');
 
-  // 5. Trees and animations: always every one in the kit.
-  const treePrefabs = [
-    ...new Map(kit.prefabs.filter((p) => p.tree).map((p) => [p.tree!.name, p])).values(),
-  ];
-  const [treeCanvas, treeCtx] = canvas(
-    treePrefabs.reduce((s, p) => s + p.frame.w, 0),
-    Math.max(...treePrefabs.map((p) => p.frame.h)),
-  );
-  const treeFrames: Record<string, AtlasFrame> = {};
-  let tx = 0;
-  for (const p of treePrefabs) {
-    treeCtx.drawImage(
-      atlasCanvas,
-      p.frame.x,
-      p.frame.y,
-      p.frame.w,
-      p.frame.h,
-      tx,
-      0,
-      p.frame.w,
-      p.frame.h,
-    );
-    treeFrames[p.tree!.name] = atlasFrame(tx, 0, p.frame.w, p.frame.h);
-    tx += p.frame.w;
-  }
-  const animPrefabs = kit.prefabs.filter((p) => p.anim);
-  const strips: Frame[] = animPrefabs.map((p) => p.anim!.strip);
-  const [animCanvas, animCtx] = canvas(
-    Math.max(...strips.map((s) => s.w)),
-    strips.reduce((s, f) => s + f.h, 0),
-  );
-  const animFrames: Record<string, AtlasFrame> = {};
-  let ay = 0;
-  for (const p of animPrefabs) {
-    const s = p.anim!.strip;
-    animCtx.drawImage(atlasCanvas, s.x, s.y, s.w, s.h, 0, ay, s.w, s.h);
-    for (let i = 0; i < p.anim!.frames; i++) {
-      animFrames[`${p.anim!.name}:${i}`] = atlasFrame(i * p.w * T, ay, p.w * T, p.h * T);
-    }
-    ay += s.h;
-  }
-  const atlasJson = (frames: Record<string, AtlasFrame>, image: string, c: HTMLCanvasElement) =>
-    JSON.stringify(
-      { frames, meta: { image, size: { w: c.width, h: c.height }, scale: '1' } },
-      null,
-      1,
-    );
-
   // 6. The map itself.
   const COLL = tileSources.length + 1;
   const tileLayers = [
     ...TILE_LAYERS.map((name) => ({ name, data: layers[name], visible: true })),
     { name: 'collision', data: Array.from(solid, (s) => (s ? COLL : 0)), visible: false },
+    ...(raftLayer
+      ? [{ name: 'raft', data: raftLayer.map((s) => (s ? COLL : 0)), visible: false }]
+      : []),
   ];
   const version = hashText(tileset.slice(-64) + tileSources.length + JSON.stringify(town.layout));
   const map: TiledMap = {
@@ -431,8 +638,8 @@ export function compile(town: Town, kit: Kit, art: HTMLImageElement): Compiled {
     tilesets: [
       {
         firstgid: 1,
-        name: 'town',
-        image: '../tilesets/town.png',
+        name: isTown ? 'town' : 'games',
+        image: `../tilesets/${mapId}.png`,
         imagewidth: tiles.width,
         imageheight: tiles.height,
         columns: COLS,
@@ -458,53 +665,107 @@ export function compile(town: Town, kit: Kit, art: HTMLImageElement): Compiled {
     ],
   };
 
-  // 7. The world-map picture: the town at 4 px a tile.
-  const [full, fullCtx] = canvas(W * T, H * T);
-  fullCtx.fillStyle = '#000';
-  fullCtx.fillRect(0, 0, full.width, full.height);
-  for (const name of TILE_LAYERS) {
-    layers[name].forEach((gid, i) => {
-      if (!gid) return;
-      const s = tileSources[gid - 1]!;
-      fullCtx.drawImage(atlasCanvas, s.x, s.y, T, T, (i % W) * T, Math.floor(i / W) * T, T, T);
-    });
-    if (name === 'below2') {
-      for (const p of ordered) {
-        const f = town.prefabOf(p);
-        if (f.kind === 'tree' || f.kind === 'anim') {
-          fullCtx.drawImage(
-            atlasCanvas,
-            f.frame.x,
-            f.frame.y,
-            f.frame.w,
-            f.frame.h,
-            p.x * T,
-            p.y * T,
-            f.frame.w,
-            f.frame.h,
-          );
+  const files: Record<string, string> = {
+    [`maps/${mapId}.json`]: JSON.stringify(map),
+    [`maps/${mapId}.tmx`]: toTmx(map),
+    [`tilesets/${mapId}.png`]: tileset,
+  };
+
+  // 7. Animations (and trees, for the town): always every one in the kit.
+  const animPrefabs = kit.prefabs.filter((p) => p.anim);
+  const extras = isTown ? [] : Object.entries(kit.sprites);
+  const stripW = Math.max(...animPrefabs.map((p) => p.anim!.strip.w), 1);
+  const [animCanvas, animCtx] = canvas(
+    Math.max(
+      stripW,
+      extras.reduce((s, [, f]) => s + f.w, 0),
+    ),
+    animPrefabs.reduce((s, p) => s + p.anim!.strip.h, 0) +
+      Math.max(0, ...extras.map(([, f]) => f.h)),
+  );
+  const animFrames: Record<string, AtlasFrame> = {};
+  let ay = 0;
+  for (const p of animPrefabs) {
+    const s = p.anim!.strip;
+    animCtx.drawImage(atlasCanvas, s.x, s.y, s.w, s.h, 0, ay, s.w, s.h);
+    for (let i = 0; i < p.anim!.frames; i++) {
+      animFrames[`${p.anim!.name}:${i}`] = atlasFrame(i * p.w * T, ay, p.w * T, p.h * T);
+    }
+    ay += s.h;
+  }
+  let ex = 0;
+  for (const [name, f] of extras) {
+    animCtx.drawImage(atlasCanvas, f.x, f.y, f.w, f.h, ex, ay, f.w, f.h);
+    animFrames[name] = atlasFrame(ex, ay, f.w, f.h);
+    ex += f.w;
+  }
+  const sheetName = isTown ? 'town-anims' : 'games';
+  files[`sprites/${sheetName}.png`] = animCanvas.toDataURL('image/png');
+  files[`sprites/${sheetName}.json`] = atlasJson(animFrames, `${sheetName}.png`, animCanvas);
+
+  if (isTown) {
+    const treePrefabs = [
+      ...new Map(kit.prefabs.filter((p) => p.tree).map((p) => [p.tree!.name, p])).values(),
+    ];
+    const [treeCanvas, treeCtx] = canvas(
+      treePrefabs.reduce((s, p) => s + p.frame.w, 0),
+      Math.max(...treePrefabs.map((p) => p.frame.h)),
+    );
+    const treeFrames: Record<string, AtlasFrame> = {};
+    let tx = 0;
+    for (const p of treePrefabs) {
+      treeCtx.drawImage(
+        atlasCanvas,
+        p.frame.x,
+        p.frame.y,
+        p.frame.w,
+        p.frame.h,
+        tx,
+        0,
+        p.frame.w,
+        p.frame.h,
+      );
+      treeFrames[p.tree!.name] = atlasFrame(tx, 0, p.frame.w, p.frame.h);
+      tx += p.frame.w;
+    }
+    files['sprites/town-trees.png'] = treeCanvas.toDataURL('image/png');
+    files['sprites/town-trees.json'] = atlasJson(treeFrames, 'town-trees.png', treeCanvas);
+
+    // The world-map picture: the town at 4 px a tile.
+    const [full, fullCtx] = canvas(W * T, H * T);
+    fullCtx.fillStyle = '#000';
+    fullCtx.fillRect(0, 0, full.width, full.height);
+    for (const name of TILE_LAYERS) {
+      layers[name].forEach((gid, i) => {
+        if (!gid) return;
+        const s = tileSources[gid - 1]!;
+        fullCtx.drawImage(atlasCanvas, s.x, s.y, T, T, (i % W) * T, Math.floor(i / W) * T, T, T);
+      });
+      if (name === 'below2') {
+        for (const p of ordered) {
+          const f = town.prefabOf(p);
+          if (f.kind === 'tree' || f.kind === 'anim') {
+            fullCtx.drawImage(
+              atlasCanvas,
+              f.frame.x,
+              f.frame.y,
+              f.frame.w,
+              f.frame.h,
+              p.x * T,
+              p.y * T,
+              f.frame.w,
+              f.frame.h,
+            );
+          }
         }
       }
     }
+    const [small, smallCtx] = canvas(W * 4, H * 4);
+    smallCtx.imageSmoothingEnabled = true;
+    smallCtx.imageSmoothingQuality = 'high';
+    smallCtx.drawImage(full, 0, 0, small.width, small.height);
+    files['sprites/town-map.png'] = small.toDataURL('image/png');
   }
-  const [small, smallCtx] = canvas(W * 4, H * 4);
-  smallCtx.imageSmoothingEnabled = true;
-  smallCtx.imageSmoothingQuality = 'high';
-  smallCtx.drawImage(full, 0, 0, small.width, small.height);
 
-  return {
-    map,
-    tmx: toTmx(map),
-    tileset,
-    trees: {
-      png: treeCanvas.toDataURL('image/png'),
-      json: atlasJson(treeFrames, 'town-trees.png', treeCanvas),
-    },
-    anims: {
-      png: animCanvas.toDataURL('image/png'),
-      json: atlasJson(animFrames, 'town-anims.png', animCanvas),
-    },
-    picture: small.toDataURL('image/png'),
-    issues,
-  };
+  return { files, issues };
 }

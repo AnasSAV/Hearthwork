@@ -4,7 +4,7 @@ Build the mini-game maps from LimeZu's Modern Exteriors (16x16).
     python tools/art/build_games.py "D:/Personal/FocusTown-art"
 
 Writes:
-  client/public/assets/tilesets/games.png      every tile the four maps use, deduplicated
+  client/public/assets/tilesets/<map>.png      every tile the four maps use, deduplicated
   client/public/assets/maps/lake.json          Mirror Lake (fishing)
   client/public/assets/maps/rapids.json        Rushwater Rapids (rafting)
   client/public/assets/maps/meadow.json        Butterfly Meadow (net catching)
@@ -16,8 +16,10 @@ objects. The rapids add a hidden `raft` layer: where a raft can't go (the banks 
 opposite of where a walker can't go. Object types the game reads: spawn, label, anim, fish_zone,
 launch, finish, buoy, flowers, dig_zone.
 
-The maps are generated once; after that the JSON is the source of truth (Tiled opens it). Needs
-Python 3 + Pillow and the LimeZu pack (credit LimeZu; only the derived files are committed).
+The maps are generated once. With --layouts it also writes each map as a Town Builder layout
+(tools/town-builder/maps/<map>.layout.json); from then on the builder (`npm run editor`) owns the
+maps and this script is only for starting over. Needs Python 3 + Pillow and the LimeZu pack
+(credit LimeZu; only the derived files are committed).
 """
 import glob
 import json
@@ -28,8 +30,10 @@ import sys
 
 from PIL import Image
 
-SRC = sys.argv[1] if len(sys.argv) > 1 else "D:/Personal/FocusTown-art"
-OUT = sys.argv[2] if len(sys.argv) > 2 else None
+ARGS = [a for a in sys.argv[1:] if not a.startswith("--")]
+LAYOUTS = "--layouts" in sys.argv
+SRC = ARGS[0] if ARGS else "D:/Personal/FocusTown-art"
+OUT = ARGS[1] if len(ARGS) > 1 else None
 BASE = os.path.join(SRC, "Exterior", "Modern_Exteriors_16x16")
 ME = os.path.join(BASE, "ME_Theme_Sorter_16x16")
 ANIM = os.path.join(BASE, "Animated_16x16", "Animated_sheets_16x16")
@@ -155,6 +159,18 @@ class Map:
         self.occupied = [False] * (w * h)
         self.raft = [True] * (w * h) if raft_layer else None
         self.objects = []
+        # The same map as a Town Builder layout: ground characters and pieces.
+        self.ground = [["."] * w for _ in range(h)]
+        self.pieces = []
+
+    def put(self, pid, tx, ty, **props):
+        self.pieces.append({"uid": len(self.pieces) + 1, "prefab": pid, "x": tx, "y": ty, **props})
+
+    def planks(self, x, y):
+        """Pier planks: walkable, over water or grass."""
+        self.set("decor", x, y, PLANK[x % 2])
+        self.solid[self.at(x, y)] = False
+        self.ground[y][x] = "="
 
     def inside(self, x, y):
         return 0 <= x < self.w and 0 <= y < self.h
@@ -170,8 +186,10 @@ class Map:
         if self.inside(x, y) and gid:
             self.layers[layer][self.at(x, y)] = gid
 
-    def place(self, image, tx, ty, solid_cells="all", above=0, raft_solid=False):
+    def place(self, image, tx, ty, solid_cells="all", above=0, raft_solid=False, pid=None):
         """Draw with its top-left tile at (tx, ty); the top `above` rows go over the players."""
+        if pid:
+            self.put(pid, tx, ty)
         w, h = image.width // T, image.height // T
         for r in range(h):
             for c in range(w):
@@ -198,6 +216,20 @@ class Map:
         return w, h
 
     def obj(self, name, kind, x, y, w=0, h=0, point=False, **props):
+        # Markers the builder places as pieces (it works out fish zones and the dig zone itself).
+        if kind == "spawn":
+            self.put("spawn", x // T, (y - 1) // T)
+            # Keep trees and props off the arrival point.
+            for dy in range(-2, 2):
+                for dx in range(-2, 3):
+                    if self.inside(x // T + dx, (y - 1) // T + dy):
+                        self.occupied[self.at(x // T + dx, (y - 1) // T + dy)] = True
+        elif kind == "label":
+            self.put("place-name", x // T, (y - 1) // T, label=name)
+        elif kind == "launch":
+            self.put("raft-launch", x // T, y // T)
+        elif kind == "buoy":
+            self.put("bonus-buoy", round(x / T - 1), y // T - 2)
         o = {"id": len(self.objects) + 1, "name": name, "type": kind, "x": x, "y": y, "width": w,
              "height": h, "rotation": 0, "visible": True}
         if point:
@@ -210,6 +242,7 @@ class Map:
         self.objects.append(o)
 
     def anim(self, name, tx, ty):
+        self.put(name, tx, ty)
         _, fw, fh, frames, fps = anim_strips[name]
         self.obj(name, "anim", tx * T, ty * T, fw * T, fh * T, frames=frames, fps=fps)
 
@@ -224,6 +257,10 @@ class Map:
         image = img(name)
         w, h = image.width // T, image.height // T
         cols = [w // 2 - 1, w // 2] if w >= 4 else [0, 1] if w == 2 else [w // 2]
+        # The builder needs a tree's trunk on the map: border trees leaning off it are nudged in.
+        lx = min(max(tx, -min(cols)), self.w - 1 - max(cols))
+        ly = min(max(ty, 2 - h), self.h - h)
+        self.put(f"tree-{name.split('_')[-1]}", lx, ly)
         self.place(image, tx, ty, [(c, h - 1 - r) for r in range(2) for c in cols], above=h - 2)
 
     def scatter_trees(self, count, x0, y0, x1, y1, margin=1, names=TREES):
@@ -254,6 +291,7 @@ class Map:
         for y in range(self.h):
             for x in range(self.w):
                 if is_water(x, y):
+                    self.ground[y][x] = "~"
                     self.set("paths", x, y, WATER.pick(is_water, x, y))
                     self.solid[self.at(x, y)] = True
                     self.occupied[self.at(x, y)] = True
@@ -286,16 +324,14 @@ lake.paint_water(lake_water)
 # The pier: two tiles wide, walkable over the water.
 first_water = next(y for y in range(lake.h) if lake_water(PIER_X, y))
 for y in range(first_water - 1, PIER_END_Y + 1):
-    for i, gid in enumerate(PLANK):
-        lake.set("decor", PIER_X + i, y, gid)
-        lake.solid[lake.at(PIER_X + i, y)] = False
+    for i in range(2):
+        lake.planks(PIER_X + i, y)
 for i, gid in enumerate(PLANK_END):
     lake.set("decor", PIER_X + i, PIER_END_Y + 1, gid)
 # A wider landing at the pier's end, with room for a few people to fish side by side.
 for y in range(PIER_END_Y - 3, PIER_END_Y + 1):
     for x in range(PIER_X - 3, PIER_X + 5):
-        lake.set("decor", x, y, PLANK[(x - PIER_X) % 2])
-        lake.solid[lake.at(x, y)] = False
+        lake.planks(x, y)
 for x in range(PIER_X - 3, PIER_X + 5):
     lake.set("decor", x, PIER_END_Y + 1, PLANK_END[(x - PIER_X) % 2])
 
@@ -317,13 +353,15 @@ for x, y in sorted(bank):
 lake.obj("spawn", "spawn", 28 * T, 9 * T, point=True)
 lake.obj("Mirror Lake", "label", 28 * T, 4 * T)
 # The camp north of the water.
-lake.place(img("Camping_16x16_Tent_1"), 14, 3, [(c, r) for c in range(4) for r in range(1, 3)], above=1)
-lake.place(img("Camping_16x16_Tent_3"), 38, 3, [(c, r) for c in range(4) for r in range(1, 3)], above=1)
-lake.place(img("Camping_16x16_Benched_Table_1"), 21, 7)
-lake.place(img("City_Props_16x16_Bench_1"), 32, 7, [(0, 1), (1, 1)])
+lake.place(img("Camping_16x16_Tent_1"), 14, 3, [(c, r) for c in range(4) for r in range(1, 3)], above=1,
+           pid="tent-blue")
+lake.place(img("Camping_16x16_Tent_3"), 38, 3, [(c, r) for c in range(4) for r in range(1, 3)], above=1,
+           pid="tent-beige")
+lake.place(img("Camping_16x16_Benched_Table_1"), 21, 7, pid="picnic-table")
+lake.place(img("City_Props_16x16_Bench_1"), 32, 7, [(0, 1), (1, 1)], pid="bench")
 # Boats tied up, and fish moving in the water.
-lake.place(sheet("11_Camping", 2, 31, 2, 4), 17, 18, "all")
-lake.place(sheet("11_Camping", 2, 31, 2, 4), 39, 22, "all")
+lake.place(sheet("11_Camping", 2, 31, 2, 4), 17, 18, "all", pid="rowboat")
+lake.place(sheet("11_Camping", 2, 31, 2, 4), 39, 22, "all", pid="rowboat")
 for name, x, y in (("fish1", 16, 26), ("fish2", 22, 30), ("fish3", 36, 28), ("fish1", 40, 18),
                    ("fish2", 34, 18), ("fish3", 13, 21), ("fish1", 24, 20), ("fish2", 44, 26)):
     lake.anim(name, x, y)
@@ -333,10 +371,11 @@ lake.border_forest()
 lake.scatter_trees(46, 1, 2, lake.w - 1, 10, 1)
 lake.scatter_trees(30, 1, 10, lake.w - 1, lake.h - 2, 1)
 for _ in range(16):
-    image = lake.rand.choice(FLOWER_PATCHES)
+    n = lake.rand.randrange(len(FLOWER_PATCHES))
+    image = FLOWER_PATCHES[n]
     tx, ty = lake.rand.randint(2, lake.w - 5), lake.rand.randint(2, lake.h - 5)
     if lake.free(tx, ty, image.width // T, image.height // T):
-        lake.place(image, tx, ty, None)
+        lake.place(image, tx, ty, None, pid=f"flowers-{n + 1}")
 maps.append(lake)
 
 # ---------------------------------------------------------------------------------------------
@@ -383,12 +422,12 @@ launch_x = int(river_center(11) + river_half_width(11))
 rapids.obj("Rushwater Rapids", "label", launch_x * T + 80, 8 * T)
 for x in range(launch_x - 1, launch_x + 3):
     for y in range(11, 13):
-        rapids.set("decor", x, y, PLANK[x % 2])
-        rapids.solid[rapids.at(x, y)] = False
+        rapids.planks(x, y)
 rapids.obj("launch", "launch", (launch_x - 1) * T, 10 * T, 7 * T, 4 * T,
            startX=float(river_center(START_Y) * T), startY=START_Y * T)
 rapids.obj("spawn", "spawn", (launch_x + 3) * T, 12 * T, point=True)
 rapids.obj("finish", "finish", 0, FINISH_Y * T, RAPIDS_W * T, 3 * T)
+rapids.put("finish-line", int(river_center(FINISH_Y)), FINISH_Y)
 # The finish: buoys across the river.
 for dx in (-5, -2, 1, 4):
     rapids.anim("buoy", int(river_center(FINISH_Y)) + dx, FINISH_Y)
@@ -417,7 +456,8 @@ while y < FINISH_Y - 8:
                 ih = image.height // T
                 iw = image.width // T
                 base = [(cx, ih - 1) for cx in range(iw)]
-                rapids.place(image, rx, y - ih + 1, base, above=ih - 1, raft_solid=True)
+                rapids.place(image, rx, y - ih + 1, base, above=ih - 1, raft_solid=True,
+                             pid=f"sea-rock-{name.split('_')[3]}")
                 placed.append(rx)
                 break
     rows_with_rocks.append(y)
@@ -467,8 +507,8 @@ def meadow_pond(x, y):
 
 
 meadow.paint_water(meadow_pond)
-meadow.place(img("City_Props_16x16_Bench_1"), 9, 8, [(0, 1), (1, 1)])
-meadow.place(img("City_Props_16x16_Bench_1"), 30, 26, [(0, 1), (1, 1)])
+meadow.place(img("City_Props_16x16_Bench_1"), 9, 8, [(0, 1), (1, 1)], pid="bench")
+meadow.place(img("City_Props_16x16_Bench_1"), 30, 26, [(0, 1), (1, 1)], pid="bench")
 meadow.anim("fish1", 39, 11)
 meadow.anim("fish2", 42, 10)
 meadow.border_forest()
@@ -480,15 +520,17 @@ for name in ("Big_Sunflower", "Big_Pink_Flower", "Big_Red_Flower", "Big_White_Fl
     for _try in range(10):
         tx, ty = meadow.rand.randint(4, meadow.w - 6), meadow.rand.randint(5, meadow.h - 8)
         if meadow.free(tx, ty, w, h, 1):
-            meadow.place(image, tx, ty, [(c, h - 1) for c in range(w)], above=h - 1)
+            meadow.place(image, tx, ty, [(c, h - 1) for c in range(w)], above=h - 1,
+                         pid=f"big-{name[4:].lower().replace('_', '-')}")
             break
 beds = 0
 for _ in range(120):
-    image = meadow.rand.choice(FLOWER_PATCHES)
+    n = meadow.rand.randrange(len(FLOWER_PATCHES))
+    image = FLOWER_PATCHES[n]
     w, h = image.width // T, image.height // T
     tx, ty = meadow.rand.randint(3, meadow.w - 5), meadow.rand.randint(4, meadow.h - 6)
     if meadow.free(tx, ty, w, h, 0):
-        meadow.place(image, tx, ty, None)
+        meadow.place(image, tx, ty, None, pid=f"flowers-{n + 1}")
         for c in range(w):
             for r in range(h):
                 meadow.occupied[meadow.at(tx + c, ty + r)] = True
@@ -516,18 +558,20 @@ cove.fill_ground(SEA)
 for y in range(cove.h):
     for x in range(cove.w):
         if cove_sand(x, y):
+            cove.ground[y][x] = ":"
             cove.set("ground", x, y, SAND.pick(cove_sand, x, y))
         else:
+            cove.ground[y][x] = "%"
             cove.solid[cove.at(x, y)] = True
             cove.occupied[cove.at(x, y)] = True
 cove.obj("spawn", "spawn", 22 * T, 8 * T, point=True)
 cove.obj("Treasure Cove", "label", 22 * T, 3 * T)
 cove.obj("dig", "dig_zone", 3 * T, 3 * T, 39 * T, 25 * T)
-cove.place(img("Medium_Sea_Rock_1_Vers_1"), 48, 18, None)
-cove.place(img("Big_Sea_Rock_Vers_1"), 49, 30, None)
-cove.place(img("Medium_Sea_Rock_3_Vers_1"), 22, 36, None)
-cove.place(img("Medium_Sea_Rock_2_Vers_1"), 36, 37, None)
-cove.place(img("Medium_Sea_Rock_4_Vers_1"), 8, 37, None)
+cove.place(img("Medium_Sea_Rock_1_Vers_1"), 48, 18, None, pid="sea-rock-1")
+cove.place(img("Big_Sea_Rock_Vers_1"), 49, 30, None, pid="big-sea-rock")
+cove.place(img("Medium_Sea_Rock_3_Vers_1"), 22, 36, None, pid="sea-rock-3")
+cove.place(img("Medium_Sea_Rock_2_Vers_1"), 36, 37, None, pid="sea-rock-2")
+cove.place(img("Medium_Sea_Rock_4_Vers_1"), 8, 37, None, pid="sea-rock-4")
 cove.anim("buoy", 15, 38)
 cove.anim("buoy", 51, 12)
 cove.anim("gull-right", 27, 25)
@@ -541,22 +585,25 @@ pw, ph = PALM.width // T, PALM.height // T
 for _ in range(60):
     tx, ty = cove.rand.randint(1, 42), cove.rand.randint(0, 26)
     if cove.free(tx, ty, pw, ph, 2) and abs(tx - 21) + abs(ty - 8) > 8:
-        cove.place(PALM, tx, ty, [(pw // 2, ph - 1)], above=ph - 1)
-for name, tx, ty in (("Blue_Beach_Umbrella_1", 8, 22), ("Green_Beach_Umbrella_1", 16, 25),
-                     ("Lightblue_Beach_Umbrella_1", 30, 24)):
+        cove.place(PALM, tx, ty, [(pw // 2, ph - 1)], above=ph - 1, pid="palm")
+for name, tx, ty in (("Blue_Beach_Umbrella_Opened", 8, 22), ("Green_Beach_Umbrella_Opened", 16, 25),
+                     ("Lightblue_Beach_Umbrella_Opened", 30, 24)):
     try:
         image = img(name)
     except SystemExit:
         continue
     w, h = image.width // T, image.height // T
     if cove.free(tx, ty, w, h):
-        cove.place(image, tx, ty, [(w // 2, h - 1)], above=h - 1)
+        cove.place(image, tx, ty, [(w // 2, h - 1)], above=h - 1,
+                   pid=f"parasol-{name.split('_')[0].lower()}")
 for name, tx, ty in (("Blue_Beach_Towel_1", 10, 24), ("Green_Beach_Towel_1", 18, 27),
                      ("Purple_Beach_Towel_1", 32, 26), ("Sand_Castle_1_Vers_1", 25, 15),
                      ("Example_Bucket_With_Shovel", 13, 12)):
     image = img(name)
     if cove.free(tx, ty, image.width // T, image.height // T):
-        cove.place(image, tx, ty, None)
+        pid = {"Sand_Castle_1_Vers_1": "sand-castle", "Example_Bucket_With_Shovel": "bucket"}.get(
+            name, name.lower().replace("_1", "").replace("_", "-"))
+        cove.place(image, tx, ty, None, pid=pid)
 maps.append(cove)
 
 # ---------------------------------------------------------------------------------------------
@@ -571,7 +618,9 @@ for i, t in enumerate(tiles):
 os.makedirs(os.path.join(ASSETS, "tilesets"), exist_ok=True)
 os.makedirs(os.path.join(ASSETS, "maps"), exist_ok=True)
 os.makedirs(os.path.join(ASSETS, "sprites"), exist_ok=True)
-tileset.save(os.path.join(ASSETS, "tilesets", "games.png"), optimize=True)
+# Each map names its own tileset file (the Town Builder writes one per map); here they're copies.
+for m in maps:
+    tileset.save(os.path.join(ASSETS, "tilesets", f"{m.name}.png"), optimize=True)
 COLL = len(tiles) + 1
 
 for m in maps:
@@ -592,7 +641,7 @@ for m in maps:
               "draworder": "topdown", "x": 0, "y": 0, "opacity": 1, "visible": True,
               "objects": m.objects}],
         "tilesets": [
-            {"firstgid": 1, "name": "games", "image": "../tilesets/games.png",
+            {"firstgid": 1, "name": "games", "image": f"../tilesets/{m.name}.png",
              "imagewidth": tileset.width, "imageheight": tileset.height, "columns": COLS,
              "tilecount": len(tiles), "tilewidth": T, "tileheight": T, "margin": 0, "spacing": 0},
             {"firstgid": COLL, "name": "collision", "image": "../tilesets/collision.png",
@@ -653,6 +702,16 @@ if OUT:
                         strip, fw, fh, *_ = anim_strips[o["name"]]
                         pic.alpha_composite(strip.crop((0, 0, fw * T, fh * T)), (o["x"], o["y"]))
         pic.convert("RGB").save(os.path.join(OUT, f"preview-{m.name}.png"))
+
+if LAYOUTS:
+    layouts = os.path.join(ROOT, "tools", "town-builder", "maps")
+    os.makedirs(layouts, exist_ok=True)
+    for m in maps:
+        layout = {"version": 1, "width": m.w, "height": m.h,
+                  "ground": ["".join(row) for row in m.ground], "pieces": m.pieces}
+        with open(os.path.join(layouts, f"{m.name}.layout.json"), "w", encoding="utf-8", newline="\n") as fh:
+            json.dump(layout, fh, indent=1)
+        print(f"layout: {m.name}, {len(m.pieces)} pieces")
 
 for m in maps:
     print(f"{m.name}: {m.w}x{m.h}, {len(m.objects)} objects")

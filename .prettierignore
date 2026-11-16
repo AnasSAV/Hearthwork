@@ -10,4 +10,4 @@ client/src/ui/uiSprites.ts
 supabase/.temp
 # Written by tools/art/build_town_kit.py and the Town Builder
 tools/town-builder/kit
-tools/town-builder/town.layout.json
+tools/town-builder/maps

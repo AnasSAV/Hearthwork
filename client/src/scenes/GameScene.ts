@@ -96,11 +96,29 @@ export class GameScene extends WorldScene<GameState> {
   preload(): void {
     this.load.setPath('assets');
     const { map } = GAMES[this.game_];
-    if (!this.cache.tilemap.exists(map)) this.load.tilemapTiledJSON(map, `maps/${map}.json`);
-    if (!this.textures.exists(TILESET_KEY)) {
-      this.load.image(`${TILESET_KEY}-tiles`, 'tilesets/games.png');
-      this.load.atlas(SPRITES_KEY, 'sprites/games.png', 'sprites/games.json');
+    // Each map has its own tileset; the Town Builder rewrites it under the same name, so ask for
+    // the version the map names (a cached older tileset would scramble the map).
+    type Versioned = { properties?: { name: string; value: unknown }[] };
+    const loadArt = (data: Versioned) => {
+      const version = data.properties?.find((p) => p.name === 'version')?.value;
+      const v = typeof version === 'string' ? `?v=${encodeURIComponent(version)}` : '';
+      if (!this.textures.exists(`${map}-tiles`)) {
+        this.load.image(`${map}-tiles`, `tilesets/${map}.png${v}`);
+      }
+      if (!this.textures.exists(SPRITES_KEY)) {
+        this.load.atlas(SPRITES_KEY, `sprites/games.png${v}`, `sprites/games.json${v}`);
+      }
+    };
+    const cached = this.cache.tilemap.get(map) as { data: Versioned } | undefined;
+    if (cached) {
+      loadArt(cached.data);
+      return;
     }
+    this.load.once(
+      `filecomplete-tilemapJSON-${map}`,
+      (_key: string, _type: string, data: Versioned) => loadArt(data),
+    );
+    this.load.tilemapTiledJSON(map, `maps/${map}.json`);
   }
 
   protected buildWorld(): void {
@@ -108,7 +126,7 @@ export class GameScene extends WorldScene<GameState> {
     uiStore.set({ house: null, game: emptyGameUi(this.game_) });
 
     const map = this.make.tilemap({ key: info.map });
-    const tileset = map.addTilesetImage(TILESET_KEY, `${TILESET_KEY}-tiles`);
+    const tileset = map.addTilesetImage(TILESET_KEY, `${info.map}-tiles`);
     if (!tileset) throw new Error('games tileset missing');
     for (const name of ['ground', 'paths', 'decor', 'below', 'below2'])
       map.createLayer(name, tileset)?.setDepth(GROUND_DEPTH);

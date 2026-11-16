@@ -3,6 +3,7 @@ import kitPng from '../kit/kit.png';
 import { compile, type Issue } from './compile';
 import { groundFrames } from './ground';
 import { CATEGORIES, footprintSize, T, type Cell, type Kit, type Prefab } from './kit';
+import { mapInfo, MAPS, type MapId } from './maps';
 import {
   blankLayout,
   GROUND,
@@ -27,6 +28,13 @@ const art = new Image();
 art.src = kitPng;
 
 let town: Town;
+/** The map being edited (remembered between visits). */
+let mapId: MapId = (() => {
+  const wanted =
+    new URLSearchParams(location.search).get('map') ?? localStorage.getItem('town-builder:map');
+  return (MAPS.some((m) => m.id === wanted) ? wanted : 'town') as MapId;
+})();
+const draftKey = () => `town-builder:draft:${mapId}`;
 /** Ground pre-drawn at 1:1, redrawn when the ground changes. */
 let groundCanvas = document.createElement('canvas');
 
@@ -146,7 +154,7 @@ function changed(groundToo = true): void {
   ($('undo') as HTMLButtonElement).disabled = undoStack.length === 0;
   ($('redo') as HTMLButtonElement).disabled = redoStack.length === 0;
   try {
-    localStorage.setItem('town-builder:draft', town.snapshot());
+    localStorage.setItem(draftKey(), town.snapshot());
   } catch {
     // Too big or blocked: the draft just isn't kept.
   }
@@ -167,6 +175,7 @@ function drawGround(): void {
       const f = groundFrames(kit, town, x, y);
       g.drawImage(art, f.ground.x, f.ground.y, T, T, x * T, y * T, T, T);
       if (f.path) g.drawImage(art, f.path.x, f.path.y, T, T, x * T, y * T, T, T);
+      if (f.top) g.drawImage(art, f.top.x, f.top.y, T, T, x * T, y * T, T, T);
     }
   }
   groundCanvas = c;
@@ -206,10 +215,53 @@ function drawPiece(prefab: Prefab, x: number, y: number, alpha = 1): void {
     ctx.beginPath();
     ctx.arc(cx, cy - 6, 2, 0, Math.PI * 2);
     ctx.fill();
+  } else if (prefab.kind === 'marker' && prefab.role !== 'buoy') {
+    drawMarker(prefab, x, y);
   } else {
     ctx.drawImage(art, f.x, f.y, f.w, f.h, x * T, y * T, f.w, f.h);
   }
   ctx.globalAlpha = 1;
+}
+
+/** Mini-game markers aren't drawn in the game, so the builder shows what they mean. */
+function drawMarker(prefab: Prefab, x: number, y: number): void {
+  const piece = town.layout.pieces.find((p) => p.prefab === prefab.id && p.x === x && p.y === y);
+  ctx.save();
+  ctx.font = 'bold 7px Nunito, sans-serif';
+  ctx.textBaseline = 'middle';
+  ctx.textAlign = 'center';
+  if (prefab.role === 'launch') {
+    ctx.fillStyle = 'rgba(106, 168, 226, 0.25)';
+    ctx.fillRect(x * T, y * T, prefab.w * T, prefab.h * T);
+    ctx.setLineDash([3, 2]);
+    ctx.strokeStyle = '#6aa8e2';
+    ctx.lineWidth = 1;
+    ctx.strokeRect(x * T + 0.5, y * T + 0.5, prefab.w * T - 1, prefab.h * T - 1);
+    ctx.setLineDash([]);
+    tag('Raft launch', (x + prefab.w / 2) * T, y * T + 7, '#457fb9');
+  } else if (prefab.role === 'finish') {
+    // A chequered band across the whole map: crossing it ends the race.
+    for (let cx = 0; cx < town.width * 2; cx++) {
+      for (let cy = 0; cy < 2; cy++) {
+        ctx.fillStyle = (cx + cy) % 2 ? 'rgba(255,255,255,0.55)' : 'rgba(29,27,42,0.55)';
+        ctx.fillRect(cx * 8, y * T + cy * 8, 8, 8);
+      }
+    }
+    tag('Finish line', x * T + T / 2, y * T - 6, '#1d1b2a');
+  } else if (prefab.role === 'label') {
+    tag(piece?.label || 'Place name', x * T + T / 2, y * T + T / 2, '#7a5133');
+  }
+  ctx.restore();
+
+  function tag(text: string, cx: number, cy: number, color: string): void {
+    const w = ctx.measureText(text).width + 8;
+    ctx.fillStyle = color;
+    ctx.beginPath();
+    ctx.roundRect(cx - w / 2, cy - 5, w, 10, 3);
+    ctx.fill();
+    ctx.fillStyle = '#fff8ea';
+    ctx.fillText(text, cx, cy + 0.5);
+  }
 }
 
 function fillCells(cells: Cell[], color: string): void {
@@ -265,7 +317,8 @@ function draw(): void {
   for (const p of pieces) {
     const f = town.prefabOf(p);
     const label = p.label ?? f.building?.label;
-    if (!label || moving?.piece === p) continue;
+    // Markers draw their own tag.
+    if (!label || moving?.piece === p || f.kind === 'marker') continue;
     const tx = (p.x + f.w / 2) * T;
     const ty = (p.y + f.top) * T - 2;
     ctx.lineWidth = 2;
@@ -387,7 +440,18 @@ function thumbnail(p: Prefab): string {
   c.width = Math.max(T, p.frame.w);
   c.height = Math.max(T, p.frame.h);
   const g = c.getContext('2d')!;
-  if (p.kind === 'spawn') {
+  if (p.kind === 'marker' && p.role !== 'buoy') {
+    c.width = c.height = 48;
+    g.fillStyle = p.role === 'launch' ? '#6aa8e2' : p.role === 'finish' ? '#1d1b2a' : '#7a5133';
+    g.beginPath();
+    g.roundRect(4, 14, 40, 20, 5);
+    g.fill();
+    g.fillStyle = '#fff8ea';
+    g.font = 'bold 9px Nunito, sans-serif';
+    g.textAlign = 'center';
+    g.textBaseline = 'middle';
+    g.fillText(p.role === 'launch' ? 'LAUNCH' : p.role === 'finish' ? 'FINISH' : 'NAME', 24, 24);
+  } else if (p.kind === 'spawn') {
     g.fillStyle = '#ea5a44';
     g.beginPath();
     g.arc(8, 6, 5, 0, Math.PI * 2);
@@ -411,7 +475,12 @@ const GROUND_TOOLS: { ground: GroundChar; name: string; frame: () => { x: number
     { ground: GROUND.paving, name: 'Paving', frame: () => kit.terrain.paving[0]![0]! },
     { ground: GROUND.water, name: 'Water', frame: () => kit.terrain.water.slice[4]! },
     { ground: GROUND.sand, name: 'Sand', frame: () => kit.terrain.sand.slice[4]! },
+    { ground: GROUND.sea, name: 'Sea', frame: () => kit.terrain.sea },
+    { ground: GROUND.planks, name: 'Pier planks', frame: () => kit.terrain.planks },
   ];
+
+/** Pieces offered on the map being edited. */
+const offered = (p: Prefab) => !p.maps || p.maps.includes(mapId);
 
 function groundThumb(frame: { x: number; y: number }): string {
   const c = document.createElement('canvas');
@@ -426,7 +495,7 @@ function buildTabs(): void {
   const tabs = $('tabs');
   tabs.innerHTML = '';
   const all: { id: Tab; label: string }[] = [
-    ...CATEGORIES.filter((c) => kit.prefabs.some((p) => p.category === c.id)),
+    ...CATEGORIES.filter((c) => kit.prefabs.some((p) => p.category === c.id && offered(p))),
     { id: 'ground', label: 'Ground' },
   ];
   for (const t of all) {
@@ -480,7 +549,7 @@ function buildCards(): void {
     cards.append(sizes);
     return;
   }
-  for (const p of kit.prefabs.filter((f) => f.category === tab)) {
+  for (const p of kit.prefabs.filter((f) => f.category === tab && offered(f))) {
     const card = document.createElement('div');
     card.className = 'piece-card';
     card.dataset.prefab = p.id;
@@ -551,6 +620,7 @@ function placeHeld(): boolean {
   if (!town.check(ghost.prefab, ghost.x, ghost.y).ok) return false;
   const before = town.snapshot();
   const piece = town.add(ghost.prefab, ghost.x, ghost.y);
+  if (ghost.prefab.role === 'label') piece.label = mapInfo(mapId).name.replace(/ \(.*\)$/, '');
   if (!mode.sticky) selected = piece;
   commit(before);
   return true;
@@ -576,7 +646,7 @@ function showInspector(): void {
   if (f.building?.doorCol !== undefined) extras.push('its door opens the shop');
   $('insp-info').textContent = extras.join(' · ');
   const labelRow = $('insp-label-row');
-  labelRow.hidden = !f.building;
+  labelRow.hidden = !f.building && f.role !== 'label';
   const input = $<HTMLInputElement>('insp-label');
   if (document.activeElement !== input) input.value = selected.label ?? f.building?.label ?? '';
   ($('insp-dup') as HTMLButtonElement).disabled = Boolean(f.unique);
@@ -868,7 +938,7 @@ function showIssues(issues: Issue[]): void {
 async function save(): Promise<void> {
   const status = $('status');
   status.textContent = 'Checking…';
-  const out = compile(town, kit, art);
+  const out = compile(town, kit, art, mapId);
   showIssues(out.issues);
   if (out.issues.some((i) => i.level === 'error')) {
     status.textContent = 'Fix the problems first';
@@ -878,15 +948,7 @@ async function save(): Promise<void> {
   const res = await fetch('/api/save', {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
-    body: JSON.stringify({
-      layout: town.layout,
-      map: out.map,
-      tmx: out.tmx,
-      tileset: out.tileset,
-      trees: out.trees,
-      anims: out.anims,
-      picture: out.picture,
-    }),
+    body: JSON.stringify({ map: mapId, layout: town.layout, files: out.files }),
   });
   if (!res.ok) {
     const body = (await res.json().catch(() => ({}))) as { error?: string };
@@ -895,14 +957,14 @@ async function save(): Promise<void> {
   }
   savedSnapshot = town.snapshot();
   try {
-    localStorage.removeItem('town-builder:draft');
+    localStorage.removeItem(draftKey());
   } catch {
     // Fine.
   }
   changed(false);
   status.textContent = out.issues.length
     ? 'Saved (see the notes)'
-    : 'Saved: the game has the new town';
+    : `Saved: the game has the new ${mapId === 'town' ? 'town' : 'map'}`;
 }
 $('save').onclick = () => void save();
 
@@ -916,13 +978,37 @@ async function start(): Promise<void> {
     art.onload = resolve;
     art.onerror = reject;
   });
-  const res = await fetch('/api/layout');
-  const saved = res.ok ? ((await res.json()) as Layout) : blankLayout(68, 50);
+  await openMap(mapId, true);
+  buildMapPicker();
+}
+
+/** Load a map into the builder (asking first if there are unsaved changes). */
+async function openMap(id: MapId, first = false): Promise<void> {
+  if (!first && town && town.snapshot() !== savedSnapshot) {
+    if (!confirm('You have unsaved changes on this map. Leave them? (They stay as a draft.)')) {
+      ($('map-pick') as HTMLSelectElement).value = mapId;
+      return;
+    }
+  }
+  mapId = id;
+  try {
+    localStorage.setItem('town-builder:map', id);
+  } catch {
+    // Not remembered.
+  }
+  const res = await fetch(`/api/layout?map=${id}`);
+  const saved = res.ok ? ((await res.json()) as Layout) : blankLayout(56, 42);
   town = new Town(kit, saved);
   savedSnapshot = town.snapshot();
+  undoStack.length = 0;
+  redoStack.length = 0;
+  selected = null;
+  mode = { kind: 'select' };
+  $('map-blurb').textContent = mapInfo(id).blurb;
+  showIssues([]);
   // Unsaved work from last time comes back.
   try {
-    const draft = localStorage.getItem('town-builder:draft');
+    const draft = localStorage.getItem(draftKey());
     if (
       draft &&
       draft !== savedSnapshot &&
@@ -934,10 +1020,23 @@ async function start(): Promise<void> {
     // No draft.
   }
   drawGround();
+  if (
+    !CATEGORIES.some(
+      (c) => c.id === tab && kit.prefabs.some((p) => p.category === c.id && offered(p)),
+    )
+  )
+    tab = 'buildings';
   buildTabs();
   buildCards();
   fit();
   changed(false);
+}
+
+function buildMapPicker(): void {
+  const pick = $<HTMLSelectElement>('map-pick');
+  pick.innerHTML = MAPS.map((m) => `<option value="${m.id}">${m.name}</option>`).join('');
+  pick.value = mapId;
+  pick.onchange = () => void openMap(pick.value as MapId);
 }
 
 void start();

@@ -10,7 +10,7 @@ export interface Frame {
 }
 
 export type Category = 'buildings' | 'study' | 'nature' | 'decor' | 'water' | 'special';
-export type Kind = 'tiles' | 'building' | 'desks' | 'tree' | 'anim' | 'spawn';
+export type Kind = 'tiles' | 'building' | 'desks' | 'tree' | 'anim' | 'spawn' | 'marker';
 export type Cell = [number, number];
 
 export interface Prefab {
@@ -45,6 +45,10 @@ export interface Prefab {
   group?: boolean;
   tree?: { name: string; trunk: number };
   anim?: { name: string; frames: number; fps: number; strip: Frame };
+  /** Only offered on these maps (all maps when missing). */
+  maps?: string[];
+  /** Mini-game markers: what the game reads from them. */
+  role?: 'launch' | 'finish' | 'buoy' | 'label';
 }
 
 export interface Autotile {
@@ -63,8 +67,15 @@ export interface Kit {
     /** Paving blocks, each 2×2 tiles (row by row). */
     paving: Frame[][];
     water: Autotile;
+    /** Sand meeting grass. */
     sand: Autotile;
+    /** Sand meeting the sea. */
+    shore: Autotile;
+    sea: Frame;
+    planks: Frame;
   };
+  /** Sprites the mini-games draw that aren't pieces (the raft, shells). */
+  sprites: Record<string, Frame>;
 }
 
 /** How much of the grid a piece takes (its footprint's extent), which can be less than its picture. */

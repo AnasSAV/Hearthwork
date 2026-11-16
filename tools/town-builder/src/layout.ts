@@ -9,6 +9,9 @@ export const GROUND = {
   paving: '#',
   water: '~',
   sand: ':',
+  sea: '%',
+  /** Pier planks: walkable, usually over water. */
+  planks: '=',
 } as const;
 export type Ground = keyof typeof GROUND;
 export type GroundChar = (typeof GROUND)[Ground];
@@ -31,6 +34,9 @@ export interface Layout {
   ground: string[];
   pieces: Piece[];
 }
+
+/** Ground nobody can walk on, where only water pieces (fish, rocks, boats) may go. */
+export const isWet = (g: string): boolean => g === GROUND.water || g === GROUND.sea;
 
 export const MIN_SIZE = 20;
 export const MAX_SIZE = 160;
@@ -98,7 +104,7 @@ export class Town {
     const cells = this.baseCells(prefab, x, y);
     if (cells.some(([cx, cy]) => !this.inside(cx, cy))) return { ok: false, reason: 'Off the map' };
     for (const [cx, cy] of cells) {
-      const water = this.groundAt(cx, cy) === GROUND.water;
+      const water = isWet(this.groundAt(cx, cy));
       if (prefab.onWater && !water) return { ok: false, reason: 'Needs water' };
       if (!prefab.onWater && water) return { ok: false, reason: 'Not on water' };
     }
@@ -132,7 +138,7 @@ export class Town {
     const blocked = new Set<number>();
     for (const p of this.layout.pieces) {
       const f = this.prefabOf(p);
-      if (Boolean(f.onWater) === (ground === GROUND.water)) continue;
+      if (Boolean(f.onWater) === isWet(ground)) continue;
       for (const [cx, cy] of this.baseCells(f, p.x, p.y)) blocked.add(cy * this.width + cx);
     }
     const rows = this.layout.ground.map((r) => r.split(''));

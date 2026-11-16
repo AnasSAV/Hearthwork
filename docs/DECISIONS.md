@@ -658,3 +658,20 @@ playlistLength` (`shared/src/radio.ts`, unit-tested) and plays that track from t
 - Who's online is a list in the game server's memory, filled as players join rooms. It's only a
   convenience (the friends panel's dots and pinches); after a restart it fills up again as
   players reconnect. Pinches to offline friends aren't stored.
+
+## Game maps in the Town Builder (2026-11-16)
+
+- The builder edits the four mini-game maps as well as the town (a picker at the top). Their
+  layouts live next to the town's in `tools/town-builder/maps/`. The starting layouts were
+  recorded by `tools/art/build_games.py --layouts` from the maps it had generated; trees at the
+  very edge were nudged a tile in so their trunks are on the map, and the lake's arrival point
+  is kept clear of trees.
+- What the games read is worked out on save rather than placed by hand: fishing spots are every
+  walkable tile beside water, the treasure dig zone covers the reachable sand, and a raft floats
+  on water away from the bank and through no solid piece. The few things that need a decision
+  are pieces: the Raft launch, the Finish line, Bonus buoys and a Place name.
+- Each game map now has its own tileset (`tilesets/<map>.png`, loaded by map version like the
+  town's) instead of one shared `tilesets/games.png`, so saving one map can't change another's
+  tiles. The shared `sprites/games.*` holds every animation in the kit plus the raft and shells.
+- On game maps, trees are tiles (the canopy drawn over players), as `build_games.py` drew them;
+  only the town draws trees as swaying sprites.

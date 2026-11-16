@@ -449,3 +449,14 @@ hr {
   border-top: 2px solid var(--line);
   margin: 12px 0;
 }
+
+.map-pick select {
+  padding: 6px 10px;
+  border: 2px solid var(--line);
+  border-radius: 10px;
+  background: var(--paper-2);
+  font: inherit;
+  font-weight: 800;
+  color: var(--ink);
+  cursor: pointer;
+}

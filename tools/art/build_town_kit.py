@@ -5,11 +5,13 @@ Build the town builder's kit: every piece you can drag onto the town, and the gr
     python tools/art/build_town_kit.py "D:/Personal/FocusTown-art" --starter  # + starter town
 
 Writes:
-  tools/town-builder/kit/kit.png    one atlas: piece pictures, animation strips, ground tiles
+  tools/town-builder/kit/kit.png    one atlas: piece pictures, animation strips, ground tiles,
+                                    and the sprites the mini-games draw (the raft, shells)
   tools/town-builder/kit/kit.json   what each piece is (size, what's solid, what it adds to the
                                     map: a building, desks, a tree, an animation...)
-  tools/town-builder/town.layout.json  (--starter only) today's town, rebuilt from pieces, as a
-                                    starting point; after that the builder owns this file
+  tools/town-builder/maps/town.layout.json  (--starter only) today's town, rebuilt from
+                                    pieces, as a starting point; after that the builder owns it
+                                    (the mini-game maps' starting layouts come from build_games.py)
 
 The town builder (`npm run editor`) turns a layout into the Tiled map the game loads. Needs
 Python 3 + Pillow and the LimeZu pack (credit LimeZu; only the derived files are committed).
@@ -86,7 +88,8 @@ def pack(image):
 prefabs = []
 
 
-def piece(pid, name, category, image, solid="all", above=0, kind="tiles", base=None, **extra):
+def piece(pid, name, category, image, solid="all", above=0, kind="tiles", base=None, maps=None,
+          **extra):
     """
     A piece the builder can place. `solid`: "all", None, or (col, row) cells. `above`: top rows
     drawn over players. `base`: cells no other piece may share (default: the solid cells, or the
@@ -106,12 +109,13 @@ def piece(pid, name, category, image, solid="all", above=0, kind="tiles", base=N
         "id": pid, "name": name, "category": category, "kind": kind, "w": w, "h": h, "top": top,
         "frame": pack(image), "solid": [list(c) for c in solid_cells],
         "base": [list(c) for c in base_cells], "above": above, **extra,
+        **({"maps": maps} if maps else {}),
     })
 
 
 # Buildings. The Furniture Shop is the one the game needs (its door opens the shop).
 piece("shop", "Furniture Shop", "buildings", img("Hardware_Store_Example"), kind="building",
-      unique=True, building={"name": "shop", "label": "Furniture Shop", "doorCol": 2})
+      unique=True, maps=["town"], building={"name": "shop", "label": "Furniture Shop", "doorCol": 2})
 BUILDINGS = [
     ("library", "Library", "Victorian_House_5"),
     ("clock-tower", "Clock Tower", "School_16x16_Clock_Tower_1"),
@@ -261,6 +265,9 @@ ANIMS = [
     ("fish2", "More fish", "Fishes_2_16x16.png", 1, 1, 6, None, [], True),
     ("gull-right", "Seagull (right)", "Beach_Seagull_Complete_16x16.png", 2, 2, 5, (0, 32, 192, 32), [], False),
     ("gull-left", "Seagull (left)", "Beach_Seagull_Complete_16x16.png", 2, 2, 5, (384, 32, 192, 32), [], False),
+    ("fish3", "Darting fish", "Fishes_3_16x16.png", 1, 1, 6, None, [], True),
+    ("buoy", "Buoy", "Beach_Water_Buoy_3_16x16.png", 2, 2, 6, None, [], True),
+    ("waterfall", "Waterfall", "Waterfall_16x16.png", 3, 3, 8, None, [], False),
 ]
 for name, label, file, fw, fh, fps, crop, solid_cells, on_water in ANIMS:
     s = strip(file, crop)
@@ -272,6 +279,63 @@ for name, label, file, fw, fh, fps, crop, solid_cells, on_water in ANIMS:
 
 piece("spawn", "Arrival point", "special", Image.new("RGBA", (T, T)), solid=None, kind="spawn",
       unique=True, base=[(0, 0)])
+
+# Pieces the mini-game maps use (they work in the town too).
+TENT_SOLID = [(c, r) for c in range(4) for r in range(1, 3)]
+piece("tent-blue", "Blue tent", "decor", img("Camping_16x16_Tent_1"), solid=TENT_SOLID, above=1)
+piece("tent-beige", "Beige tent", "decor", img("Camping_16x16_Tent_3"), solid=TENT_SOLID, above=1)
+piece("picnic-table", "Picnic table", "decor", img("Camping_16x16_Benched_Table_1"))
+piece("rowboat", "Rowboat", "water", sheet("11_Camping", 2, 31, 2, 4), onWater=True)
+for n in (1, 2, 3, 4):
+    image = img(f"Medium_Sea_Rock_{n}_Vers_1")
+    w, h = size(image)
+    piece(f"sea-rock-{n}", f"Sea rock {n}", "water", image, solid=[(c, h - 1) for c in range(w)],
+          above=h - 1, onWater=True)
+image = img("Big_Sea_Rock_Vers_1")
+w, h = size(image)
+piece("big-sea-rock", "Big sea rock", "water", image, solid=[(c, h - 1) for c in range(w)],
+      above=h - 1, onWater=True)
+image = img("Palm_Tree")
+w, h = size(image)
+piece("palm", "Palm tree", "nature", image, solid=[(w // 2, h - 1)], above=h - 1)
+for colour in ("Blue", "Green", "Lightblue", "Yellow"):
+    image = img(f"{colour}_Beach_Umbrella_Opened")
+    w, h = size(image)
+    piece(f"parasol-{colour.lower()}", f"{colour.replace('Light', 'Light ')} parasol", "decor", image,
+          solid=[(w // 2, h - 1)], above=h - 1)
+for name, label in (("Blue_Beach_Towel_1", "Blue towel"), ("Green_Beach_Towel_1", "Green towel"),
+                    ("Purple_Beach_Towel_1", "Purple towel")):
+    piece(name.lower().replace("_1", "").replace("_", "-"), label, "decor", img(name), solid=None)
+piece("sand-castle", "Sandcastle", "decor", img("Sand_Castle_1_Vers_1"), solid=None)
+piece("bucket", "Bucket and spade", "decor", img("Example_Bucket_With_Shovel"), solid=None)
+for name in ("Sunflower", "Pink_Flower", "Red_Flower", "White_Flower", "Yellow_Flower", "Light_Blue_Flower"):
+    image = img(f"Garden_16x16_Big_{name}")
+    w, h = size(image)
+    piece(f"big-{name.lower().replace('_', '-')}", f"Big {name.replace('_', ' ').lower()}", "nature", image,
+          solid=[(c, h - 1) for c in range(w)], above=h - 1)
+
+# Mini-game markers. They aren't drawn in the game; the builder turns them into what the game
+# reads (where rafts launch, where the race ends, the place's name).
+GAME_MAPS = ["lake", "rapids", "meadow", "cove"]
+piece("raft-launch", "Raft launch", "special", Image.new("RGBA", (7 * T, 4 * T)), solid=None,
+      kind="marker", role="launch", unique=True, base=[], maps=["rapids"])
+piece("finish-line", "Finish line", "special", Image.new("RGBA", (T, T)), solid=None, kind="marker",
+      role="finish", unique=True, base=[], maps=["rapids"])
+buoy_strip = strip("Beach_Water_Buoy_3_16x16.png")
+piece("bonus-buoy", "Bonus buoy", "special", buoy_strip.crop((0, 0, 2 * T, 2 * T)), solid=None,
+      kind="marker", role="buoy", base=[(0, 1), (1, 1)], onWater=True, maps=["rapids"])
+piece("place-name", "Place name", "special", Image.new("RGBA", (T, T)), solid=None, kind="marker",
+      role="label", unique=True, base=[], maps=GAME_MAPS)
+
+# Sprites the mini-games draw that aren't map pieces.
+extra_sprites = {
+    "raft": pack(sheet("11_Camping", 2, 31, 2, 4)),
+    "shell-grey": pack(img("Grey_Shell_1_Vers_1")),
+    "shell-brown": pack(img("Brown_Shell_1_Vers_1")),
+    "shell-gold": pack(img("Gold_Shell_1_Vers_1")),
+    "shell-blue": pack(img("Gold_Blue_Shell_1_Vers_1")),
+    "shell-white": pack(img("Ice_White_Shell_1_Vers_1")),
+}
 
 # ---------------------------------------------------------------------------------------------
 # Ground tiles
@@ -294,6 +358,11 @@ terrain = {
                for block in PAVING],
     "water": autotile("1_Terrains_and_Fences", 0, 35),
     "sand": autotile("21_Beach", 0, 1),
+    # Sand meeting the sea (the sea is outside the sand here).
+    "shore": autotile("21_Beach", 8, 1),
+    "sea": pack(sheet("21_Beach", 11, 3)),
+    # Pier planks, laid over water.
+    "planks": pack(sheet("11_Camping", 3, 13)),
 }
 
 # ---------------------------------------------------------------------------------------------
@@ -315,7 +384,7 @@ for image, px, py in placed:
 os.makedirs(os.path.join(OUT, "kit"), exist_ok=True)
 atlas.save(os.path.join(OUT, "kit", "kit.png"), optimize=True)
 with open(os.path.join(OUT, "kit", "kit.json"), "w", encoding="utf-8", newline="\n") as fh:
-    json.dump({"tile": T, "prefabs": prefabs, "terrain": terrain}, fh, indent=1)
+    json.dump({"tile": T, "prefabs": prefabs, "terrain": terrain, "sprites": extra_sprites}, fh, indent=1)
 print(f"kit: {len(prefabs)} pieces, atlas {atlas.width}x{atlas.height}")
 
 # ---------------------------------------------------------------------------------------------
@@ -431,6 +500,7 @@ if STARTER:
             taken |= area
     layout = {"version": 1, "width": W, "height": H, "ground": ["".join(r) for r in ground],
               "pieces": pieces}
-    with open(os.path.join(OUT, "town.layout.json"), "w", encoding="utf-8", newline="\n") as fh:
+    os.makedirs(os.path.join(OUT, "maps"), exist_ok=True)
+    with open(os.path.join(OUT, "maps", "town.layout.json"), "w", encoding="utf-8", newline="\n") as fh:
         json.dump(layout, fh, indent=1)
     print(f"starter town: {W}x{H}, {len(pieces)} pieces")

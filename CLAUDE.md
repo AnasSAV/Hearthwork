@@ -27,8 +27,8 @@ shared/   src/schemas.ts (Zod), src/state.ts (Colyseus schema), src/movement.ts,
           src/house.ts (canPlace + interior geometry; mirrored by save_layout in SQL)
 supabase/ migrations/*.sql, seed.sql
 tools/    asset/map generators (bootstrap only; the map JSON/.tmx is the source of truth afterwards,
-          except the town: town-builder/town.layout.json is, and the Town Builder
-          (`npm run editor`, local only) compiles it into maps/town.json and its art)
+          except the town and mini-game maps: town-builder/maps/<map>.layout.json are, and the
+          Town Builder (`npm run editor`, local only) compiles them into maps/<map>.json and art)
 docs/     SPEC.md, DECISIONS.md, SETUP.md (keys), DEPLOY.md
 deploy/   pm2 + Caddy configs; render.yaml at the root; .github/workflows (CI, backups, checks)
 ```
