@@ -42,13 +42,14 @@ spend focused turns into coins for furniture, a garden and a bigger house.
 
 **Study together**
 
-- A shared pixel town with a study plaza, café terrace, park, library and pond. Players walk
-  around, chat, whisper and send emotes in real time.
-- Sit at any table and press <kbd>E</kbd> to focus. People at the same table share one group
-  Pomodoro and see each other's timers.
+- A shared pixel town around a fountain plaza, with study tables, a library, a greenhouse,
+  kiosks, a furniture shop and a pond. Players walk around, chat, whisper and send emotes in
+  real time.
+- Sit at any study table (or the desk at home) and press <kbd>E</kbd> to focus. Everyone nearby
+  sees who is focusing and for how long, and group tables share one Pomodoro.
 - 25- and 50-minute blocks and open sessions. The timer keeps going when you minimize the window
-  or work in other apps, with a small always-on-top mini timer in Chrome and Edge, and a "still
-  here?" check every 25 minutes.
+  or work in other apps, with a small always-on-top mini timer in Chrome and Edge, a chime and a
+  notification when a block ends, and a "still here?" check every 25 minutes.
 
 **Earn and build**
 
@@ -59,6 +60,19 @@ spend focused turns into coins for furniture, a garden and a bigger house.
   bigger houses and more rooms, and invite friends to move in as housemates.
 - Visit friends' and public homes from the world map, and study at their desks and garden
   tables too.
+
+**Take a break**
+
+- Four mini-games on maps of their own: fishing at **Mirror Lake**, rafting down **Rushwater
+  Rapids**, catching butterflies in **Butterfly Meadow** and digging for treasure at **Treasure
+  Cove**. Playing earns coins at half the focus rate, up to two hours a day.
+
+**Better with friends**
+
+- Add friends, see who's online, visit their homes, and **pinch** a friend who has gone quiet:
+  they get a notification wherever they are in the game.
+- New players get a short introduction on their first visit, and a sign by the Furniture Shop
+  points the way.
 
 **Feel at home**
 
@@ -95,6 +109,18 @@ spend focused turns into coins for furniture, a garden and a bigger house.
     <td><img src="docs/images/widgets.webp" alt="The widget picker with four clock faces"><br><sub><b>Widgets.</b> Clocks, Pomodoro, radio, todo and notes. Drag them anywhere.</sub></td>
     <td><img src="docs/images/character.webp" alt="The character creator"><br><sub><b>Character creator.</b> Skin, eyes, 29 hairstyles, 33 outfits and accessories.</sub></td>
   </tr>
+  <tr>
+    <td><img src="docs/images/game-lake.webp" alt="Mirror Lake: a player on the pier has just landed a minnow"><br><sub><b>Mirror Lake.</b> Cast from the bank or the pier, hook the bite, then stop the marker in the green zone.</sub></td>
+    <td><img src="docs/images/game-rapids.webp" alt="Rushwater Rapids: a player on a raft heading downriver past rocks, with a bonus buoy ahead"><br><sub><b>Rushwater Rapids.</b> Steer the raft past the rocks; bonus buoys take 2 seconds off your time.</sub></td>
+  </tr>
+  <tr>
+    <td><img src="docs/images/game-meadow.webp" alt="Butterfly Meadow: a player with a net among flower beds and butterflies"><br><sub><b>Butterfly Meadow.</b> Swing your net at the butterflies; the rarer ones are worth more.</sub></td>
+    <td><img src="docs/images/game-cove.webp" alt="Treasure Cove: a player digging on the beach next to the sea"><br><sub><b>Treasure Cove.</b> Dig in the sand; each hole says how warm you are and which way to go.</sub></td>
+  </tr>
+  <tr>
+    <td><img src="docs/images/mini-timer.webp" alt="The mini timer floating over a document in another app"><br><sub><b>Mini timer.</b> A small always-on-top window keeps the countdown in view while you work in other apps.</sub></td>
+    <td><img src="docs/images/friends.webp" alt="The Friends panel with online friends and a pinch notification at the top"><br><sub><b>Friends.</b> Who's online, visits, and a pinch to nudge a friend back to work.</sub></td>
+  </tr>
 </table>
 
 <div align="center">
@@ -117,8 +143,8 @@ sequenceDiagram
     S->>S: Is this player seated at that desk? (server-side position)
     S->>DB: start_focus_session()
     loop Every minute
-        C->>S: focus:beat { visible, lastInputAgoSec }
-        S->>S: On time? Tab visible? Input in the last 10 minutes?
+        C->>S: focus:beat { inGame, lastInputAgoSec }
+        S->>S: On time? If the game is in front: input in the last 10 minutes?
         S-->>C: focus:state { verifiedMin }
     end
     Note over C,S: Every 25 verified minutes the server asks "still here?"
@@ -128,15 +154,15 @@ sequenceDiagram
     S-->>C: wallet { coins }
 ```
 
-| Rule                | Value                                                                    |
-| ------------------- | ------------------------------------------------------------------------ |
-| Heartbeat           | Every 60 s. Earlier than 50 s is ignored; later than 80 s isn't counted  |
-| Tab must be visible | Unless the player chose audio-only                                       |
-| Recent input        | Keyboard or mouse used in the last 10 minutes                            |
-| Presence check      | "Still here?" every 25 verified minutes                                  |
-| Missed beats        | 3 missed heartbeats end the session                                      |
-| Daily cap           | 480 rewarded minutes per UTC day                                         |
-| Persistence         | Awarded every 5 minutes, so a server restart loses at most a few minutes |
+| Rule              | Value                                                                      |
+| ----------------- | -------------------------------------------------------------------------- |
+| Heartbeat         | Every 60 s. Earlier than 50 s is ignored; later than 80 s isn't counted    |
+| In another window | Counts: minimize the game or work in other apps and the timer keeps going  |
+| Recent input      | With the game in front: keyboard, mouse or touch in the last 10 minutes    |
+| Presence check    | "Still here?" every 25 verified minutes; unanswered, it pauses 5 min later |
+| Missed beats      | 3 missed heartbeats end the session                                        |
+| Daily cap         | 480 rewarded minutes per UTC day                                           |
+| Persistence       | Awarded every 5 minutes, so a server restart loses at most a few minutes   |
 
 The rules are pure functions in [`shared/src/focus.ts`](shared/src/focus.ts), unit-tested with
 an injected clock.
@@ -146,6 +172,8 @@ an injected clock.
 - **Base rate:** 1 coin per verified minute.
 - **Streak bonus:** +5% for each consecutive day you focus, up to +50% after 10 days.
 - **Completion bonus:** +5 coins for finishing a 25-minute block, +12 for a 50-minute block.
+- **Mini-games:** half a coin per minute of real play (at least a few actions a minute), up to
+  120 minutes a day, through the same ledger.
 - **Upgrades:** a level-2 home (12×8 tiles) costs 1,500 coins and needs 20 hours of total
   focus. Level 3 adds a second room for 5,000 coins and 80 hours.
 
@@ -175,6 +203,7 @@ flowchart TB
         direction LR
         Town["TownRoom"]
         House["HouseRoom (one per home)"]
+        Game["GameRoom (one per mini-game)"]
         Focus["Focus verification"]
     end
     subgraph Supabase["Supabase"]
@@ -283,10 +312,11 @@ manages housemates, visitors, the exterior and upgrades.
 ## Project structure
 
 ```
-client/     Phaser scenes (TownScene, HouseScene), React UI, house editor, networking
-server/     Colyseus rooms (TownRoom, HouseRoom), focus verification, Supabase access
+client/     Phaser scenes (TownScene, HouseScene, GameScene), React UI, house editor, networking
+server/     Colyseus rooms (TownRoom, HouseRoom, GameRoom and one file per mini-game),
+            focus verification, Supabase access
 shared/     Zod message schemas, Colyseus state, movement and collision, catalog,
-            canPlace() and house geometry, focus rules, constants
+            canPlace() and house geometry, focus rules, mini-game rules, constants
 supabase/   SQL migrations, seed data and SQL integration tests
 tools/      Art and map builders (Python), the town editor, bots and end-to-end tests
 deploy/     PM2 and Caddy configs for a VM; render.yaml for Render is at the root
@@ -321,14 +351,14 @@ there is no build step between them.
 
 ## Testing and quality
 
-| Layer         | What is covered                                                                                   |
-| ------------- | ------------------------------------------------------------------------------------------------- |
-| Unit (Vitest) | Focus verification, movement and collision, furniture placement, chat filter, radio sync, avatars |
-| Database      | Economy, shop, houses, homes and housemates as SQL integration tests                              |
-| Smoke         | Two bots: state sync, speed and wall enforcement, chat filtering and rate limits                  |
-| End-to-end    | A full home flow and a real verified focus session against a running server                       |
-| Load          | Dozens of signed-in bots moving at real client rates                                              |
-| Ledger        | Every `profiles.coins` equals the sum of its `coin_ledger` rows                                   |
+| Layer         | What is covered                                                                                                    |
+| ------------- | ------------------------------------------------------------------------------------------------------------------ |
+| Unit (Vitest) | Focus verification, mini-game rules, movement and collision, furniture placement, chat filter, radio sync, avatars |
+| Database      | Economy, shop, houses, homes, housemates, play coins and the introduction as SQL integration tests                 |
+| Smoke         | Two bots: state sync, speed and wall enforcement, chat filtering and rate limits                                   |
+| End-to-end    | A full home flow and a real verified focus session against a running server                                        |
+| Load          | Dozens of signed-in bots moving at real client rates                                                               |
+| Ledger        | Every `profiles.coins` equals the sum of its `coin_ledger` rows                                                    |
 
 [CI](.github/workflows/ci.yml) runs typecheck, lint, format, unit tests and the build on every
 push. A second job starts a throwaway Supabase stack in Docker and runs the SQL tests and the
