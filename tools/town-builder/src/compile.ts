@@ -372,6 +372,7 @@ export function compile(town: Town, kit: Kit, art: HTMLImageElement, mapId: MapI
 
   // 4. What each map's game needs.
   let raftLayer: number[] | null = null;
+  let waterLayer: number[] | null = null;
   if (isTown) {
     const unreachable = seats.filter((s) => !canReach(s.x, s.y));
     if (spawnPiece && unreachable.length) {
@@ -399,6 +400,10 @@ export function compile(town: Town, kit: Kit, art: HTMLImageElement, mapId: MapI
   }
 
   if (mapId === 'lake') {
+    // Open water (no rock or boat on it): where a fishing line can land.
+    waterLayer = Array.from({ length: W * H }, (_, i) =>
+      isWet(ground(i % W, Math.floor(i / W))) && !raftBlocked.has(i) ? 1 : 0,
+    );
     // Anyone standing next to the water (a bank or a pier edge) can fish: one zone per run of
     // such tiles along a row.
     let spots = 0;
@@ -591,6 +596,9 @@ export function compile(town: Town, kit: Kit, art: HTMLImageElement, mapId: MapI
     { name: 'collision', data: Array.from(solid, (s) => (s ? COLL : 0)), visible: false },
     ...(raftLayer
       ? [{ name: 'raft', data: raftLayer.map((s) => (s ? COLL : 0)), visible: false }]
+      : []),
+    ...(waterLayer
+      ? [{ name: 'water', data: waterLayer.map((s) => (s ? COLL : 0)), visible: false }]
       : []),
   ];
   const version = hashText(tileset.slice(-64) + tileSources.length + JSON.stringify(town.layout));

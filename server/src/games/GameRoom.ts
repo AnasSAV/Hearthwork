@@ -108,7 +108,7 @@ export class GameRoom extends Room<{ state: GameState }> {
     const m = this.map;
     switch (game) {
       case 'fishing':
-        return new FishingGame(ctx, m.fishZones);
+        return new FishingGame(ctx, m.fishZones, m.water);
       case 'rafting': {
         const { launch, start, finish } = m;
         if (!launch || !start || !finish) throw new Error('rapids map is incomplete');
@@ -149,6 +149,8 @@ export class GameRoom extends Room<{ state: GameState }> {
     player.status = 'walking';
     player.focusMin = 0;
     player.mode = '';
+    player.castX = 0;
+    player.castY = 0;
     this.state.players.set(client.sessionId, player);
     this.walk.join(client.sessionId);
     this.raft?.join(client.sessionId);

@@ -34,7 +34,7 @@ import type { GameSceneData } from '../game/navigation';
 import type { PlayerSprite } from '../game/PlayerSprite';
 import { joinGame } from '../net/colyseus';
 import { emptyGameUi, uiStore, type GameUi } from '../store';
-import { WorldScene } from './WorldScene';
+import { asDirection, WorldScene } from './WorldScene';
 
 const SPRITES_KEY = 'games';
 const TILESET_KEY = 'games';
@@ -404,13 +404,18 @@ export class GameScene extends WorldScene<GameState> {
     sprite: PlayerSprite,
   ): void {
     const isMe = sessionId === this.room?.sessionId;
+    // Casting, the server turns you to face the water your line went into.
+    if (isMe && player.mode === 'cast' && player.dir !== this.dir) {
+      this.dir = asDirection(player.dir);
+      sprite.setMotion(this.dir, false);
+    }
     if (isMe && player.mode !== this.mode) {
       this.mode = player.mode;
       this.updatePrompt();
     }
     this.drawRaft(sessionId, player.mode === 'raft', sprite);
     if (player.mode === 'raft') sprite.setMotion('down', false);
-    this.drawLine(sessionId, player.mode === 'cast', player.dir, sprite);
+    this.drawLine(sessionId, player.mode === 'cast', player, sprite);
   }
 
   private drawRaft(sessionId: string, on: boolean, sprite: PlayerSprite): void {
@@ -426,7 +431,12 @@ export class GameScene extends WorldScene<GameState> {
     raft?.setPosition(sprite.x, sprite.y - 6).setDepth(sprite.y - 1);
   }
 
-  private drawLine(sessionId: string, on: boolean, dir: string, sprite: PlayerSprite): void {
+  private drawLine(
+    sessionId: string,
+    on: boolean,
+    player: PlayerState,
+    sprite: PlayerSprite,
+  ): void {
     let line = this.lines.get(sessionId);
     if (!on) {
       line?.destroy();
@@ -435,10 +445,14 @@ export class GameScene extends WorldScene<GameState> {
     }
     if (!line) {
       line = this.add.graphics();
-      line.setData('dir', dir);
       this.lines.set(sessionId, line);
     }
-    line.setData('x', sprite.x).setData('y', sprite.y).setData('dir', dir);
+    line
+      .setData('x', sprite.x)
+      .setData('y', sprite.y)
+      .setData('dir', player.dir)
+      .setData('tx', player.castX)
+      .setData('ty', player.castY);
   }
 
   protected override onFrame(time: number, delta: number): void {
@@ -452,10 +466,13 @@ export class GameScene extends WorldScene<GameState> {
       const x = line.getData('x') as number;
       const y = line.getData('y') as number;
       const dir = line.getData('dir') as string;
-      const dx = dir === 'left' ? -26 : dir === 'right' ? 26 : 0;
-      const dy = dir === 'up' ? -34 : dir === 'down' ? 22 : -4;
+      // The float is where the server says the line landed (in open water).
+      const tx = line.getData('tx') as number;
+      const ty = line.getData('ty') as number;
+      const dx = tx || ty ? tx - x : dir === 'left' ? -26 : dir === 'right' ? 26 : 0;
+      const dy = tx || ty ? ty - y : dir === 'up' ? -34 : dir === 'down' ? 22 : -4;
       const bob = Math.sin(time / 300) * 1.2;
-      const startX = x + (dx > 0 ? 6 : dx < 0 ? -6 : 5);
+      const startX = x + (dir === 'right' ? 6 : dir === 'left' ? -6 : 5);
       const startY = y - 14;
       line.clear();
       line.lineStyle(1, 0xf7ead2, 0.85);

@@ -1,13 +1,18 @@
 import type { Client } from 'colyseus';
 import {
+  facingVector,
   FISH_BITE_MAX_MS,
   FISH_BITE_MIN_MS,
   FISH_HOOK_MS,
   FISH_REEL_MS,
   reelHit,
   rollFish,
+  TILE_SIZE,
+  type CollisionGrid,
+  type Direction,
   type FISH,
   type PlayerState,
+  type Vec2,
 } from '@focus-town/shared';
 import { inRect, type GameContext, type GameLogic, type Rect } from './logic.js';
 
@@ -28,7 +33,52 @@ export class FishingGame implements GameLogic {
   constructor(
     private readonly ctx: GameContext,
     private readonly zones: Rect[],
+    /** Open water, marked solid; without it (an old map) the line goes the way you face. */
+    private readonly water: CollisionGrid | null,
   ) {}
+
+  /**
+   * Where a line cast from here lands: open water straight ahead if there is some within reach,
+   * otherwise the nearest open water to either side or behind (and the player turns to face it).
+   */
+  private castFrom(player: PlayerState): { dir: Direction; at: Vec2 } | null {
+    const ahead = player.dir as Direction;
+    if (!this.water) {
+      const v = facingVector(ahead);
+      return { dir: ahead, at: { x: player.x + v.x * 24, y: player.y - 8 + v.y * 24 } };
+    }
+    const grid = this.water;
+    const isWater = (tx: number, ty: number) =>
+      tx >= 0 &&
+      ty >= 0 &&
+      tx < grid.width &&
+      ty < grid.height &&
+      grid.solid[ty * grid.width + tx] === 1;
+    const tx = Math.floor(player.x / TILE_SIZE);
+    const ty = Math.floor((player.y - 1) / TILE_SIZE);
+    const order: Direction[] = [
+      ahead,
+      ...(['left', 'right', 'down', 'up'] as Direction[]).filter((d) => d !== ahead),
+    ];
+    for (const dir of order) {
+      const v = facingVector(dir);
+      for (let d = 1; d <= 3; d++) {
+        const x = tx + v.x * d;
+        const y = ty + v.y * d;
+        if (!isWater(x, y)) continue;
+        // A tile further out if that's water too, so the float sits in open water.
+        const far = isWater(x + v.x, y + v.y) ? 1 : 0;
+        return {
+          dir,
+          at: {
+            x: (x + v.x * far) * TILE_SIZE + TILE_SIZE / 2,
+            y: (y + v.y * far) * TILE_SIZE + TILE_SIZE / 2,
+          },
+        };
+      }
+    }
+    return null;
+  }
 
   join(): void {}
 
@@ -44,10 +94,14 @@ export class FishingGame implements GameLogic {
     const entry = this.casts.get(client.sessionId);
     const now = this.ctx.now();
     if (!entry) {
-      if (!this.zones.some((z) => inRect(z, player))) {
+      const cast = this.zones.some((z) => inRect(z, player)) ? this.castFrom(player) : null;
+      if (!cast) {
         this.ctx.send(client, { kind: 'refused', message: 'Walk up to the water first.' });
         return;
       }
+      player.dir = cast.dir;
+      player.castX = cast.at.x;
+      player.castY = cast.at.y;
       const wait = FISH_BITE_MIN_MS + this.ctx.random() * (FISH_BITE_MAX_MS - FISH_BITE_MIN_MS);
       this.casts.set(client.sessionId, {
         client,

@@ -22,6 +22,9 @@ export const PlayerState = schema(
     typing: t.boolean(),
     /** In a mini-game: 'cast' (line in the water), 'raft' (on the river), or ''. */
     mode: t.string(),
+    /** While casting: where the float is, in world pixels. */
+    castX: t.number(),
+    castY: t.number(),
   },
   'PlayerState',
 );

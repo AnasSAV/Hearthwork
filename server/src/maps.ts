@@ -80,6 +80,8 @@ export interface GameMap {
   grid: CollisionGrid;
   /** Rapids: where a raft can't go. */
   raftGrid: CollisionGrid | null;
+  /** Lake: open water (marked solid in this grid), where a fishing line can land. */
+  water: CollisionGrid | null;
   spawn: Vec2;
   bounds: Rect;
   fishZones: Rect[];
@@ -112,6 +114,7 @@ function loadGame(map: TiledMap): GameMap {
   return {
     grid,
     raftGrid,
+    water: map.layers.some((l) => l.name === 'water') ? collisionGridFromTiled(map, 'water') : null,
     spawn: { x: spawnObj.x, y: spawnObj.y },
     bounds: {
       x: 2 * map.tilewidth,
